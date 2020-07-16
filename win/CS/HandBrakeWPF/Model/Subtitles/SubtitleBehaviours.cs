@@ -23,6 +23,7 @@ namespace HandBrakeWPF.Model.Subtitles
         private BindingList<string> selectedLangauges;
         private bool addForeignAudioScanTrack;
         private bool addClosedCaptions;
+        private string subtitleDefaultKeyword;
         private SubtitleBurnInBehaviourModes selectedBurnInBehaviour;
 
         /// <summary>
@@ -48,6 +49,7 @@ namespace HandBrakeWPF.Model.Subtitles
             this.SelectedLangauges = new BindingList<string>(behaviours.SelectedLangauges.ToList());
             this.AddClosedCaptions = behaviours.AddClosedCaptions;
             this.AddForeignAudioScanTrack = behaviours.AddForeignAudioScanTrack;
+            this.SubtitleDefaultKeyword = behaviours.SubtitleDefaultKeyword;
         }
 
         /// <summary>
@@ -131,6 +133,32 @@ namespace HandBrakeWPF.Model.Subtitles
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether add foreign audio scan track.
+        /// </summary>
+        public string SubtitleDefaultKeyword
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(this.subtitleDefaultKeyword))
+                    return "";
+                else
+                    return this.subtitleDefaultKeyword;
+            }
+            set
+            {
+                if( this.subtitleDefaultKeyword == null )
+                    this.subtitleDefaultKeyword = string.Empty;
+
+                if (value == null || value.Equals(this.subtitleDefaultKeyword))
+                {
+                    return;
+                }
+                this.subtitleDefaultKeyword = value;
+                this.NotifyOfPropertyChange(() => this.SubtitleDefaultKeyword);
+            }
+        }
+
+        /// <summary>
         /// Gets or sets a value indicating whether add closed captions.
         /// </summary>
         public bool AddClosedCaptions
@@ -164,7 +192,8 @@ namespace HandBrakeWPF.Model.Subtitles
                 SelectedBurnInBehaviour = this.selectedBurnInBehaviour, 
                 SelectedLangauges = new BindingList<string>(), 
                 AddClosedCaptions = this.addClosedCaptions, 
-                AddForeignAudioScanTrack = this.addForeignAudioScanTrack, 
+                AddForeignAudioScanTrack = this.addForeignAudioScanTrack,
+                SubtitleDefaultKeyword = this.subtitleDefaultKeyword,
             };
 
             foreach (var item in this.SelectedLangauges)

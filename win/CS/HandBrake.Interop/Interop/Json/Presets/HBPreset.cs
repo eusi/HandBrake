@@ -276,6 +276,11 @@ namespace HandBrake.Interop.Interop.Json.Presets
         public bool SubtitleAddCC { get; set; }
 
         /// <summary>
+        /// Gets or sets the Default subtitle via a keyword
+        /// </summary>
+        public string SubtitleDefaultKeyword { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether subtitle add foreign audio search.
         /// </summary>
         public bool SubtitleAddForeignAudioSearch { get; set; }

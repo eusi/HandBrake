@@ -619,7 +619,7 @@ namespace HandBrakeWPF.ViewModels
 
             if (!this.JobInfoVisible)
             {
-                this.SelectedTabIndex = 0;
+                //this.SelectedTabIndex = 0;
                 this.NotifyOfPropertyChange(() => this.SelectedTabIndex);
             }
         }

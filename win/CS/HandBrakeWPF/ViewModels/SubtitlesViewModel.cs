@@ -447,6 +447,15 @@ namespace HandBrakeWPF.ViewModels
             {
                 this.AddAllClosedCaptions();
             }
+
+            // Check forced subtitle
+            if (this.SubtitleBehaviours.SubtitleDefaultKeyword != "")
+            {
+                foreach (var track in this.Task.SubtitleTracks)
+                {
+                    track.Default = (track.Name == this.SubtitleBehaviours.SubtitleDefaultKeyword);
+                }
+            }
         }
 
         /// <summary>
