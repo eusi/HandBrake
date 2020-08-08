@@ -2596,6 +2596,15 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There is no preset selected..
+        /// </summary>
+        public static string ManagePresetView_NoPresetSelected {
+            get {
+                return ResourceManager.GetString("ManagePresetView_NoPresetSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Preset Information:.
         /// </summary>
         public static string ManagePresetView_PresetInfo {
@@ -3040,6 +3049,15 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Metadata.
+        /// </summary>
+        public static string Options_Metadata {
+            get {
+                return ResourceManager.GetString("Options_Metadata", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Minimize to system tray (Requires Restart).
         /// </summary>
         public static string Options_MinimiseTray {
@@ -3099,6 +3117,35 @@ namespace HandBrakeWPF.Properties {
         public static string Options_OutputFiles {
             get {
                 return ResourceManager.GetString("Options_OutputFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Passthru basic metadata from the source to the destination file (where supported).
+        /// </summary>
+        public static string Options_PassthruMetadata {
+            get {
+                return ResourceManager.GetString("Options_PassthruMetadata", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This option will allow basic metadata fields to be passed through from the source to destination file.
+        ///Fields are limited to:
+        ///- Name
+        ///- Artist
+        ///- Album Artist
+        ///- Composer
+        ///- Release Date
+        ///- Comment
+        ///- Album
+        ///- Genre
+        ///- Description
+        ///- Long Description.
+        /// </summary>
+        public static string Options_PassthruMetadataTooltip {
+            get {
+                return ResourceManager.GetString("Options_PassthruMetadataTooltip", resourceCulture);
             }
         }
         
@@ -3472,7 +3519,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Enable Low Power QuickSync Hardware..
+        ///   Looks up a localized string similar to Enable Low Power QuickSync Hardware (where supported)..
         /// </summary>
         public static string OptionsView_EnableQuicksyncLowPower {
             get {
@@ -4374,6 +4421,15 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to (Default Preset).
+        /// </summary>
+        public static string PresetManagerView_DefaultPreset {
+            get {
+                return ResourceManager.GetString("PresetManagerView_DefaultPreset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Delete Preset.
         /// </summary>
         public static string PresetManagerView_Delete {
@@ -4465,6 +4521,24 @@ namespace HandBrakeWPF.Properties {
         public static string PresetService_ArchiveFile {
             get {
                 return ResourceManager.GetString("PresetService_ArchiveFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The category name you entered already exists. Please choose a different name..
+        /// </summary>
+        public static string PresetService_CategoryAlreadyExists {
+            get {
+                return ResourceManager.GetString("PresetService_CategoryAlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The category name was empty. Please provide a name..
+        /// </summary>
+        public static string PresetService_CategoryNameEmpty {
+            get {
+                return ResourceManager.GetString("PresetService_CategoryNameEmpty", resourceCulture);
             }
         }
         
@@ -4942,7 +5016,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Pause Queue.
+        ///   Looks up a localized string similar to Pause.
         /// </summary>
         public static string QueueView_Pause {
             get {
@@ -5055,6 +5129,15 @@ namespace HandBrakeWPF.Properties {
         public static string QueueView_StatsNotAvailableYet {
             get {
                 return ResourceManager.GetString("QueueView_StatsNotAvailableYet", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stop.
+        /// </summary>
+        public static string QueueView_Stop {
+            get {
+                return ResourceManager.GetString("QueueView_Stop", resourceCulture);
             }
         }
         
@@ -5656,6 +5739,15 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string String1 {
+            get {
+                return ResourceManager.GetString("String1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Foreign Audio Scan.
         /// </summary>
         public static string Subtitle_ForeignAudioScan {
@@ -6137,6 +6229,15 @@ namespace HandBrakeWPF.Properties {
         public static string TaskTrayStatusTitle {
             get {
                 return ResourceManager.GetString("TaskTrayStatusTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enter a name: .
+        /// </summary>
+        public static string TextEntryView_EnterName {
+            get {
+                return ResourceManager.GetString("TextEntryView_EnterName", resourceCulture);
             }
         }
         

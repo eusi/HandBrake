@@ -1452,7 +1452,7 @@ Would you like to overwrite it?</value>
     <value>Options</value>
   </data>
   <data name="QueueView_Pause" xml:space="preserve">
-    <value>Pause Queue</value>
+    <value>Pause</value>
   </data>
   <data name="QueueView_PausedDuration" xml:space="preserve">
     <value>Paused Duration:</value>
@@ -2193,7 +2193,7 @@ This will also stop any existing running jobs.</value>
     <value>Duplicates Detected</value>
   </data>
   <data name="OptionsView_EnableQuicksyncLowPower" xml:space="preserve">
-    <value>Enable Low Power QuickSync Hardware.</value>
+    <value>Enable Low Power QuickSync Hardware (where supported).</value>
   </data>
   <data name="QueueView_JobInformationNotAvailable" xml:space="preserve">
     <value>Please select a single job to view summary information.</value>
@@ -2339,5 +2339,46 @@ Please choose a different preset.</value>
   </data>
   <data name="OptionsView_NotSupported" xml:space="preserve">
     <value>(Not supported on this system)</value>
+  </data>
+  <data name="QueueView_Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Options_Metadata" xml:space="preserve">
+    <value>Metadata</value>
+  </data>
+  <data name="Options_PassthruMetadata" xml:space="preserve">
+    <value>Passthru basic metadata from the source to the destination file (where supported)</value>
+  </data>
+  <data name="Options_PassthruMetadataTooltip" xml:space="preserve">
+    <value>This option will allow basic metadata fields to be passed through from the source to destination file.
+Fields are limited to:
+- Name
+- Artist
+- Album Artist
+- Composer
+- Release Date
+- Comment
+- Album
+- Genre
+- Description
+- Long Description</value>
+  </data>
+  <data name="String1" xml:space="preserve">
+    <value />
+  </data>
+  <data name="PresetManagerView_DefaultPreset" xml:space="preserve">
+    <value>(Default Preset)</value>
+  </data>
+  <data name="PresetService_CategoryAlreadyExists" xml:space="preserve">
+    <value>The category name you entered already exists. Please choose a different name.</value>
+  </data>
+  <data name="PresetService_CategoryNameEmpty" xml:space="preserve">
+    <value>The category name was empty. Please provide a name.</value>
+  </data>
+  <data name="TextEntryView_EnterName" xml:space="preserve">
+    <value>Enter a name: </value>
+  </data>
+  <data name="ManagePresetView_NoPresetSelected" xml:space="preserve">
+    <value>There is no preset selected.</value>
   </data>
 </root>
