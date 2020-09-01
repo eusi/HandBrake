@@ -286,17 +286,9 @@ NSString * const HBVideoChangedNotification = @"HBVideoChangedNotification";
 
 - (void)validateQualityType
 {
-    if (self.qualityType != 0)
+    if (self.qualityType != 0 && !hb_video_quality_is_supported(self.encoder))
     {
-        int direction;
-        float minValue, maxValue, granularity;
-        hb_video_quality_get_limits(self.encoder,
-                                    &minValue, &maxValue, &granularity, &direction);
-
-        if (minValue == 0 && maxValue == 0)
-        {
-            self.qualityType = 0;
-        }
+        self.qualityType = 0;
     }
 
     if ((self.encoder & HB_VCODEC_FFMPEG_VT_H264) ||
@@ -651,7 +643,7 @@ fail:
      * for the fVidQualityMatrix. It should also be noted that any preset that used the deprecated Target Size
      * setting of 0 would set us to 0 or ABR since ABR is now tagged 0. Fortunately this does not affect any built-in
      * presets since they all use Constant Quality or Average Bitrate.*/
-    if (qualityType == -1)
+    if (qualityType == -1 || hb_video_quality_is_supported(self.encoder) == 0)
     {
         qualityType = 0;
     }

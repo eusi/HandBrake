@@ -2578,6 +2578,15 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Export all user presets.
+        /// </summary>
+        public static string ManagePresetView_ExportUserPresets {
+            get {
+                return ResourceManager.GetString("ManagePresetView_ExportUserPresets", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Import Preset(s) from file.
         /// </summary>
         public static string ManagePresetView_Import {
@@ -3159,11 +3168,11 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Path to VLC Player.
+        ///   Looks up a localized string similar to Path to Media Player.
         /// </summary>
-        public static string Options_PathToVLC {
+        public static string Options_PathToMediaPlayer {
             get {
-                return ResourceManager.GetString("Options_PathToVLC", resourceCulture);
+                return ResourceManager.GetString("Options_PathToMediaPlayer", resourceCulture);
             }
         }
         
@@ -3375,7 +3384,8 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to This path is used for the video preview feature only..
+        ///   Looks up a localized string similar to This path is used for the video preview feature only.
+        ///VLC and MPC-HC are supported. Other players may also work but are not validated..
         /// </summary>
         public static string Options_VideoPreviewPath {
             get {
@@ -5684,7 +5694,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Use system default video player.
+        ///   Looks up a localized string similar to Prefer system default video player.
         /// </summary>
         public static string StaticPreviewView_UseSystemDefault {
             get {
@@ -5716,16 +5726,6 @@ namespace HandBrakeWPF.Properties {
         public static string StaticPreviewViewModel_Title {
             get {
                 return ResourceManager.GetString("StaticPreviewViewModel_Title", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Unable to detect VLC Player. 
-        ///Please make sure VLC is installed and the directory specified in HandBrake&apos;s options is correct. (See: &quot;Tools Menu &gt; Preferences &gt; General&quot;).
-        /// </summary>
-        public static string StaticPreviewViewModel_UnableToFindVLC {
-            get {
-                return ResourceManager.GetString("StaticPreviewViewModel_UnableToFindVLC", resourceCulture);
             }
         }
         
