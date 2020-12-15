@@ -11,27 +11,22 @@
 namespace HandBrake.Worker.Routing
 {
     using System;
-    using System.Collections.Generic;
     using System.Net;
+    using System.Text.Json;
 
     using HandBrake.Interop.Interop;
     using HandBrake.Interop.Interop.Json.State;
+    using HandBrake.Interop.Json;
     using HandBrake.Interop.Utilities;
     using HandBrake.Worker.Logging;
     using HandBrake.Worker.Logging.Interfaces;
-    using HandBrake.Worker.Logging.Models;
     using HandBrake.Worker.Routing.Commands;
     using HandBrake.Worker.Routing.Results;
     using HandBrake.Worker.Utilities;
     using HandBrake.Worker.Watcher;
 
-    using Newtonsoft.Json;
-
     public class ApiRouter
     {
-        private readonly string token = Guid.NewGuid().ToString();
-        private readonly JsonSerializerSettings jsonNetSettings = new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore };
-
         private JsonState completedState;
         private HandBrakeInstance handbrakeInstance;
         private ILogHandler logHandler;
@@ -39,14 +34,9 @@ namespace HandBrake.Worker.Routing
 
         public event EventHandler TerminationEvent; 
 
-        public string GetInstanceToken(HttpListenerRequest request)
-        {
-            return JsonConvert.SerializeObject(token, Formatting.Indented, this.jsonNetSettings);
-        }
-
         public string GetVersionInfo(HttpListenerRequest request)
         {
-            string versionInfo = JsonConvert.SerializeObject(VersionHelper.GetVersion(), Formatting.Indented, this.jsonNetSettings);
+            string versionInfo = JsonSerializer.Serialize(VersionHelper.GetVersion(), JsonSettings.Options);
 
             return versionInfo;
         }
@@ -58,16 +48,16 @@ namespace HandBrake.Worker.Routing
 
             if (!string.IsNullOrEmpty(requestPostData))
             {
-                EncodeCommand command = JsonConvert.DeserializeObject<EncodeCommand>(requestPostData);
+                EncodeCommand command = JsonSerializer.Deserialize<EncodeCommand>(requestPostData, JsonSettings.Options);
 
                 this.Initialise(command.InitialiseCommand);
                 
                 this.handbrakeInstance.StartEncode(command.EncodeJob);
 
-                return JsonConvert.SerializeObject(new CommandResult() { WasSuccessful = true }, Formatting.Indented, this.jsonNetSettings);
+                return JsonSerializer.Serialize(new CommandResult() { WasSuccessful = true }, JsonSettings.Options);
             }
 
-            return JsonConvert.SerializeObject(new CommandResult() { WasSuccessful = false, Error = "No POST data" }, Formatting.Indented, this.jsonNetSettings);
+            return JsonSerializer.Serialize(new CommandResult() { WasSuccessful = false, Error = "No POST data" }, JsonSettings.Options);
         }
 
         public string StopEncode(HttpListenerRequest request)
@@ -95,14 +85,14 @@ namespace HandBrake.Worker.Routing
         {
             if (this.completedState != null)
             {
-                string json = JsonConvert.SerializeObject(this.completedState, Formatting.Indented, this.jsonNetSettings);
+                string json = JsonSerializer.Serialize(this.completedState, JsonSettings.Options);
                 return json;
             }
 
             if (this.handbrakeInstance != null)
             {
                 JsonState statusJson = this.handbrakeInstance.GetEncodeProgress();
-                string json = JsonConvert.SerializeObject(statusJson, Formatting.Indented, this.jsonNetSettings);
+                string json = JsonSerializer.Serialize(statusJson, JsonSettings.Options);
 
                 return json;
             }
@@ -115,7 +105,7 @@ namespace HandBrake.Worker.Routing
         // GET
         public string GetAllLogMessages(HttpListenerRequest request)
         {
-            return JsonConvert.SerializeObject(this.logHandler.GetLogMessages(), Formatting.Indented, this.jsonNetSettings);
+            return JsonSerializer.Serialize(this.logHandler.GetLogMessages(), JsonSettings.Options);
         }
         
         // POST
@@ -125,7 +115,7 @@ namespace HandBrake.Worker.Routing
 
             if (int.TryParse(requestPostData, out int index))
             {
-                return JsonConvert.SerializeObject(this.logHandler.GetLogMessagesFromIndex(index), Formatting.Indented, this.jsonNetSettings);
+                return JsonSerializer.Serialize(this.logHandler.GetLogMessagesFromIndex(index), JsonSettings.Options);
             }
 
             return null;
@@ -148,6 +138,8 @@ namespace HandBrake.Worker.Routing
             this.completedState = new JsonState() { WorkDone = new WorkDone() { Error = e.Error } };
             this.completedState.State = "WORKDONE";
             this.logHandler.ShutdownFileWriter();
+            this.handbrakeInstance.Dispose();
+            HandBrakeUtils.DisposeGlobal();
         }
 
         private void Initialise(InitCommand command)
@@ -164,6 +156,7 @@ namespace HandBrake.Worker.Routing
 
             if (!command.AllowDisconnectedWorker)
             {
+                Console.WriteLine("Worker: Disconnected worker monitoring enabled!");
                 this.instanceWatcher = new InstanceWatcher(this);
                 this.instanceWatcher.Start(5000);
             }

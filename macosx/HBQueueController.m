@@ -20,7 +20,7 @@
 
 @import HandBrakeKit;
 
-@interface HBQueueController () <NSUserNotificationCenterDelegate, HBQueueTableViewControllerDelegate, HBQueueDetailsViewControllerDelegate>
+@interface HBQueueController () <NSToolbarItemValidation, NSMenuItemValidation, NSUserNotificationCenterDelegate, HBQueueTableViewControllerDelegate, HBQueueDetailsViewControllerDelegate>
 
 @property (nonatomic) NSSplitViewController *splitViewController;
 @property (nonatomic) HBQueueTableViewController *tableViewController;
@@ -68,7 +68,7 @@
 
         [NSNotificationCenter.defaultCenter addObserverForName:HBQueueDidCompleteItemNotification object:_queue queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification * _Nonnull note) {
             // Run the per item notification and actions
-            HBQueueItem *item = note.userInfo[HBQueueItemNotificationItemKey];
+            HBQueueJobItem *item = note.userInfo[HBQueueItemNotificationItemKey];
             if (item.state == HBQueueItemStateCompleted)
             {
                 [self sendToExternalApp:item];
@@ -100,6 +100,7 @@
     if (@available (macOS 11, *))
     {
         self.window.toolbarStyle = NSWindowToolbarStyleUnified;
+        self.window.titlebarSeparatorStyle = NSTitlebarSeparatorStyleLine;
     }
 #endif
 
@@ -308,11 +309,11 @@
         // if this is a currently encoding job, we need to be sure to alert the user,
         // to let them decide to cancel it first, then if they do, we can come back and
         // remove it
-        NSIndexSet *workingIndexes = [self.queue.items indexesOfObjectsUsingBlock:^BOOL(HBQueueItem *item) {
+        NSIndexSet *workingIndexes = [self.queue.items HB_indexesOfObjectsUsingBlock:^BOOL(HBQueueJobItem *item) {
             return item.state == HBQueueItemStateWorking;
         }];
 
-        NSIndexSet *workingSelectedIndexes = [workingIndexes intersectionWith:indexes];
+        NSIndexSet *workingSelectedIndexes = [workingIndexes HB_intersectionWith:indexes];
         [mutableIndexes removeIndexes:workingSelectedIndexes];
 
         if (workingSelectedIndexes.count)
@@ -349,7 +350,7 @@
     }
 }
 
-- (void)doEditQueueItem:(HBQueueItem *)item
+- (void)doEditQueueItem:(HBQueueJobItem *)item
 {
     [self.queue prepareItemForEditingAtIndex:[self.queue.items indexOfObject:item]];
 
@@ -371,7 +372,7 @@
 /**
  * Send the selected queue item back to the main window for rescan and possible edit.
  */
-- (void)editQueueItem:(HBQueueItem *)item
+- (void)editQueueItem:(HBQueueJobItem *)item
 {
     // if this is a currently encoding item, we need to be sure to alert the user,
     // to let them decide to cancel it first, then if they do, we can come back and
@@ -448,7 +449,7 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
  *
  *  @param job the job of the file to send
  */
-- (void)sendToExternalApp:(HBQueueItem *)item
+- (void)sendToExternalApp:(HBQueueJobItem *)item
 {
     // This end of encode action is called as each encode rolls off of the queue
     if ([NSUserDefaults.standardUserDefaults boolForKey:HBSendToAppEnabled] == YES)
@@ -489,7 +490,7 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
 /**
  *  Runs the alert for a single job
  */
-- (void)itemCompletedAlerts:(HBQueueItem *)item
+- (void)itemCompletedAlerts:(HBQueueJobItem *)item
 {
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
 
@@ -735,7 +736,7 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
     }
     else
     {
-        NSArray<HBQueueItem *> *items = [self.queue.items objectsAtIndexes:indexes];
+        NSArray<id<HBQueueItem>> *items = [self.queue.items objectsAtIndexes:indexes];
         self.infoViewController.item = items.firstObject;
         [self switchToViewController:self.infoViewController];
     }
@@ -760,9 +761,12 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
     }
 }
 
-- (void)tableViewEditItem:(HBQueueItem *)item
+- (void)tableViewEditItem:(id<HBQueueItem>)item
 {
-    [self editQueueItem:item];
+    if ([item isKindOfClass:[HBQueueJobItem class]])
+    {
+        [self editQueueItem:item];
+    }
 }
 
 - (void)tableViewRemoveItemsAtIndexes:(nonnull NSIndexSet *)indexes
@@ -774,15 +778,21 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
     [self resetQueueItemsAtIndexes:indexes];
 }
 
-- (void)detailsViewEditItem:(nonnull HBQueueItem *)item
+- (void)detailsViewEditItem:(nonnull id<HBQueueItem>)item
 {
-    [self editQueueItem:item];
+    if ([item isKindOfClass:[HBQueueJobItem class]])
+    {
+        [self editQueueItem:item];
+    }
 }
 
-- (void)detailsViewResetItem:(nonnull HBQueueItem *)item
+- (void)detailsViewResetItem:(nonnull id<HBQueueItem>)item
 {
-    NSUInteger index = [self.queue.items indexOfObject:item];
-    [self resetQueueItemsAtIndexes:[NSIndexSet indexSetWithIndex:index]];
+    if ([item isKindOfClass:[HBQueueJobItem class]])
+    {
+        NSUInteger index = [self.queue.items indexOfObject:item];
+        [self resetQueueItemsAtIndexes:[NSIndexSet indexSetWithIndex:index]];
+    }
 }
 
 - (IBAction)resetAll:(id)sender

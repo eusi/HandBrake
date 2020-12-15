@@ -12,23 +12,22 @@ namespace HandBrakeWPF.Services.Queue
     using System;
     using System.Collections.Generic;
     using System.Collections.ObjectModel;
+    using System.Diagnostics;
     using System.IO;
     using System.Linq;
+    using System.Timers;
     using System.Windows;
-    using System.Windows.Media.Animation;
 
-    using Caliburn.Micro;
-
-    using HandBrake.Interop.Interop.HbLib.Wrappers.Interfaces;
     using HandBrake.Interop.Interop.Json.Queue;
-    using HandBrake.Interop.Interop.Providers.Interfaces;
     using HandBrake.Interop.Model;
     using HandBrake.Interop.Utilities;
 
     using HandBrakeWPF.Factories;
     using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Properties;
+    using HandBrakeWPF.Services.Encode;
     using HandBrakeWPF.Services.Encode.Factories;
+    using HandBrakeWPF.Services.Encode.Interfaces;
     using HandBrakeWPF.Services.Encode.Model;
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Logging.Interfaces;
@@ -38,6 +37,8 @@ namespace HandBrakeWPF.Services.Queue
     using HandBrakeWPF.Utilities;
 
     using Newtonsoft.Json;
+
+    using Ookii.Dialogs.Wpf;
 
     using EncodeCompletedEventArgs = Encode.EventArgs.EncodeCompletedEventArgs;
     using Execute = Caliburn.Micro.Execute;
@@ -55,7 +56,7 @@ namespace HandBrakeWPF.Services.Queue
         private readonly ILog logService;
         private readonly IErrorService errorService;
         private readonly ILogInstanceManager logInstanceManager;
-        private readonly IHbFunctionsProvider hbFunctionsProvider;
+        private readonly DelayedActionProcessor delayedQueueBackupProcessor = new DelayedActionProcessor();
 
         private readonly IPortService portService;
 
@@ -63,7 +64,7 @@ namespace HandBrakeWPF.Services.Queue
         private readonly string queueFile;
         private readonly object queueFileLock = new object();
 
-        private readonly QueueResourceService hardwareEncoderResourceManager = new QueueResourceService();
+        private readonly QueueResourceService hardwareResourceManager;
 
         private int allowedInstances;
         private int jobIdCounter = 0;
@@ -71,13 +72,15 @@ namespace HandBrakeWPF.Services.Queue
 
         private EncodeTaskFactory encodeTaskFactory;
 
-        public QueueService(IUserSettingService userSettingService, ILog logService, IErrorService errorService, ILogInstanceManager logInstanceManager, IHbFunctionsProvider hbFunctionsProvider, IPortService portService)
+        private Timer queueTaskPoller;
+
+        public QueueService(IUserSettingService userSettingService, ILog logService, IErrorService errorService, ILogInstanceManager logInstanceManager, IPortService portService)
         {
             this.userSettingService = userSettingService;
+            this.hardwareResourceManager = new QueueResourceService(userSettingService);
             this.logService = logService;
             this.errorService = errorService;
             this.logInstanceManager = logInstanceManager;
-            this.hbFunctionsProvider = hbFunctionsProvider;
             this.portService = portService;
 
             // If this is the first instance, just use the main queue file, otherwise add the instance id to the filename.
@@ -86,7 +89,9 @@ namespace HandBrakeWPF.Services.Queue
             this.allowedInstances = this.userSettingService.GetUserSetting<int>(UserSettingConstants.SimultaneousEncodes);
             this.processIsolationEnabled = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ProcessIsolationEnabled);
 
-            this.encodeTaskFactory = new EncodeTaskFactory(this.userSettingService, hbFunctionsProvider.GetHbFunctionsWrapper());
+            this.encodeTaskFactory = new EncodeTaskFactory(this.userSettingService);
+
+            this.hardwareResourceManager.Init();
         }
 
         public event EventHandler<QueueProgressEventArgs> JobProcessingStarted;
@@ -125,13 +130,7 @@ namespace HandBrakeWPF.Services.Queue
 
         public bool IsEncoding => this.activeJobs.Any(service => service.IsEncoding);
 
-        public ObservableCollection<QueueTask> Queue
-        {
-            get
-            {
-                return this.queue;
-            }
-        }
+        public ObservableCollection<QueueTask> Queue => this.queue;
         
         public void Add(QueueTask job)
         {
@@ -139,11 +138,19 @@ namespace HandBrakeWPF.Services.Queue
             {
                 this.queue.Add(job);
                 this.InvokeQueueChanged(EventArgs.Empty);
+            }
+        }
 
-                if (this.IsEncoding)
+        public void Add(List<QueueTask> tasks)
+        {
+            lock (QueueLock)
+            {
+                foreach (var job in tasks)
                 {
-                    this.ProcessNextJob();
+                    this.queue.Add(job);
                 }
+               
+                this.InvokeQueueChanged(EventArgs.Empty);
             }
         }
 
@@ -332,6 +339,23 @@ namespace HandBrakeWPF.Services.Queue
                 });
         }
 
+        public List<string> GetLogFilePaths()
+        {
+            List<string> logPaths = new List<string>();
+            lock (QueueLock)
+            {
+                foreach (QueueTask task in this.Queue)
+                {
+                    if (!string.IsNullOrEmpty(task.Statistics.CompletedActivityLogPath))
+                    {
+                        logPaths.Add(task.Statistics.CompletedActivityLogPath);
+                    }
+                }
+            }
+
+            return logPaths;
+        }
+        
         public QueueTask GetNextJobForProcessing()
         {
             if (this.queue.Count > 0)
@@ -339,7 +363,7 @@ namespace HandBrakeWPF.Services.Queue
                 QueueTask task = this.queue.FirstOrDefault(q => q.Status == QueueItemStatus.Waiting);
                 if (task != null)
                 {
-                    task.HardwareResourceToken = this.hardwareEncoderResourceManager.GetHardwareLock(task.Task.VideoEncoder);
+                    task.TaskToken = this.hardwareResourceManager.GetToken(task.Task);
                     return task;
                 }
             }
@@ -474,6 +498,9 @@ namespace HandBrakeWPF.Services.Queue
             
             this.IsProcessing = false;
             this.IsPaused = true;
+
+            this.StopJobPolling();
+
             this.InvokeQueuePaused(EventArgs.Empty);
         }
 
@@ -516,6 +543,8 @@ namespace HandBrakeWPF.Services.Queue
             this.IsProcessing = false;
             this.IsPaused = false;
 
+            this.StopJobPolling();
+
             if (stopExistingJobs || this.activeJobs.Count == 0)
             {
                 this.InvokeQueueChanged(EventArgs.Empty);
@@ -556,7 +585,7 @@ namespace HandBrakeWPF.Services.Queue
         {
             try
             {
-                this.BackupQueue(string.Empty);
+                delayedQueueBackupProcessor.PerformTask(() => this.BackupQueue(string.Empty), 200);
             }
             catch (Exception)
             {
@@ -569,8 +598,30 @@ namespace HandBrakeWPF.Services.Queue
                 handler(this, e);
             }
         }
-        
+
         private void ProcessNextJob()
+        {
+            this.StopJobPolling();
+            this.CheckAndHandleWork(); // Kick the first job off right away.
+
+            this.queueTaskPoller = new Timer();
+
+            this.queueTaskPoller.Interval = this.allowedInstances > 1 ? 3500 : 1000;
+
+            this.queueTaskPoller.Elapsed += (o, e) => { CheckAndHandleWork(); };
+            this.queueTaskPoller.Start();
+        }
+
+        private void StopJobPolling()
+        {
+            if (this.queueTaskPoller != null)
+            {
+                this.queueTaskPoller.Stop();
+                this.queueTaskPoller = null;
+            }
+        }
+        
+        private void CheckAndHandleWork()
         {
             if (!this.processIsolationEnabled)
             {
@@ -591,7 +642,7 @@ namespace HandBrakeWPF.Services.Queue
             if (job != null)
             {
                 // Hardware encoders can typically only have 1 or two instances running at any given time. As such, we must have a  HardwareResourceToken to continue.
-                if (job.HardwareResourceToken == Guid.Empty)
+                if (job.TaskToken == Guid.Empty)
                 {
                     return; // Hardware is busy, we'll try again later when another job completes.
                 }
@@ -602,19 +653,18 @@ namespace HandBrakeWPF.Services.Queue
                 }
 
                 this.jobIdCounter = this.jobIdCounter + 1;
-                ActiveJob activeJob = new ActiveJob(job, this.hbFunctionsProvider, this.userSettingService, this.logInstanceManager, this.jobIdCounter, this.portService);
+                IEncode libEncode = new LibEncode(this.userSettingService, this.logInstanceManager, this.jobIdCounter, this.portService);
+                ActiveJob activeJob = new ActiveJob(job, libEncode);
                 activeJob.JobFinished += this.ActiveJob_JobFinished;
                 activeJob.JobStatusUpdated += this.ActiveJob_JobStatusUpdated;
                 this.activeJobs.Add(activeJob);
                 
                 activeJob.Start();
-
+                
                 this.IsProcessing = true;
                 this.InvokeQueueChanged(EventArgs.Empty);
                 this.InvokeJobProcessingStarted(new QueueProgressEventArgs(job));
                 this.BackupQueue(string.Empty);
-
-                this.ProcessNextJob();
             }
             else
             {
@@ -622,6 +672,8 @@ namespace HandBrakeWPF.Services.Queue
 
                 if (!this.activeJobs.Any(a => a.IsEncoding))
                 {
+                    this.StopJobPolling();
+
                     // Fire the event to tell connected services.
                     this.InvokeQueueCompleted(new QueueCompletedEventArgs(false));
                 }
@@ -635,20 +687,12 @@ namespace HandBrakeWPF.Services.Queue
 
         private void ActiveJob_JobFinished(object sender, ActiveJobCompletedEventArgs e)
         {
-            this.hardwareEncoderResourceManager.UnlockHardware(e.Job.Job.Task.VideoEncoder, e.Job.Job.HardwareResourceToken);
+            this.hardwareResourceManager.ReleaseToken(e.Job.Job.Task.VideoEncoder, e.Job.Job.TaskToken);
 
             this.activeJobs.Remove(e.Job);
             this.OnEncodeCompleted(e.EncodeEventArgs);
 
-            if (!this.IsPaused && this.IsProcessing)
-            {
-                this.ProcessNextJob();
-            }
-            else
-            {
-                this.InvokeQueueChanged(EventArgs.Empty);
-                this.InvokeQueueCompleted(new QueueCompletedEventArgs(true));
-            }
+            this.InvokeQueueChanged(EventArgs.Empty);
         }
 
         private void InvokeQueueCompleted(QueueCompletedEventArgs e)
@@ -673,10 +717,7 @@ namespace HandBrakeWPF.Services.Queue
             this.IsProcessing = false;
             
             EventHandler handler = this.QueuePaused;
-            if (handler != null)
-            {
-                handler(this, e);
-            }
+            handler?.Invoke(this, e);
         }
 
         private string GetQueueJson(List<EncodeTask> tasks, HBConfiguration configuration)
@@ -685,9 +726,6 @@ namespace HandBrakeWPF.Services.Queue
                                               {
                                                   NullValueHandling = NullValueHandling.Ignore,
                                               };
-
-            IHbFunctionsProvider provider = IoC.Get<IHbFunctionsProvider>(); // TODO remove IoC call.
-            IHbFunctions hbFunctions = provider.GetHbFunctionsWrapper();
 
             List<Task> queueJobs = new List<Task>();
             foreach (var item in tasks)

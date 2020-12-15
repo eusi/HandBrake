@@ -144,17 +144,19 @@ Custom: 您可以选择设置最大宽度和高度。这样做时，输出视频
 Source Maximum: 始终在源分辨率下进行编码。</value>
   </data>
   <data name="About_GPL" xml:space="preserve">
-    <value>版权所有 (C) 2003-2019 HandBrake 团队
+    <value>This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
 
-这个程序是免费软件；您可以依据自由软件基金会发布的
-GNU通用公共许可证的条款重新分发和/或修改它；无论你依据的是
-本授权的第2版，或（根据您的选择）任何更高版本。
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-本程序是基于使用的目的而加以发布，但没有任何担保责任；甚至没有适销性或
-特定用途适用性的暗示性担保。有关更多详细信息，请参阅GNU通用公共许可证。
-
-您应已收到附随此程序的GNU通用公共许可证的副本；如果没有，请写信给自由软件基金会
-51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.</value>
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.</value>
   </data>
   <data name="QueueSelection_AutoNameWarning" xml:space="preserve">
     <value>警告：自动文件命名选项未打开。请在设置中开启。</value>
@@ -278,7 +280,7 @@ GNU通用公共许可证的条款重新分发和/或修改它；无论你依据�
     <value>选择“源”以继续</value>
   </data>
   <data name="Main_XEncodesPending" xml:space="preserve">
-    <value>{0} 等待编码</value>
+    <value>{0} Jobs Pending</value>
   </data>
   <data name="Notice" xml:space="preserve">
     <value>注意</value>
@@ -397,7 +399,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>您确定要删除预设：</value>
   </data>
   <data name="MainViewModel_EncodeStatusChanged_StatusLabel" xml:space="preserve">
-    <value>编码中：Pass {0}/{1},  {2:00.00}%, FPS: {3:000.0}, 平均FPS: {4:000.0},  剩余时间：{5},  已用时间：{6:d\:hh\:mm\:ss} {7}</value>
+    <value>Encoding: Pass {0} of {1},  {2:00.00}%, FPS: {3:000.0},  Avg FPS: {4:000.0},  Time Remaining: {5},  Elapsed: {6} {7}</value>
   </data>
   <data name="AddPresetViewModel_PresetMustProvideName" xml:space="preserve">
     <value>预设必须有名称。请填写预设名称字段。</value>
@@ -531,7 +533,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>图片预览</value>
   </data>
   <data name="StaticPreview_UnableToDeletePreview" xml:space="preserve">
-    <value>无法删除以前的预览文件。您可能需要重新启动应用程序。</value>
+    <value>Unable to delete previous preview file. You may still have a preview open in your media player. Please close this.</value>
   </data>
   <data name="StaticPreviewViewModel_ScanFirst" xml:space="preserve">
     <value>在创建预览之前，必须先扫描源并设置编码。</value>
@@ -660,7 +662,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>请检查目标目录是否有效。</value>
   </data>
   <data name="MainViewModel_EncodeStatusChanged_SubScan_StatusLabel" xml:space="preserve">
-    <value>处理中 Pass {0}/{1}, (字幕扫描)  {2:00.00}%, 扫描剩余时间：{3},  已用时间：{4:d\:hh\:mm\:ss}</value>
+    <value>Processing Pass {0} of {1}, (Subtitle Scan)  {2:00.00}%, Scan Time Remaining: {3},  Elapsed: {4}</value>
   </data>
   <data name="NoAdditionalInformation" xml:space="preserve">
     <value>没有附加信息</value>
@@ -682,7 +684,11 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>列队已暂停</value>
   </data>
   <data name="Main_LowDiskspace" xml:space="preserve">
-    <value>目标目录的磁盘空间不足。请在目标驱动器上释放一些磁盘空间。或者，您可以在“选项”中更改此警报触发的级别。</value>
+    <value>Your destination directory is low on diskspace. 
+
+You can configure the level at which this alert appears in preferences. 
+
+Do you wish to continue? </value>
   </data>
   <data name="Queue_UnableToResetJob" xml:space="preserve">
     <value>无法重置作业状态，因为它未处于错误或已完成状态</value>
@@ -1112,7 +1118,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>网页优化</value>
   </data>
   <data name="ManagePresetView_ManagePreset" xml:space="preserve">
-    <value>管理预设</value>
+    <value>Manage Presets</value>
   </data>
   <data name="MetaDataView_Title" xml:space="preserve">
     <value>元数据</value>
@@ -1142,7 +1148,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>在应用程序标题栏中显示编码进度。</value>
   </data>
   <data name="Options_7DayLogClear" xml:space="preserve">
-    <value>清理30天前的日志文件</value>
+    <value>Clear Log files older than 7 days</value>
   </data>
   <data name="Options_About" xml:space="preserve">
     <value>关于 HandBrake</value>
@@ -1214,7 +1220,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>日志文件路径：</value>
   </data>
   <data name="Options_LowDiskspaceSize" xml:space="preserve">
-    <value>硬盘空间低于多少时暂停队列：</value>
+    <value>Pause queue if disk space is low</value>
   </data>
   <data name="Options_MinimiseTray" xml:space="preserve">
     <value>最小化到系统托盘(需要重启)</value>
@@ -1233,6 +1239,9 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
   </data>
   <data name="Options_Path" xml:space="preserve">
     <value>路径：</value>
+  </data>
+  <data name="Options_PathToMediaPlayer" xml:space="preserve">
+    <value>Path to Media Player</value>
   </data>
   <data name="Options_PreventSleep" xml:space="preserve">
     <value>在编码时防止系统进入睡眠状态</value>
@@ -1283,7 +1292,8 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>视频</value>
   </data>
   <data name="Options_VideoPreviewPath" xml:space="preserve">
-    <value>此路径仅被用作视频预览功能。</value>
+    <value>This path is used for the video preview feature only.
+VLC and MPC-HC are supported. Other players may also work but are not validated.</value>
   </data>
   <data name="Options_ViewLogDirectory" xml:space="preserve">
     <value>查看日志目录</value>
@@ -1307,7 +1317,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>下</value>
   </data>
   <data name="PictureSettingsView_Cropping" xml:space="preserve">
-    <value>裁剪</value>
+    <value>Cropping:</value>
   </data>
   <data name="PictureSettingsView_Custom" xml:space="preserve">
     <value>自定义</value>
@@ -1433,7 +1443,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>选项</value>
   </data>
   <data name="QueueView_Pause" xml:space="preserve">
-    <value>暂停队列</value>
+    <value>暂停</value>
   </data>
   <data name="QueueView_PausedDuration" xml:space="preserve">
     <value>暂停时常：</value>
@@ -1565,7 +1575,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>选择预览图片</value>
   </data>
   <data name="StaticPreviewView_UseSystemDefault" xml:space="preserve">
-    <value>使用系统默认视频播放器</value>
+    <value>Prefer system default video player</value>
   </data>
   <data name="SubtitlesView_AddCC" xml:space="preserve">
     <value>添加隐藏式字幕（可用时）</value>
@@ -1851,8 +1861,8 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>导入列队</value>
   </data>
   <data name="QueueViewModel_EncodeStatusChanged_StatusLabel" xml:space="preserve">
-    <value>编码中: 当前进度 {0} / {1},  {2:00.00}%, 帧数: {3:000.0}, 平均帧数: {4:000.0}
-剩余时间: {5:hh\:mm\:ss},  已用时间: {6:hh\:mm\:ss} {7}</value>
+    <value>Encoding: Pass {0} of {1},  {2:00.00}%, FPS: {3:000.0},  Avg FPS: {4:000.0}
+Time Remaining: {5},  Elapsed: {6} {7}</value>
   </data>
   <data name="QueueView_DeleteSelected" xml:space="preserve">
     <value>删除所选</value>
@@ -1973,7 +1983,7 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
     <value>系统电量严重不足! ({0} %)</value>
   </data>
   <data name="SystemService_LowBatteryLog" xml:space="preserve">
-    <value>系统电量不足！ ({0} %)。 为了保护系统已暂停编码。已将系统设为允许睡眠！</value>
+    <value>System Battery Low! ({0} %). Your encode has been paused.</value>
   </data>
   <data name="SystemService_LowDiskSpaceLog" xml:space="preserve">
     <value>目标磁盘剩余存储容量少于 {0} GB。正在暂停编码...</value>
@@ -2142,5 +2152,232 @@ Foreign Audio Preferred, else First - 如果存在外语轨道，则会将其烧
   </data>
   <data name="OptionsView_AlwaysUseDefaultPath" xml:space="preserve">
     <value>始终为生成的每个新名称使用默认路径。</value>
+  </data>
+  <data name="OptionsView_RemotePortLimit" xml:space="preserve">
+    <value>端口范围必须在5000到32767之间</value>
+  </data>
+  <data name="OptionsView_SendFileToArgPlaceholders" xml:space="preserve">
+    <value>替换占位符: {source} {destination}</value>
+    <comment>Note: {source} and {destination} are not translatable. </comment>
+  </data>
+  <data name="SourceSelection_UpdateAvailable" xml:space="preserve">
+    <value>有新版本的 HandBrake 可供使用！</value>
+  </data>
+  <data name="About_Copyright" xml:space="preserve">
+    <value>Copyright (C) 2003-2020 The HandBrake Team</value>
+  </data>
+  <data name="Options_LowBatteryLevel" xml:space="preserve">
+    <value>Low battery level:</value>
+  </data>
+  <data name="Options_PauseOnLowBattery" xml:space="preserve">
+    <value>Pause any running jobs when the battery gets low.</value>
+  </data>
+  <data name="SubtitleView_AddRemainingCC" xml:space="preserve">
+    <value>添加所有剩余的隐藏式字幕</value>
+  </data>
+  <data name="QueueService_DuplicatesQuestion" xml:space="preserve">
+    <value>Duplicate jobs were detected in the queue file that you are trying to import. Do you wish to overwrite the existing records? 
+This will also stop any existing running jobs.</value>
+  </data>
+  <data name="QueueService_DuplicatesTitle" xml:space="preserve">
+    <value>Duplicates Detected</value>
+  </data>
+  <data name="OptionsView_EnableQuicksyncLowPower" xml:space="preserve">
+    <value>Enable Low Power QuickSync Hardware (where supported).</value>
+  </data>
+  <data name="QueueView_JobInformationNotAvailable" xml:space="preserve">
+    <value>Please select a single job to view summary information.</value>
+  </data>
+  <data name="OptionsView_EnableWorkerProcesses" xml:space="preserve">
+    <value>Run each queued job in a separate worker process. (Experimental)</value>
+  </data>
+  <data name="OptionsView_WorkerDefaultPort" xml:space="preserve">
+    <value>Default network port for worker:</value>
+  </data>
+  <data name="Presets_NotAvailableForUse" xml:space="preserve">
+    <value>The preset you have selected is not available for use on this system.
+
+This is typically an indication that your system does not support the hardware required to utilise it.
+
+Please choose a different preset.</value>
+  </data>
+  <data name="OptionsView_ProcessIsolation" xml:space="preserve">
+    <value>Process Isolation</value>
+  </data>
+  <data name="OptionsView_ProcessIsolation_Warning1" xml:space="preserve">
+    <value>Please note, using this feature will start an HTTP server bound to 127.0.0.1 on the port stated.</value>
+  </data>
+  <data name="OptionsView_ProcessIsolation_Warning2" xml:space="preserve">
+    <value>If the set port is in use, it will find the first free port within +100 from the defined port.</value>
+  </data>
+  <data name="OptionsView_SimultaneousEncodes" xml:space="preserve">
+    <value>Maximum number of simultaneous encodes:</value>
+  </data>
+  <data name="StaticPreviewView_CancelPreview" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="MainView_SelectedPresets" xml:space="preserve">
+    <value>预设：</value>
+  </data>
+  <data name="SummaryView_SameAsSource" xml:space="preserve">
+    <value>Same as source</value>
+  </data>
+  <data name="OptionsViewModel_ResetHandBrake" xml:space="preserve">
+    <value>Reset Settings</value>
+  </data>
+  <data name="OptionsViewModel_ResetHandBrakeQuestion" xml:space="preserve">
+    <value>Are you sure you wish to reset HandBrake to default settings?</value>
+  </data>
+  <data name="PaddingMode_Custom" xml:space="preserve">
+    <value>Custom (Not Limited)</value>
+  </data>
+  <data name="PaddingMode_Fill" xml:space="preserve">
+    <value>Fill (pad to resolution limit)</value>
+  </data>
+  <data name="PaddingMode_Height" xml:space="preserve">
+    <value>Height (pad up to res limit)</value>
+  </data>
+  <data name="PaddingMode_None" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="PaddingMode_Width" xml:space="preserve">
+    <value>Width (pad up to res limit)</value>
+  </data>
+  <data name="PictureSettingsView_Padding" xml:space="preserve">
+    <value>Padding:</value>
+  </data>
+  <data name="PictureSettingsView_PaddingColour" xml:space="preserve">
+    <value>Padding Colour:</value>
+  </data>
+  <data name="PictureSettingsView_Borders" xml:space="preserve">
+    <value>Borders</value>
+  </data>
+  <data name="PictureSettingsView_ResAndScaling" xml:space="preserve">
+    <value>Resolution and Scaling</value>
+  </data>
+  <data name="PictureSettingsView_RotateAndCrop" xml:space="preserve">
+    <value>Rotate and Crop</value>
+  </data>
+  <data name="OptionsView_Win10Only" xml:space="preserve">
+    <value>( Windows 10 Only! )</value>
+  </data>
+  <data name="QueueView_FilterSettings" xml:space="preserve">
+    <value>滤镜：</value>
+  </data>
+  <data name="SummaryView_Default" xml:space="preserve">
+    <value>默认</value>
+  </data>
+  <data name="SummaryView_Forced" xml:space="preserve">
+    <value>Forced</value>
+  </data>
+  <data name="PictureSettingsResLimitModes_1080p" xml:space="preserve">
+    <value>1080p HD</value>
+  </data>
+  <data name="PictureSettingsResLimitModes_480p" xml:space="preserve">
+    <value>480p NTSC SD</value>
+  </data>
+  <data name="PictureSettingsResLimitModes_4K" xml:space="preserve">
+    <value>2160p 4K Ultra HD</value>
+  </data>
+  <data name="PictureSettingsResLimitModes_576p" xml:space="preserve">
+    <value>576p PAL SD</value>
+  </data>
+  <data name="PictureSettingsResLimitModes_720p" xml:space="preserve">
+    <value>720p HD</value>
+  </data>
+  <data name="PictureSettingsResLimitModes_8K" xml:space="preserve">
+    <value>4320p 8K Ultra HD</value>
+  </data>
+  <data name="PictureSettingsResLimitModes_custom" xml:space="preserve">
+    <value>自定义</value>
+  </data>
+  <data name="PictureSettingsView_MaxHeight" xml:space="preserve">
+    <value>Max Height:</value>
+  </data>
+  <data name="PictureSettingsView_MaxWidth" xml:space="preserve">
+    <value>Max Width:</value>
+  </data>
+  <data name="PictureSettingsView_ResLimit" xml:space="preserve">
+    <value>Resolution Limit:</value>
+  </data>
+  <data name="PictureSettingsResLimitModes_none" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="PresetManger_Title" xml:space="preserve">
+    <value>Manage Presets</value>
+  </data>
+  <data name="ManagePresetView_DeleteBuiltIn" xml:space="preserve">
+    <value>Delete Built-in Presets</value>
+  </data>
+  <data name="ManagePresetView_Export" xml:space="preserve">
+    <value>Export selected preset</value>
+  </data>
+  <data name="ManagePresetView_Import" xml:space="preserve">
+    <value>Import Preset(s) from file</value>
+  </data>
+  <data name="ManagePresetView_PresetInfo" xml:space="preserve">
+    <value>Preset Information:</value>
+  </data>
+  <data name="ManagePresetView_RestrictedPreset" xml:space="preserve">
+    <value>Build in presets can not be modified.</value>
+  </data>
+  <data name="ManagePresetView_SetDefault" xml:space="preserve">
+    <value>Set selected preset as default</value>
+  </data>
+  <data name="PresetManagerView_Delete" xml:space="preserve">
+    <value>删除预设</value>
+  </data>
+  <data name="OptionsView_NotSupported" xml:space="preserve">
+    <value>(Not supported on this system)</value>
+  </data>
+  <data name="QueueView_Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Options_Metadata" xml:space="preserve">
+    <value>元数据</value>
+  </data>
+  <data name="Options_PassthruMetadata" xml:space="preserve">
+    <value>Passthru basic metadata from the source to the destination file (where supported)</value>
+  </data>
+  <data name="Options_PassthruMetadataTooltip" xml:space="preserve">
+    <value>This option will allow basic metadata fields to be passed through from the source to destination file.
+Fields are limited to:
+- Name
+- Artist
+- Album Artist
+- Composer
+- Release Date
+- Comment
+- Album
+- Genre
+- Description
+- Long Description</value>
+  </data>
+  <data name="String1" xml:space="preserve">
+    <value/>
+  </data>
+  <data name="PresetManagerView_DefaultPreset" xml:space="preserve">
+    <value>(Default Preset)</value>
+  </data>
+  <data name="PresetService_CategoryAlreadyExists" xml:space="preserve">
+    <value>The category name you entered already exists. Please choose a different name.</value>
+  </data>
+  <data name="PresetService_CategoryNameEmpty" xml:space="preserve">
+    <value>The category name was empty. Please provide a name.</value>
+  </data>
+  <data name="TextEntryView_EnterName" xml:space="preserve">
+    <value>Enter a name: </value>
+  </data>
+  <data name="ManagePresetView_NoPresetSelected" xml:space="preserve">
+    <value>There is no preset selected.</value>
+  </data>
+  <data name="ManagePresetView_ExportUserPresets" xml:space="preserve">
+    <value>Export all user presets</value>
+  </data>
+  <data name="Options_LowDiskspaceLevelText" xml:space="preserve">
+    <value>Level at which low disk space alerts show:</value>
+  </data>
+  <data name="OptionsView_SimultaneousHardwareLimitNotice" xml:space="preserve">
+    <value>Notice: This is the upper limit of simultaneous jobs. Hardware limitations may take effect which lowers the actual number of simultaneous jobs during encoding.</value>
   </data>
 </root>

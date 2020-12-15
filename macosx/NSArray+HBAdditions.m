@@ -8,7 +8,7 @@
 
 @implementation NSArray (HBAdditions)
 
-- (BOOL)allSatisfy:(BOOL (^)(id object))block
+- (BOOL)HB_allSatisfy:(BOOL (^)(id object))block
 {
     for (id object in self)
     {
@@ -20,7 +20,19 @@
     return YES;
 }
 
-- (NSArray *)filteredArrayUsingBlock:(BOOL (^)(id object))block
+- (BOOL)HB_containsWhere:(BOOL (^)(id object))block
+{
+   for (id object in self)
+   {
+       if (block(object) == YES)
+       {
+           return YES;
+       }
+   }
+   return NO;
+}
+
+- (NSArray *)HB_filteredArrayUsingBlock:(BOOL (^)(id object))block
 {
     NSMutableArray *filteredArray = [NSMutableArray array];
     for (id object in self)
@@ -33,7 +45,7 @@
     return [filteredArray copy];
 }
 
-- (NSIndexSet *)indexesOfObjectsUsingBlock:(BOOL (^)(id object))block
+- (NSIndexSet *)HB_indexesOfObjectsUsingBlock:(BOOL (^)(id object))block
 {
     NSMutableIndexSet *indexes = [NSMutableIndexSet indexSet];
     NSUInteger i = 0;
@@ -52,29 +64,29 @@
 
 @implementation NSIndexSet (HBAdditions)
 
-- (NSIndexSet *)unionWith:(NSIndexSet *)indexSet
+- (NSIndexSet *)HB_unionWith:(NSIndexSet *)indexSet
 {
     NSMutableIndexSet *result = [self mutableCopy];
     [result addIndexes:indexSet];
     return result;
 }
 
-- (NSIndexSet *)intersectionWith:(NSIndexSet *)indexSet
+- (NSIndexSet *)HB_intersectionWith:(NSIndexSet *)indexSet
 {
     NSMutableIndexSet *result = [self mutableCopy];
     [result addIndexes:indexSet];
-    [result removeIndexes:[self symmetricDifferenceWith:indexSet]];
+    [result removeIndexes:[self HB_symmetricDifferenceWith:indexSet]];
     return result;
 }
 
-- (NSIndexSet *)relativeComplementIn:(NSIndexSet *)universe
+- (NSIndexSet *)HB_relativeComplementIn:(NSIndexSet *)universe
 {
     NSMutableIndexSet *complement = [universe mutableCopy];
     [complement removeIndexes:self];
     return complement;
 }
 
-- (NSIndexSet *)symmetricDifferenceWith:(NSIndexSet *)indexSet
+- (NSIndexSet *)HB_symmetricDifferenceWith:(NSIndexSet *)indexSet
 {
     NSMutableIndexSet *a = [self mutableCopy];
     NSMutableIndexSet *b = [indexSet mutableCopy];

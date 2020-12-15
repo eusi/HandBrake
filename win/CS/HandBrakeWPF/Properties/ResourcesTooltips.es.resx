@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -121,12 +121,12 @@
     <value>Deblock reduce los artefactos de bloques causados por la compresión de vídeo de baja calidad.</value>
   </data>
   <data name="FilterView_DecombDeinterlace" xml:space="preserve">
-    <value>Elija las opciones de filtro decomb o desentrelazado.
+    <value>Elija las opciones de filtro decomb o des-entrelazado.
 
-El filtro decomb desentrelaza selectivamente los fotogramas que parecen estar entrelazados.
+El filtro decomb des-entrelaza selectivamente los fotogramas que parecen estar entrelazados.
 Esto preservará la calidad de los fotogramas que no estén entrelazados.
 
-El filtro de desentrelazado tradicional se aplica a todos los fotogramas.
+El filtro de des-entrelazado tradicional se aplica a todos los fotogramas.
 Los fotogramas que no estén entrelazados sufrirán un deterioro de la calidad.</value>
   </data>
   <data name="FilterView_Denoise" xml:space="preserve">
@@ -147,7 +147,7 @@ HQDN3D es un filtro de paso bajo adaptativo, más rápido que NLMeans, pero meno
     <value>Ruta de destino, incluido el directorio y el nombre del archivo. Aquí es donde se creará su nuevo video, y cómo se llamará.</value>
   </data>
   <data name="MainView_IpodAtom" xml:space="preserve">
-    <value>Agregue un marcador MP4 especial para permitir la reproducción en los dispositivos de la quinta generación de iPod de la época del 2006. Otras configuraciones pueden afectar a la compatibilidad.</value>
+    <value>Agregue un marcador MP4 especial para permitir la reproducción en los dispositivos de la quinta generación de iPod cercanos al 2006. Otras configuraciones pueden afectar a la compatibilidad.</value>
   </data>
   <data name="MainView_Mux" xml:space="preserve">
     <value>Formato contenedor. El video, el audio y otras pistas se combinan en un solo archivo de este tipo. Afecta la compatibilidad.</value>
@@ -156,22 +156,22 @@ HQDN3D es un filtro de paso bajo adaptativo, más rápido que NLMeans, pero meno
     <value>Optimizar MP4 para una descarga progresiva. Después de la codificación, los datos se reorganizan y se vuelven a escribir para permitir la reproducción inmediata a través de una red, sin necesidad de descargar el archivo completo.</value>
   </data>
   <data name="MainView_Range" xml:space="preserve">
-    <value>Selección del rango de la fuente. Por defecto, se seleccionan todos los capítulos y se codifica toda la fuente.</value>
+    <value>Selección del rango del origen. Por defecto, se seleccionan todos los capítulos y se codifica todo el origen.</value>
   </data>
   <data name="MainView_Title" xml:space="preserve">
-    <value>Título, o clip de vodeo, a codificar.
-Las fuentes de Blu-ray y DVD a menudo tienen múltiples títulos, el más largo de los cuales es por lo general el principal.</value>
+    <value>Título, o clip de video a codificar.
+Los orígenes de Blu-ray y DVD a menudo tienen múltiples títulos, el más largo de los cuales es por lo general el principal.</value>
   </data>
   <data name="PictureSettingsView_Anamorphic" xml:space="preserve">
-    <value>Anamórfico permite dimensiones de almacenamiento indiferentes, conservando el aspecto original durante la reproducción.
+    <value>Anamorfico permite dimensiones de almacenamiento arbitrarias al tiempo que conserva el aspecto original durante la reproducción.
 
-Off deshabilita la función anamórfica. Las dimensiones de almacenamiento de video y las dimensiones de la pantalla serán idénticas. Sólo es útil para la compatibilidad con determinados dispositivos antiguos.
+Ninguno desactiva anamórfico. Las dimensiones de almacenamiento de video y las dimensiones de la pantalla serán idénticas. Solo es útil para la compatibilidad con ciertos dispositivos heredados.
 
-Auto maximiza la resolución de almacenamiento al tiempo que preserva la relación de aspecto original de visualización. Recomendado.
+Automático maximiza la resolución de almacenamiento al tiempo que conserva la relación de aspecto de la pantalla original. Recomendado.
 
-Loose es similar a Auto, pero intenta conservar la relación de aspecto de almacenamiento. Esto puede resultar en una ligera pérdida de resolución de almacenamiento en comparación con Auto.
+Loose es similar a Auto, pero intenta preservar la relación de aspecto de almacenamiento. Esto puede resultar en una ligera pérdida de resolución de almacenamiento en comparación con Auto.
 
-Custom permite la configuración manual de todos los parámetros. Útil para corregir un aspecto incorrecto de la visualización de la fuente y para profesionales que necesitan un control avanzado en la postproducción.</value>
+Personalizado permite configurar manualmente todos los parámetros. Útil para corregir un aspecto de visualización de fuente incorrecto y para profesionales que necesitan un control avanzado en posproducción.</value>
   </data>
   <data name="PictureSettingsView_AutoCrop" xml:space="preserve">
     <value>Recortar automáticamente los bordes negros alrededor del video.</value>
@@ -252,7 +252,7 @@ Establezca esto si su dispositivo tiene dificultades para reproducir la salida (
   <data name="Video_Framerate" xml:space="preserve">
     <value>Velocidad de fotogramas de salida.
 
-Se recomienda 'Igual que la fuente'. Si su video fuente tiene una velocidad de fotogramas variable, 'Igual que la fuente' lo conservará.</value>
+Se recomienda 'Igual al original'. Si su video tiene una velocidad de fotogramas variable, esta opción lo conservará.</value>
   </data>
   <data name="Video_Level" xml:space="preserve">
     <value>Establece y garantiza el cumplimiento del nivel especificado.
@@ -283,9 +283,9 @@ La escala utilizada por cada codificador de video es diferente.
 La escala de x264 es logarítmica y los valores más bajos corresponden a una calidad más alta.
 Por lo tanto, pequeñas disminuciones en el valor resultarán en incrementos progresivamente
 mayores en el tamaño del archivo resultante. Un valor de 0 significa sin pérdidas y dará como
-resultado un tamaño de archivo que es mayor que la fuente original, a menos que la fuente
-también sea sin pérdidas.
-Los valores sugeridos son: 18 a 20 para fuentes de definición estándar y 20 a 23 para fuentes de alta definición.
+resultado un tamaño de archivo que es mayor al original, a menos que el
+mismo también sea sin pérdidas.
+Los valores sugeridos son: 18 a 20 para definición estándar y 20 a 23 para un origen de alta definición.
 
 La escala de FFMpeg y Theora es más lineal.
 Estos codificadores no tienen un modo sin pérdidas.</value>

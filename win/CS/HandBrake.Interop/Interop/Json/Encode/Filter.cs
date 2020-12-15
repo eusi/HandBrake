@@ -1,5 +1,5 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="Filter.cs" company="HandBrake Project (http://handbrake.fr)">
+// <copyright file="Filter.cs" company="HandBrake Project (https://handbrake.fr)">
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
 // <summary>
@@ -9,7 +9,7 @@
 
 namespace HandBrake.Interop.Interop.Json.Encode
 {
-    using Newtonsoft.Json.Linq;
+    using System.Text.Json;
 
     /// <summary>
     /// The filter list.
@@ -24,6 +24,6 @@ namespace HandBrake.Interop.Interop.Json.Encode
         /// <summary>
         /// Gets or sets the settings.
         /// </summary>
-        public JToken Settings { get; set; }
+        public JsonDocument Settings { get; set; }
     }
 }

@@ -3040,6 +3040,15 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Level at which low disk space alerts show:.
+        /// </summary>
+        public static string Options_LowDiskspaceLevelText {
+            get {
+                return ResourceManager.GetString("Options_LowDiskspaceLevelText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Pause queue if disk space is low.
         /// </summary>
         public static string Options_LowDiskspaceSize {
@@ -3775,11 +3784,20 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Number of simultaneous encodes:.
+        ///   Looks up a localized string similar to Maximum number of simultaneous encodes:.
         /// </summary>
         public static string OptionsView_SimultaneousEncodes {
             get {
                 return ResourceManager.GetString("OptionsView_SimultaneousEncodes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Notice: This is the upper limit of simultaneous jobs. Hardware limitations may take effect which lowers the actual number of simultaneous jobs during encoding..
+        /// </summary>
+        public static string OptionsView_SimultaneousHardwareLimitNotice {
+            get {
+                return ResourceManager.GetString("OptionsView_SimultaneousHardwareLimitNotice", resourceCulture);
             }
         }
         
@@ -4379,6 +4397,15 @@ namespace HandBrakeWPF.Properties {
         public static string Preset_Import {
             get {
                 return ResourceManager.GetString("Preset_Import", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to (Not Available).
+        /// </summary>
+        public static string Preset_NotAvailable {
+            get {
+                return ResourceManager.GetString("Preset_NotAvailable", resourceCulture);
             }
         }
         
@@ -5631,7 +5658,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unable to delete previous preview file. You may need to restart the application..
+        ///   Looks up a localized string similar to Unable to delete previous preview file. You may still have a preview open in your media player. Please close this..
         /// </summary>
         public static string StaticPreview_UnableToDeletePreview {
             get {

@@ -84,6 +84,7 @@ int            hb_qsv_video_encoder_is_enabled(int encoder);
 int            hb_qsv_audio_encoder_is_enabled(int encoder);
 int            hb_qsv_info_init();
 void           hb_qsv_info_print();
+hb_list_t*     hb_qsv_adapters_list();
 hb_qsv_info_t* hb_qsv_info_get(int encoder);
 int qsv_hardware_generation(int cpu_platform);
 
@@ -126,6 +127,7 @@ enum
     QSV_G5, // Skylake or equivalent
     QSV_G6, // Kaby Lake or equivalent
     QSV_G7, // Ice Lake or equivalent
+    QSV_G8, // Tiger Lake or equivalent
     QSV_FU, // always last (future processors)
 };
 
@@ -199,6 +201,7 @@ int hb_qsv_param_default            (hb_qsv_param_t *param, mfxVideoParam *video
 int hb_qsv_param_parse              (hb_qsv_param_t *param,                            hb_qsv_info_t *info, hb_job_t *job,  const char *key, const char *value);
 int hb_qsv_profile_parse            (hb_qsv_param_t *param,                            hb_qsv_info_t *info, const char *profile_key, const int codec);
 int hb_qsv_level_parse              (hb_qsv_param_t *param,                            hb_qsv_info_t *info, const char *level_key);
+int hb_qsv_param_parse_dx_index     (hb_job_t *job, const int dx_index);
 
 typedef struct
 {

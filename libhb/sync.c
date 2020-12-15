@@ -371,12 +371,18 @@ static hb_buffer_t * CreateBlackBuf( sync_stream_t * stream,
     {
         if (buf == NULL)
         {
-            buf = hb_frame_buffer_init(AV_PIX_FMT_YUV420P,
+            buf = hb_frame_buffer_init(stream->common->job->pix_fmt,
                                    stream->common->job->title->geometry.width,
                                    stream->common->job->title->geometry.height);
-            memset(buf->plane[0].data, 0x00, buf->plane[0].size);
-            memset(buf->plane[1].data, 0x80, buf->plane[1].size);
-            memset(buf->plane[2].data, 0x80, buf->plane[2].size);
+            uint8_t *planes[4];
+            ptrdiff_t linesizes[4];
+            for (int i = 0; i <= buf->f.max_plane; ++i)
+            {
+                planes[i] = buf->plane[i].data;
+                linesizes[i] = buf->plane[i].stride;
+            }
+            av_image_fill_black(planes, linesizes, stream->common->job->pix_fmt,
+                                AVCOL_RANGE_JPEG, buf->f.width, buf->f.height);
         }
         else
         {
@@ -2890,6 +2896,18 @@ static int syncVideoWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
 {
     hb_work_private_t * pv = w->private_data;
     hb_buffer_t * in = *buf_in;
+
+#if HB_PROJECT_FEATURE_QSV
+    // Fix of LA case allowing use of LA up to 40 in full encode path,
+    // as currently for such support we cannot allocate >64 slices per texture
+    // due to MSFT limitation, not impacting other cases
+    if (pv->common->job->qsv.ctx && (pv->common->job->qsv.ctx->la_is_enabled == 1)
+        && hb_qsv_full_path_is_enabled(pv->common->job))
+    {
+        pv->stream->max_len = SYNC_MIN_VIDEO_QUEUE_LEN;
+        pv->common->job->qsv.ctx->la_is_enabled++;
+    }
+#endif
 
     if (pv->stream->done)
     {

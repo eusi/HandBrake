@@ -50,8 +50,8 @@ static const stream2codec_t st2codec[256] = {
     st(0x00, U, 0,                0,                      NULL),
     st(0x01, V, WORK_DECAVCODECV, AV_CODEC_ID_MPEG1VIDEO, "MPEG1"),
     st(0x02, V, WORK_DECAVCODECV, AV_CODEC_ID_MPEG2VIDEO, "MPEG2"),
-    st(0x03, A, HB_ACODEC_FFMPEG, AV_CODEC_ID_MP2,        "MPEG1"),
-    st(0x04, A, HB_ACODEC_FFMPEG, AV_CODEC_ID_MP2,        "MPEG2"),
+    st(0x03, A, HB_ACODEC_MP2,    AV_CODEC_ID_MP2,        "MPEG1"),
+    st(0x04, A, HB_ACODEC_MP2,    AV_CODEC_ID_MP2,        "MPEG2"),
     st(0x05, N, 0,                0,                      "ISO 13818-1 private section"),
     st(0x06, U, 0,                0,                      "ISO 13818-1 PES private data"),
     st(0x07, N, 0,                0,                      "ISO 13522 MHEG"),
@@ -4199,6 +4199,7 @@ static int do_probe(hb_stream_t *stream, hb_pes_stream_t *pes, hb_buffer_t *buf)
                 { "eac3"     , AV_CODEC_ID_EAC3       },
                 { "h264"     , AV_CODEC_ID_H264       },
                 { "m4v"      , AV_CODEC_ID_MPEG4      },
+                { "mp2"      , AV_CODEC_ID_MP2        },
                 { "mp3"      , AV_CODEC_ID_MP3        },
                 { "mpegvideo", AV_CODEC_ID_MPEG2VIDEO },
                 { "cavsvideo", AV_CODEC_ID_CAVS       },
@@ -5354,6 +5355,10 @@ static void add_ffmpeg_audio(hb_title_t *title, hb_stream_t *stream, int id)
             audio->priv.config.extradata.length = len;
             audio->config.in.codec              = HB_ACODEC_FFFLAC;
         } break;
+
+        case AV_CODEC_ID_MP2:
+            audio->config.in.codec = HB_ACODEC_MP2;
+            break;
 
         case AV_CODEC_ID_MP3:
             audio->config.in.codec = HB_ACODEC_MP3;

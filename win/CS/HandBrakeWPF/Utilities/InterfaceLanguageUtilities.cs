@@ -32,6 +32,8 @@ namespace HandBrakeWPF.Utilities
                        new InterfaceLanguage("ko", "Korean"),
                        new InterfaceLanguage("ja", "Japanese"),
                        new InterfaceLanguage("pt-BR", "Brazilian Portuguese"),
+                       new InterfaceLanguage("co", "Corsican"),
+                       new InterfaceLanguage("uk", "Ukrainian"),
                    };
         }
 

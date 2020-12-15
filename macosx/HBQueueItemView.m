@@ -5,7 +5,6 @@
  It may be used under the terms of the GNU General Public License. */
 
 #import "HBQueueItemView.h"
-#import "HBQueueItem.h"
 
 @interface HBQueueItemView ()
 
@@ -15,7 +14,7 @@
 
 @implementation HBQueueItemView
 
-- (void)setItem:(HBQueueItem *)item
+- (void)setItem:(id<HBQueueItem>)item
 {
     _item = item;
     [self reload];
@@ -32,7 +31,7 @@
 
 - (void)HB_updateLabel
 {
-    self.textField.stringValue = _item.outputFileName;
+    self.textField.stringValue = _item.title;
 }
 
 - (void)HB_updateState
@@ -61,8 +60,8 @@
             label = NSLocalizedString(@"Rescanning for editing", @"HBQueueItemView -> Encode state accessibility label");
             break;
         default:
-            state = [NSImage imageNamed:@"JobSmall"];
-            NSLocalizedString(@"Encode ready", @"HBQueueItemView -> Encode state accessibility label");
+            state = _item.image;
+            label = NSLocalizedString(@"Encode ready", @"HBQueueItemView -> Encode state accessibility label");
             break;
     }
 
@@ -79,7 +78,7 @@
         darkAqua = [self.effectiveAppearance bestMatchFromAppearancesWithNames:@[NSAppearanceNameDarkAqua]] == NSAppearanceNameDarkAqua ? YES : NO;
     }
 
-    if (_item.state == HBQueueItemStateCompleted)
+    if (_item.state == HBQueueItemStateCompleted && _item.hasFileRepresentation)
     {
         [_removeButton setAction: @selector(revealQueueItem:)];
         if (self.backgroundStyle == NSBackgroundStyleEmphasized)

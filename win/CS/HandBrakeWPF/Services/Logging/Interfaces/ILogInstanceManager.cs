@@ -12,13 +12,13 @@ namespace HandBrakeWPF.Services.Logging.Interfaces
     using System;
     using System.Collections.Generic;
 
+    using HandBrakeWPF.Services.Logging.EventArgs;
+
     public interface ILogInstanceManager
     {
-        event EventHandler NewLogInstanceRegistered;
+        event EventHandler<LogFileEventArgs> NewLogInstanceRegistered;
         
-        string ApplicationAndScanLog { get; }
-
-        ILog MasterLogInstance { get; }
+        ILog ApplicationLogInstance { get; }
 
         /// <summary>
         /// Register an ILog instance.
@@ -32,7 +32,18 @@ namespace HandBrakeWPF.Services.Logging.Interfaces
         /// <param name="isMaster">
         /// True indicates it's the log instance for the parent handbrake process.
         /// </param>
-        void RegisterLoggerInstance(string filename, ILog log, bool isMaster);
+        void Register(string filename, ILog log, bool isMaster);
+
+        /// <summary>
+        /// Remove a log file when we are done with it.
+        /// </summary>
+        /// <param name="filename">The filename of the log to remove.</param>
+        void Deregister(string filename);
+
+        /// <summary>
+        /// Reset the application log file.
+        /// </summary>
+        void ResetApplicationLog();
 
         /// <summary>
         /// Gets a list of files without their associated ILog instances.

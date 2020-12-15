@@ -42,6 +42,7 @@ namespace HandBrakeWPF.Services.Logging
 
         public LogService()
         {
+            this.LogId = -1; // Unset
         }
 
         public event EventHandler<LogEventArgs> MessageLogged;
@@ -58,6 +59,12 @@ namespace HandBrakeWPF.Services.Logging
                 }
             }
         }
+
+        public int LogId { get; private set; }
+
+        public string FileName { get; private set; }
+
+        public string FullLogPath { get; private set; }
 
         public void LogMessage(string content)
         {
@@ -89,16 +96,18 @@ namespace HandBrakeWPF.Services.Logging
             this.OnMessageLogged(msg); // Must be outside lock to be thread safe. 
         }
 
-        public void ConfigureLogging(string filename)
+        public void ConfigureLogging(string filename, string fullLogPath)
         {
             this.isLoggingEnabled = true;
+            this.FileName = filename;
+            this.FullLogPath = fullLogPath;
 
-            if (!string.IsNullOrEmpty(filename) && !Directory.Exists(Path.GetDirectoryName(filename)))
+            if (!string.IsNullOrEmpty(fullLogPath) && !Directory.Exists(Path.GetDirectoryName(fullLogPath)))
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(filename));
+                Directory.CreateDirectory(Path.GetDirectoryName(fullLogPath));
             }
 
-            this.EnableLoggingToDisk(filename);
+            this.EnableLoggingToDisk(fullLogPath);
 
             this.logHeader = GeneralUtilities.CreateLogHeader().ToString();
             this.LogMessage(logHeader);
@@ -158,6 +167,11 @@ namespace HandBrakeWPF.Services.Logging
 
                 this.OnLogReset();
             }
+        }
+
+        public void SetId(int id)
+        {
+            this.LogId = id;
         }
 
         public void Dispose()

@@ -28,7 +28,11 @@
 #include "libavfilter/buffersink.h"
 #include "libavutil/hwcontext_qsv.h"
 #include "libavutil/hwcontext.h"
+#include "mfx/mfxadapter.h"
 
+// QSV info about adapters
+static mfxAdaptersInfo qsv_adapters_info;
+static hb_list_t *qsv_adapters_list         = NULL;
 // QSV info for each codec
 static hb_qsv_info_t *hb_qsv_info_avc       = NULL;
 static hb_qsv_info_t *hb_qsv_info_hevc      = NULL;
@@ -126,9 +130,12 @@ int qsv_hardware_generation(int cpu_platform)
         case HB_CPU_PLATFORM_INTEL_SKL:
             return QSV_G5;
         case HB_CPU_PLATFORM_INTEL_KBL:
+        case HB_CPU_PLATFORM_INTEL_CML:
             return QSV_G6;
         case HB_CPU_PLATFORM_INTEL_ICL:
             return QSV_G7;
+        case HB_CPU_PLATFORM_INTEL_TGL:
+            return QSV_G8;
         default:
             return QSV_FU;
     }
@@ -263,7 +270,7 @@ static void init_ext_coding_option2(mfxExtCodingOption2 *extCodingOption2)
     extCodingOption2->NumMbPerSlice   = 2040; // 1920x1088/4
 }
 
-static int query_capabilities(mfxSession session, mfxVersion version, hb_qsv_info_t *info)
+static int query_capabilities(mfxSession session, mfxVersion version, hb_qsv_info_t *info, mfxAdaptersInfo* adapters_info)
 {
     /*
      * MFXVideoENCODE_Query(mfxSession, mfxVideoParam *in, mfxVideoParam *out);
@@ -371,11 +378,21 @@ static int query_capabilities(mfxSession session, mfxVersion version, hb_qsv_inf
                     info->capabilities |= HB_QSV_CAP_B_REF_PYRAMID;
                 }
                 if (info->codec_id == MFX_CODEC_HEVC &&
-                    qsv_hardware_generation(hb_get_cpu_platform()) >= QSV_G7)
+                    (qsv_hardware_generation(hb_get_cpu_platform()) >= QSV_G7))
                 {
                     info->capabilities |= HB_QSV_CAP_LOWPOWER_ENCODE;
                 }
-             }
+#if !defined(SYS_LINUX) && !defined(SYS_FREEBSD)
+                if (info->codec_id == MFX_CODEC_HEVC &&
+                    (adapters_info->NumActual > 0))
+                {
+                    if (adapters_info->Adapters[0].Platform.MediaAdapterType == MFX_MEDIA_DISCRETE)
+                    {
+                        info->capabilities |= HB_QSV_CAP_LOWPOWER_ENCODE;
+                    }
+                }
+#endif
+            }
             else
             {
                 if (HB_CHECK_MFX_VERSION(version, 1, 6))
@@ -648,6 +665,11 @@ hb_display_t * hb_qsv_display_init(void)
     return hb_display_init(DRM_INTEL_DRIVER_NAME, VA_INTEL_DRIVER_NAMES);
 }
 
+#if !defined(SYS_LINUX) && !defined(SYS_FREEBSD)
+static int hb_qsv_make_adapters_list(const mfxAdaptersInfo* adapters_info, hb_list_t **qsv_adapters_list);
+static int hb_qsv_query_adapters(mfxAdaptersInfo* adapters_info);
+#endif
+
 int hb_qsv_info_init()
 {
     static int init_done = 0;
@@ -655,6 +677,21 @@ int hb_qsv_info_init()
         return 0;
     init_done = 1;
 
+#if !defined(SYS_LINUX) && !defined(SYS_FREEBSD)
+    // Collect the information about qsv adapters
+    qsv_adapters_info.Adapters = NULL;
+    qsv_adapters_info.NumAlloc = 0;
+    qsv_adapters_info.NumActual = 0;
+    int err = hb_qsv_query_adapters(&qsv_adapters_info);
+    if (!err)
+    {
+        hb_qsv_make_adapters_list(&qsv_adapters_info, &qsv_adapters_list);
+    }
+    else
+    {
+        hb_error("hb_qsv_info_init: failed to query qsv adapters");
+    }
+#endif
     /*
      * First, check for any MSDK version to determine whether one or
      * more implementations are present; then check if we can use them.
@@ -679,8 +716,8 @@ int hb_qsv_info_init()
                                  HB_QSV_MINVERSION_MAJOR,
                                  HB_QSV_MINVERSION_MINOR))
         {
-            query_capabilities(session, qsv_software_version, &qsv_software_info_avc);
-            query_capabilities(session, qsv_software_version, &qsv_software_info_hevc);
+            query_capabilities(session, qsv_software_version, &qsv_software_info_avc, &qsv_adapters_info);
+            query_capabilities(session, qsv_software_version, &qsv_software_info_hevc, &qsv_adapters_info);
             // now that we know which hardware encoders are
             // available, we can set the preferred implementation
             hb_qsv_impl_set_preferred("software");
@@ -710,9 +747,9 @@ int hb_qsv_info_init()
                                      HB_QSV_MINVERSION_MAJOR,
                                      HB_QSV_MINVERSION_MINOR))
             {
-                query_capabilities(session, qsv_hardware_version, &qsv_hardware_info_avc);
+                query_capabilities(session, qsv_hardware_version, &qsv_hardware_info_avc, &qsv_adapters_info);
                 qsv_hardware_info_avc.implementation = MFX_IMPL_HARDWARE_ANY | hw_preference;
-                query_capabilities(session, qsv_hardware_version, &qsv_hardware_info_hevc);
+                query_capabilities(session, qsv_hardware_version, &qsv_hardware_info_hevc, &qsv_adapters_info);
                 qsv_hardware_info_hevc.implementation = MFX_IMPL_HARDWARE_ANY | hw_preference;
                 // now that we know which hardware encoders are
                 // available, we can set the preferred implementation
@@ -824,11 +861,28 @@ static void log_capabilities(int log_level, uint64_t caps, const char *prefix)
 void hb_qsv_info_print()
 {
     // is QSV available and usable?
-    hb_log("Intel Quick Sync Video support: %s",
-           hb_qsv_available() ? "yes": "no");
-
     if (hb_qsv_available())
     {
+#if !defined(SYS_LINUX) && !defined(SYS_FREEBSD)
+        if (qsv_adapters_list && hb_list_count(qsv_adapters_list))
+        {
+            char gpu_list_str[256] = "";
+            for (int i = 0; i < hb_list_count(qsv_adapters_list); i++)
+            {
+                char value_str[256];
+                int *value = hb_list_item(qsv_adapters_list, i);
+                sprintf(value_str, "%d", *value);
+                if (i > 0)
+                    strcat(gpu_list_str, ", ");
+                strcat(gpu_list_str, value_str);
+            }
+            hb_log("Intel Quick Sync Video support: yes, gpu list: %s", gpu_list_str);
+        }
+        else
+#endif
+        {
+            hb_log("Intel Quick Sync Video support: yes");
+        }
         // also print the details
         if (qsv_hardware_version.Version)
         {
@@ -886,6 +940,10 @@ void hb_qsv_info_print()
         {
             hb_log(" - H.265 encoder: no");
         }
+    }
+    else
+    {
+        hb_log("Intel Quick Sync Video support: no");
     }
 }
 
@@ -972,6 +1030,9 @@ const char* hb_qsv_decode_get_codec_name(enum AVCodecID codec_id)
         case AV_CODEC_ID_MPEG2VIDEO:
             return "mpeg2_qsv";
 
+        case AV_CODEC_ID_AV1:
+            return "av1_qsv";
+
         default:
             return NULL;
     }
@@ -1002,18 +1063,20 @@ int hb_qsv_full_path_is_enabled(hb_job_t *job)
 {
     static int device_check_completed = 0;
     static int device_check_succeded = 0;
+    int codecs_exceptions = 0;
     int qsv_full_path_is_enabled = 0;
 
     if(!device_check_completed)
     {
-       device_check_succeded = ((hb_d3d11va_device_check() >= 0)
-        || (hb_dxva2_device_check() == 0)) ? 1 : 0;
+       device_check_succeded = (hb_d3d11va_device_check() >= 0) ? 1 : 0;
        device_check_completed = 1;
     }
 
+    codecs_exceptions = (job->title->pix_fmt == AV_PIX_FMT_YUV420P10 && job->vcodec == HB_VCODEC_QSV_H264);
+
     qsv_full_path_is_enabled = (hb_qsv_decode_is_enabled(job) &&
         hb_qsv_info_get(job->vcodec) &&
-        device_check_succeded && !job->qsv.ctx->num_cpu_filters);
+        device_check_succeded && !job->qsv.ctx->num_cpu_filters) && !codecs_exceptions;
     return qsv_full_path_is_enabled;
 }
 
@@ -1133,6 +1196,33 @@ float hb_qsv_atof(const char *str, int *err)
         *err = 1;
     }
     return v;
+}
+
+int hb_qsv_param_parse_dx_index(hb_job_t *job, const int dx_index)
+{
+    for (int i = 0; i < qsv_adapters_info.NumActual; i++)
+    {
+        mfxAdapterInfo* info = &qsv_adapters_info.Adapters[i];
+        // find DirectX adapter with given index in list of QSV adapters
+        // if -1 use first adapter with highest priority
+        if (info && ((info->Number == dx_index) || (dx_index == -1)))
+        {
+            job->qsv.ctx->qsv_device = av_mallocz_array(32, sizeof(*job->qsv.ctx->qsv_device));
+            if (!job->qsv.ctx->qsv_device)
+            {
+                hb_error("hb_qsv_param_parse_dx_index: failed to allocate memory for qsv device");
+                return -1;
+            }
+            sprintf(job->qsv.ctx->qsv_device, "%u", info->Number);
+            job->qsv.ctx->dx_index = info->Number;
+            hb_log("qsv: %s qsv adapter with index %s has been selected",
+                (info->Platform.MediaAdapterType == MFX_MEDIA_INTEGRATED) ? "integrated" :
+                (info->Platform.MediaAdapterType == MFX_MEDIA_DISCRETE) ? "discrete" : "unknown", job->qsv.ctx->qsv_device);
+            return 0;
+        }
+    }
+    hb_error("qsv: incorrect qsv device index %d", dx_index);
+    return -1;
 }
 
 int hb_qsv_param_parse(hb_qsv_param_t *param, hb_qsv_info_t *info, hb_job_t *job,
@@ -1619,6 +1709,19 @@ int hb_qsv_param_parse(hb_qsv_param_t *param, hb_qsv_info_t *info, hb_job_t *job
         {
             return HB_QSV_PARAM_UNSUPPORTED;
         }
+    }
+    else if (!strcasecmp(key, "gpu"))
+    {
+        // Check if was parsed already in decoder initialization
+        if (!job->qsv.ctx->qsv_device)
+        {
+            int gpu_index = hb_qsv_atoi(value, &error);
+            if (!error)
+            {
+                hb_qsv_param_parse_dx_index(job, gpu_index);
+            }
+        }
+        return HB_QSV_PARAM_OK;
     }
     else
     {
@@ -2367,7 +2470,7 @@ static int hb_dxva2_device_create9ex(HMODULE d3dlib, UINT adapter, IDirect3D9 **
     return 0;
 }
 
-static int hb_d3d11va_device_check()
+static int hb_d3d11va_device_create(int adapter_id, ID3D11Device** d3d11_out)
 {
     HANDLE d3dlib, dxgilib;
 
@@ -2391,37 +2494,51 @@ static int hb_d3d11va_device_check()
 
     HRESULT hr;
     IDXGIAdapter *pAdapter = NULL;
-    int adapter_id = 0;
     IDXGIFactory2 *pDXGIFactory;
     hr = mCreateDXGIFactory(&IID_IDXGIFactory2, (void **)&pDXGIFactory);
+    if (FAILED(hr)) {
+        hb_error("hb_d3d11va_create_device: mCreateDXGIFactory returned %d", hr);
+        return -1;
+    }
+
+    if (adapter_id == -1)
+    {
+        adapter_id = 0;
+    }
+
     while (IDXGIFactory2_EnumAdapters(pDXGIFactory, adapter_id++, &pAdapter) != DXGI_ERROR_NOT_FOUND)
     {
-        ID3D11Device* g_pd3dDevice = NULL;
+        ID3D11Device* pd3dDevice = NULL;
         DXGI_ADAPTER_DESC adapterDesc;
 
-        hr = mD3D11CreateDevice(pAdapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, D3D11_CREATE_DEVICE_VIDEO_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &g_pd3dDevice, NULL, NULL);
-        if (FAILED(hr)) {
-            hb_error("hb_d3d11va_device_check: D3D11CreateDevice returned %d", hr);
-            continue;
-        }
-
         hr = IDXGIAdapter2_GetDesc(pAdapter, &adapterDesc);
-        if (FAILED(hr)) {
+        if (SUCCEEDED(hr)) {
+            if (adapterDesc.VendorId == 0x8086) {
+                hr = mD3D11CreateDevice(pAdapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, D3D11_CREATE_DEVICE_VIDEO_SUPPORT, NULL, 0, D3D11_SDK_VERSION, &pd3dDevice, NULL, NULL);
+                if (SUCCEEDED(hr)) {
+                    IDXGIFactory2_Release(pDXGIFactory);
+                    *d3d11_out = (ID3D11Device *)pd3dDevice;
+                    return adapter_id - 1;
+                } else {
+                    hb_error("hb_d3d11va_device_check: D3D11CreateDevice returned %d", hr);
+                }
+            }
+        } else {
             hb_error("hb_d3d11va_device_check: IDXGIAdapter2_GetDesc returned %d", hr);
-            continue;
         }
 
         if (pAdapter)
             IDXGIAdapter_Release(pAdapter);
-
-        if (adapterDesc.VendorId == 0x8086) {
-            IDXGIFactory2_Release(pDXGIFactory);
-            hb_log("hb_d3d11va_device_check: QSV adapter with id %d has been found", adapter_id - 1);
-            return adapter_id - 1;
-        }
     }
+
     IDXGIFactory2_Release(pDXGIFactory);
     return -1;
+}
+
+static int hb_d3d11va_device_check()
+{
+    ID3D11Device* d3d11 = NULL;
+    return hb_d3d11va_device_create(-1, &d3d11);
 }
 
 static int hb_dxva2_device_check()
@@ -2757,6 +2874,77 @@ static int hb_qsv_get_dx_device(hb_job_t *job)
     return 0;
 }
 
+static int hb_qsv_make_adapters_list(const mfxAdaptersInfo* adapters_info, hb_list_t **qsv_adapters_list)
+{
+    if (!qsv_adapters_list)
+    {
+        hb_error("hb_qsv_make_adapters_list: destination pointer is NULL");
+        return -1;
+    }
+    if (*qsv_adapters_list)
+    {
+        hb_error("hb_qsv_make_adapters_list: qsv_adapters_list is allocated already");
+        return -1;
+    }
+    hb_list_t *list = hb_list_init();
+    if (list == NULL)
+    {
+        hb_error("hb_qsv_make_adapters_list: hb_list_init() failed");
+        return -1;
+    }
+    for (int i = 0; i < adapters_info->NumActual; i++)
+    {
+        mfxAdapterInfo* info = &adapters_info->Adapters[i];
+        if (info)
+        {
+            hb_list_add(list, (void*)&info->Number);
+        }
+    }
+    *qsv_adapters_list = list;
+    return 0;
+}
+
+static int hb_qsv_query_adapters(mfxAdaptersInfo* adapters_info)
+{
+    // Get number of Intel graphics adapters
+    mfxU32 num_adapters_available = 0;
+    mfxStatus sts = MFXQueryAdaptersNumber(&num_adapters_available);
+    if (sts != MFX_ERR_NONE)
+    {
+        hb_error("hb_qsv_query_adapters: failed to get number of Intel graphics adapters %d", sts);
+        return -1;
+    }
+
+    if (num_adapters_available > 0)
+    {
+        adapters_info->Adapters = av_mallocz_array(num_adapters_available, sizeof(*adapters_info->Adapters));
+        if (adapters_info->Adapters)
+        {
+            adapters_info->NumActual = 0;
+            adapters_info->NumAlloc = num_adapters_available;
+            // Collect information about Intel graphics adapters
+            sts = MFXQueryAdapters(NULL, adapters_info);
+            if (sts != MFX_ERR_NONE)
+            {
+                hb_error("hb_qsv_query_adapters: failed to collect information about Intel graphics adapters %d", sts);
+                return -1;
+            }
+            // Reverse order to make dGPU higher priority
+            int start = 0;
+            int end = adapters_info->NumActual - 1;
+            while (start < end)
+            {
+                mfxAdapterInfo temp = adapters_info->Adapters[start]; 
+                adapters_info->Adapters[start] = adapters_info->Adapters[end];
+                adapters_info->Adapters[end] = temp;
+                start++;
+                end--;
+            }
+        }
+    }
+    return 0;
+}
+
 void hb_qsv_get_free_surface_from_pool_with_range(HBQSVFramesContext* hb_enc_qsv_frames_ctx, const int start_index, const int end_index, QSVMid** out_mid, mfxFrameSurface1** out_surface)
 {
     AVHWFramesContext *frames_ctx = (AVHWFramesContext*)hb_enc_qsv_frames_ctx->hw_frames_ctx->data;
@@ -2833,7 +3021,14 @@ hb_buffer_t* hb_qsv_copy_frame(hb_job_t *job, AVFrame *frame, int is_vpp)
     }
     else
     {
-        hb_qsv_get_free_surface_from_pool_with_range(hb_qsv_frames_ctx, 0, HB_QSV_POOL_SURFACE_SIZE - HB_QSV_POOL_ENCODER_SIZE, &mid, &output_surface);
+        if (job->qsv.ctx && job->qsv.ctx->la_is_enabled)
+        {
+            hb_qsv_get_free_surface_from_pool_with_range(hb_qsv_frames_ctx, 0, HB_QSV_POOL_SURFACE_SIZE, &mid, &output_surface);
+        }
+        else
+        {
+            hb_qsv_get_free_surface_from_pool_with_range(hb_qsv_frames_ctx, 0, HB_QSV_POOL_SURFACE_SIZE - HB_QSV_POOL_ENCODER_SIZE, &mid, &output_surface);
+        }
     }
 
     if (device_manager_handle_type == MFX_HANDLE_D3D9_DEVICE_MANAGER)
@@ -2842,6 +3037,8 @@ hb_buffer_t* hb_qsv_copy_frame(hb_job_t *job, AVFrame *frame, int is_vpp)
         mfxHDLPair* input_pair = (mfxHDLPair*)input_surface->Data.MemId;
         // copy all surface fields
         *output_surface = *input_surface;
+        output_surface->Info.CropW = frame->width;
+        output_surface->Info.CropH = frame->height;
         if (hb_qsv_hw_filters_are_enabled(job))
         {
             output_surface->Data.MemId = mid->handle_pair;
@@ -2883,6 +3080,8 @@ hb_buffer_t* hb_qsv_copy_frame(hb_job_t *job, AVFrame *frame, int is_vpp)
         int output_index = (int)(intptr_t)mid->handle_pair->second == MFX_INFINITE ? 0 : (int)(intptr_t)mid->handle_pair->second;
         // copy all surface fields
         *output_surface = *input_surface;
+        output_surface->Info.CropW = frame->width;
+        output_surface->Info.CropH = frame->height;
         if (hb_qsv_hw_filters_are_enabled(job))
         {
             // Make sure that we pass handle_pair to scale_qsv
@@ -2947,7 +3146,11 @@ void hb_qsv_uninit_enc(hb_job_t *job)
         device_context = NULL;
     }
     job->qsv.ctx->hb_hw_device_ctx = NULL;
-    job->qsv.ctx->qsv_device = NULL;
+    if (job->qsv.ctx->qsv_device)
+    {
+        av_free(job->qsv.ctx->qsv_device);
+        job->qsv.ctx->qsv_device = NULL;
+    }
     device_manager_handle = NULL;
 }
 
@@ -2956,21 +3159,17 @@ static int qsv_device_init(hb_job_t *job)
     int err;
     AVDictionary *dict = NULL;
 
-    if (job->qsv.ctx->qsv_device) {
+    if (job->qsv.ctx->qsv_device)
+    {
         err = av_dict_set(&dict, "child_device", job->qsv.ctx->qsv_device, 0);
         if (err < 0)
             return err;
     }
-
-    if (!job->qsv.ctx->qsv_filters_are_enabled)
-    {
-        err = av_dict_set(&dict, "child_device_type", "d3d11va", 0);
-        err = av_dict_set(&dict, "vendor", "0x8086", 0);
-    }
     else
     {
-        err = av_dict_set(&dict, "child_device_type", "dxva2", 0);
+        av_dict_set(&dict, "vendor", "0x8086", 0);
     }
+    av_dict_set(&dict, "child_device_type", "d3d11va", 0);
 
     err = av_hwdevice_ctx_create(&job->qsv.ctx->hb_hw_device_ctx, AV_HWDEVICE_TYPE_QSV,
                                  0, dict, 0);
@@ -2993,9 +3192,39 @@ int hb_create_ffmpeg_pool(hb_job_t *job, int coded_width, int coded_height, enum
 
     AVBufferRef *hw_frames_ctx = *out_hw_frames_ctx;
 
-    int ret;
+    int ret = 0;
 
     if (!job->qsv.ctx->hb_hw_device_ctx) {
+        // parse and use user-specified encoder options for decoder, if present
+        if (job->encoder_options != NULL && *job->encoder_options)
+        {
+            hb_dict_t *options_list;
+            options_list = hb_encopts_to_dict(job->encoder_options, job->vcodec);
+
+            hb_dict_iter_t iter;
+            for (iter  = hb_dict_iter_init(options_list);
+                iter != HB_DICT_ITER_DONE;
+                iter  = hb_dict_iter_next(options_list, iter))
+            {
+                const char *key = hb_dict_iter_key(iter);
+                if (!strcasecmp(key, "gpu") && !job->qsv.ctx->qsv_device)
+                {
+                    hb_value_t *value = hb_dict_iter_value(iter);
+                    char *str = hb_value_get_string_xform(value);
+                    int dx_index = hb_qsv_atoi(str, &ret);
+                    free(str);
+                    if (!ret)
+                    {
+                        hb_qsv_param_parse_dx_index(job, dx_index);
+                    }
+                }
+            }
+            hb_dict_free(&options_list);
+        }
+
+        if (!job->qsv.ctx->qsv_device)
+            hb_qsv_param_parse_dx_index(job, -1);
+
         ret = qsv_device_init(job);
         if (ret < 0)
             return ret;
@@ -3015,7 +3244,9 @@ int hb_create_ffmpeg_pool(hb_job_t *job, int coded_width, int coded_height, enum
     frames_ctx->height            = FFALIGN(coded_height, 32);
     frames_ctx->format            = AV_PIX_FMT_QSV;
     frames_ctx->sw_format         = sw_pix_fmt;
-    frames_ctx->initial_pool_size = pool_size + extra_hw_frames;
+    frames_ctx->initial_pool_size = pool_size;
+    if (extra_hw_frames >= 0)
+        frames_ctx->initial_pool_size += extra_hw_frames;
     frames_hwctx->frame_type      = MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET;
 
     ret = av_hwframe_ctx_init(hw_frames_ctx);
@@ -3200,6 +3431,11 @@ int hb_qsv_sanitize_filter_list(hb_job_t *job)
     return 0;
 }
 
+hb_list_t* hb_qsv_adapters_list()
+{
+    return qsv_adapters_list;
+}
+
 #else // other OS
 
 int hb_create_ffmpeg_pool(hb_job_t *job, int coded_width, int coded_height, enum AVPixelFormat sw_pix_fmt, int pool_size, int extra_hw_frames, AVBufferRef **out_hw_frames_ctx)
@@ -3272,6 +3508,11 @@ int hb_qsv_get_mid_by_surface_from_pool(HBQSVFramesContext* hb_enc_qsv_frames_ct
 int hb_qsv_release_surface_from_pool_by_surface_pointer(HBQSVFramesContext* hb_enc_qsv_frames_ctx, const mfxFrameSurface1 *surface)
 {
     return -1;
+}
+
+hb_list_t* hb_qsv_adapters_list()
+{
+    return NULL;
 }
 
 #endif

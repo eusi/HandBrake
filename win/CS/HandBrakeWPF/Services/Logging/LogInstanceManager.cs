@@ -10,71 +10,73 @@ namespace HandBrakeWPF.Services.Logging
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using System.Linq;
 
-    using HandBrakeWPF.Services.Interfaces;
+    using HandBrakeWPF.Services.Logging.EventArgs;
     using HandBrakeWPF.Services.Logging.Interfaces;
-
-    using Microsoft.Win32.SafeHandles;
 
     public class LogInstanceManager : ILogInstanceManager
     {
-        private readonly IUserSettingService userSettingService;
-
         private readonly object instanceLock = new object();
         private Dictionary<string, ILog> logInstances = new Dictionary<string, ILog>();
         
-        private int maxInstances;
+        public event EventHandler<LogFileEventArgs> NewLogInstanceRegistered;
 
-        public LogInstanceManager(IUserSettingService userSettingService)
-        {
-            this.userSettingService = userSettingService;
-            this.maxInstances = this.userSettingService.GetUserSetting<int>(UserSettingConstants.SimultaneousEncodes);
-            userSettingService.SettingChanged += this.UserSettingService_SettingChanged;
-        }
+        public ILog ApplicationLogInstance { get; private set; }
 
-        private void UserSettingService_SettingChanged(object sender, HandBrakeWPF.EventArgs.SettingChangedEventArgs e)
-        {
-            if (e.Key == UserSettingConstants.SimultaneousEncodes)
-            {
-                this.maxInstances = this.userSettingService.GetUserSetting<int>(UserSettingConstants.SimultaneousEncodes);
-            }
-        }
-
-        public event EventHandler NewLogInstanceRegistered;
-
-        public string ApplicationAndScanLog { get; private set; }
-
-        public ILog MasterLogInstance { get; private set; }
-
-        public void RegisterLoggerInstance(string filename, ILog log, bool isMaster)
+        public void Register(string filename, ILog log, bool isMaster)
         {
             lock (this.instanceLock)
             {
-                if (string.IsNullOrEmpty(this.ApplicationAndScanLog))
-                {
-                    // The application startup sets the initial log file.
-                    this.ApplicationAndScanLog = filename;
-                }
-
                 this.logInstances.Add(filename, log);
-
-                this.CleanupInstance();
 
                 if (isMaster)
                 {
-                    this.MasterLogInstance = log;
+                    this.ApplicationLogInstance = log;
                 }
             }
 
-            this.OnNewLogInstanceRegistered();
+            this.OnNewLogInstanceRegistered(new LogFileEventArgs(filename, log));
+        }
+
+        public void Deregister(string filename)
+        {
+            lock (this.instanceLock)
+            {
+                if (this.logInstances.ContainsKey(filename))
+                {
+                    ILog logInstance = this.logInstances[filename];
+                    logInstance.Dispose();
+
+                    this.logInstances.Remove(filename);
+                }
+            }
+
+            this.OnNewLogInstanceRegistered(new LogFileEventArgs(filename, null));
+        }
+
+        public void ResetApplicationLog()
+        {
+            this.ApplicationLogInstance.Reset();
+            this.OnNewLogInstanceRegistered(new LogFileEventArgs(this.ApplicationLogInstance.FileName, this.ApplicationLogInstance));
         }
 
         public List<string> GetLogFiles()
         {
             lock (this.instanceLock)
             {
-                return this.logInstances.Keys.ToList();
+                List<string> encodeLogs = this.logInstances.Keys.Where(s => !s.Contains("main")).OrderBy(s => s).ToList();
+
+                List<string> finalList = new List<string>();
+                if (this.ApplicationLogInstance != null)
+                {
+                    finalList.Add(Path.GetFileName(this.ApplicationLogInstance.FileName));
+                }
+
+                finalList.AddRange(encodeLogs);
+
+                return finalList;
             }
         }
 
@@ -97,19 +99,9 @@ namespace HandBrakeWPF.Services.Logging
             return null;
         }
 
-        protected virtual void OnNewLogInstanceRegistered()
+        protected virtual void OnNewLogInstanceRegistered(LogFileEventArgs e)
         {
-            this.NewLogInstanceRegistered?.Invoke(this, System.EventArgs.Empty);
-        }
-
-        private void CleanupInstance()
-        {
-            List<string> encodeLogs = this.logInstances.Keys.Where(f => f.Contains(".encode.")).ToList();
-            string removalKey = this.logInstances.Keys.OrderBy(k => k).FirstOrDefault(w => w.Contains(".encode."));
-            if (encodeLogs.Count > this.maxInstances)
-            {
-                this.logInstances.Remove(removalKey);
-            }
+            this.NewLogInstanceRegistered?.Invoke(this, e);
         }
     }
 }

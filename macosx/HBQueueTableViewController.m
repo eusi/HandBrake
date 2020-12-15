@@ -10,17 +10,13 @@
 #import "HBTableView.h"
 #import "HBQueueItemView.h"
 #import "HBQueueItemWorkingView.h"
+#import "NSArray+HBAdditions.h"
+#import "HBPasteboardItem.h"
 
-// Pasteboard type for or drag operations
-#define HBQueueDragDropPboardType @"HBQueueCustomTableViewPboardType"
-
-@interface HBQueueTableViewController () <NSTableViewDataSource, NSTableViewDelegate, HBQueueItemViewDelegate>
+@interface HBQueueTableViewController () <NSMenuItemValidation, NSTableViewDataSource, NSTableViewDelegate, HBQueueItemViewDelegate>
 
 @property (nonatomic, weak, readonly) HBQueue *queue;
-@property (nonatomic) NSArray<HBQueueItem *> *dragNodesArray;
-
 @property (nonatomic, strong) id<HBQueueTableViewControllerDelegate> delegate;
-
 @property (nonatomic, weak) IBOutlet HBTableView *tableView;
 
 @end
@@ -47,8 +43,7 @@
     [super viewDidLoad];
 
     // lets setup our queue list table view for drag and drop here
-    [self.tableView registerForDraggedTypes:@[HBQueueDragDropPboardType]];
-    [self.tableView setDraggingSourceOperationMask:NSDragOperationEvery forLocal:YES];
+    [self.tableView registerForDraggedTypes:@[tableViewIndex]];
     [self.tableView setVerticalMotionCanBeginDrag:YES];
 
     [NSNotificationCenter.defaultCenter addObserverForName:HBQueueDidAddItemNotification object:_queue queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification * _Nonnull note) {
@@ -82,7 +77,7 @@
 
     typedef void (^HBUpdateHeight)(NSNotification *note);
     HBUpdateHeight updateHeight = ^void(NSNotification *note) {
-        HBQueueItem *item = note.userInfo[HBQueueItemNotificationItemKey];
+        HBQueueJobItem *item = note.userInfo[HBQueueItemNotificationItemKey];
         NSUInteger index = [self.queue.items indexOfObject:item];
         if (index != NSNotFound)
         {
@@ -119,8 +114,12 @@
 
     NSUInteger currentIndex = targetedRows.firstIndex;
     while (currentIndex != NSNotFound) {
-        NSURL *url = [[self.queue.items objectAtIndex:currentIndex] completeOutputURL];
-        [urls addObject:url];
+        id<HBQueueItem> item = [self.queue.items objectAtIndex:currentIndex];
+        if ([item isKindOfClass:[HBQueueJobItem class]])
+        {
+            NSURL *url = [(HBQueueJobItem *)item completeOutputURL];
+            [urls addObject:url];
+        }
         currentIndex = [targetedRows indexGreaterThanIndex:currentIndex];
     }
 
@@ -137,8 +136,12 @@
 
     NSUInteger currentIndex = targetedRows.firstIndex;
     while (currentIndex != NSNotFound) {
-        NSURL *url = [[self.queue.items objectAtIndex:currentIndex] fileURL];
-        [urls addObject:url];
+        id<HBQueueItem> item = [self.queue.items objectAtIndex:currentIndex];
+        if ([item isKindOfClass:[HBQueueJobItem class]])
+        {
+            NSURL *url = [(HBQueueJobItem *)item fileURL];
+            [urls addObject:url];
+        }
         currentIndex = [targetedRows indexGreaterThanIndex:currentIndex];
     }
 
@@ -155,10 +158,14 @@
 
     NSUInteger currentIndex = targetedRows.firstIndex;
     while (currentIndex != NSNotFound) {
-        NSURL *url = [[self.queue.items objectAtIndex:currentIndex] activityLogURL];
-        if (url)
+        id<HBQueueItem> item = [self.queue.items objectAtIndex:currentIndex];
+        if ([item isKindOfClass:[HBQueueJobItem class]])
         {
-            [urls addObject:url];
+            NSURL *url = [(HBQueueJobItem *)item activityLogURL];
+            if (url)
+            {
+                [urls addObject:url];
+            }
         }
         currentIndex = [targetedRows indexGreaterThanIndex:currentIndex];
     }
@@ -187,7 +194,7 @@
 - (IBAction)editSelectedQueueItem:(id)sender
 {
     NSInteger row = self.tableView.clickedRow;
-    HBQueueItem *item = [self.queue.items objectAtIndex:row];
+    HBQueueJobItem *item = [self.queue.items objectAtIndex:row];
     if (item)
     {
         [self.delegate tableViewEditItem:item];
@@ -210,22 +217,52 @@
 {
     SEL action = menuItem.action;
 
-    if (action == @selector(editSelectedQueueItem:) ||
-        action == @selector(removeSelectedQueueItem:) ||
-        action == @selector(revealSelectedQueueItems:) ||
-        action == @selector(revealSelectedQueueItemsSources:))
-    {
-        return (self.tableView.selectedRow != -1 || self.tableView.clickedRow != -1);
+    if (action == @selector(editSelectedQueueItem:)) {
+        NSIndexSet *indexes = self.tableView.targetedRowIndexes;
+        return indexes.count == 1 && self.queue.items[indexes.firstIndex].hasFileRepresentation;
     }
 
-    if (action == @selector(revealSelectedQueueItemsActivityLogs:))
+    if (action == @selector(removeSelectedQueueItem:))
     {
-        return (self.tableView.selectedRow != -1 || self.tableView.clickedRow != -1);
+        return self.tableView.targetedRowIndexes.count > 0;
+    }
+
+    if (action == @selector(revealSelectedQueueItemsSources:))
+    {
+        NSIndexSet *indexes = self.tableView.targetedRowIndexes;
+        if (indexes.count == 0) { return NO; }
+        NSArray<id<HBQueueItem>> *items = [self.queue.items objectsAtIndexes:indexes];
+
+        return [items HB_containsWhere:^BOOL(id<HBQueueItem> _Nonnull object) {
+            return object.hasFileRepresentation;
+        }];
+    }
+
+    if (action == @selector(revealSelectedQueueItemsActivityLogs:) ||
+        action == @selector(revealSelectedQueueItems:))
+    {
+        NSIndexSet *indexes = self.tableView.targetedRowIndexes;
+        if (indexes.count == 0) { return NO; }
+        NSArray<id<HBQueueItem>> *items = [self.queue.items objectsAtIndexes:indexes];
+
+        return [items HB_containsWhere:^BOOL(id<HBQueueItem> _Nonnull object) {
+            return object.hasFileRepresentation &&
+                (object.state == HBQueueItemStateWorking || object.state == HBQueueItemStateFailed ||
+                 object.state == HBQueueItemStateCanceled || object.state == HBQueueItemStateCompleted);
+        }];
     }
 
     if (action == @selector(resetJobState:))
     {
-        return self.tableView.targetedRowIndexes.count > 0;
+        NSIndexSet *indexes = self.tableView.targetedRowIndexes;
+        if (indexes.count == 0) { return NO; }
+        NSArray<id<HBQueueItem>> *items = [self.queue.items objectsAtIndexes:indexes];
+
+        return [items HB_containsWhere:^BOOL(id<HBQueueItem> _Nonnull object) {
+            return object.hasFileRepresentation &&
+                (object.state == HBQueueItemStateFailed || object.state == HBQueueItemStateCanceled ||
+                 object.state == HBQueueItemStateCompleted);
+        }];
     }
 
     if (action == @selector(removeAll:))
@@ -248,7 +285,7 @@
                   row:(NSInteger)row
 {
 
-    HBQueueItem *item = self.queue.items[row];
+    id<HBQueueItem> item = self.queue.items[row];
     HBQueueItemView *view = nil;
 
     if (item.state == HBQueueItemStateWorking)
@@ -277,21 +314,24 @@
 
 - (CGFloat)tableView:(NSTableView *)tableView heightOfRow:(NSInteger)row
 {
-    HBQueueItem *item = self.queue.items[row];
+    id<HBQueueItem> item = self.queue.items[row];
     return item.state == HBQueueItemStateWorking ? 58 : 22;
 }
 
 #pragma mark NSQueueItemView delegate
 
-- (void)removeQueueItem:(nonnull HBQueueItem *)item
+- (void)removeQueueItem:(nonnull id<HBQueueItem>)item
 {
     NSUInteger index = [self.queue.items indexOfObject:item];
     [self.delegate tableViewRemoveItemsAtIndexes:[NSIndexSet indexSetWithIndex:index]];
 }
 
-- (void)revealQueueItem:(nonnull HBQueueItem *)item
+- (void)revealQueueItem:(nonnull id<HBQueueItem>)item
 {
-    [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:@[item.completeOutputURL]];
+    if ([item isKindOfClass:[HBQueueJobItem class]])
+    {
+        [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:@[[(HBQueueJobItem *)item completeOutputURL]]];
+    }
 }
 
 #pragma mark NSTableView delegate
@@ -307,41 +347,39 @@
     [self removeSelectedQueueItem:tableView];
 }
 
-- (BOOL)tableView:(NSTableView *)tableView writeRowsWithIndexes:(NSIndexSet *)rowIndexes toPasteboard:(NSPasteboard *)pboard
+- (nullable id <NSPasteboardWriting>)tableView:(NSTableView *)tableView pasteboardWriterForRow:(NSInteger)row
 {
-    NSArray<HBQueueItem *> *items = [self.queue.items objectsAtIndexes:rowIndexes];
-    // Dragging is only allowed of the pending items.
-    if (items[0].state != HBQueueItemStateReady)
-    {
-        return NO;
-    }
-
-    self.dragNodesArray = items;
-
-    // Provide data for our custom type, and simple NSStrings.
-    [pboard declareTypes:@[HBQueueDragDropPboardType] owner:self];
-
-    // the actual data doesn't matter since DragDropSimplePboardType drags aren't recognized by anyone but us!.
-    [pboard setData:[NSData data] forType:HBQueueDragDropPboardType];
-
-    return YES;
+    return [[HBPasteboardItem alloc] initWithIndex:row];
 }
 
 - (NSDragOperation)tableView:(NSTableView *)tableView validateDrop:(id<NSDraggingInfo>)info proposedRow:(NSInteger)row proposedDropOperation:(NSTableViewDropOperation)dropOperation
 {
-    // Don't allow dropping ONTO an item since they can't really contain any children.
-    BOOL isOnDropTypeProposal = dropOperation == NSTableViewDropOn;
-    if (isOnDropTypeProposal)
+    NSDragOperation dragOp = NSDragOperationNone;
+
+    // if drag source is our own table view, it's a move or a copy
+    if (info.draggingSource == tableView)
     {
-        return NSDragOperationNone;
+        // At a minimum, allow move
+        dragOp = NSDragOperationMove;
     }
 
-    return NSDragOperationMove;
+    [tableView setDropRow:row dropOperation:NSTableViewDropAbove];
+
+    return dragOp;
 }
 
 - (BOOL)tableView:(NSTableView *)tableView acceptDrop:(id<NSDraggingInfo>)info row:(NSInteger)row dropOperation:(NSTableViewDropOperation)dropOperation
 {
-    [self.queue moveItems:self.dragNodesArray toIndex:row];
+    NSMutableIndexSet *indexes = [[NSMutableIndexSet alloc] init];
+    for (NSPasteboardItem *item in info.draggingPasteboard.pasteboardItems)
+    {
+        NSNumber *index = [item propertyListForType:tableViewIndex];
+        [indexes addIndex:index.integerValue];
+    }
+
+    NSArray *items = [self.queue.items objectsAtIndexes:indexes];
+    [self.queue moveItems:items toIndex:row];
+
     return YES;
 }
 

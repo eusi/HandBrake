@@ -1,5 +1,5 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="HandBrakePresetService.cs" company="HandBrake Project (http://handbrake.fr)">
+// <copyright file="HandBrakePresetService.cs" company="HandBrake Project (https://handbrake.fr)">
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
 // <summary>
@@ -13,29 +13,19 @@ namespace HandBrake.Interop.Interop
     using System.Collections.Generic;
     using System.IO;
     using System.Runtime.InteropServices;
+    using System.Text.Json;
 
-    using HandBrake.Interop.Interop.HbLib.Wrappers.Interfaces;
+    using HandBrake.Interop.Interop.HbLib;
     using HandBrake.Interop.Interop.Helpers;
     using HandBrake.Interop.Interop.Json.Presets;
     using HandBrake.Interop.Interop.Model;
-    using HandBrake.Interop.Interop.Providers;
-    using HandBrake.Interop.Interop.Providers.Interfaces;
-
-    using Newtonsoft.Json;
+    using HandBrake.Interop.Json;
 
     /// <summary>
     /// The hand brake preset service.
     /// </summary>
     public class HandBrakePresetService
     {
-        private static IHbFunctions hbFunctions;
-
-        static HandBrakePresetService()
-        {
-            IHbFunctionsProvider hbFunctionsProvider = new HbFunctionsProvider();
-            hbFunctions = hbFunctionsProvider.GetHbFunctionsWrapper();
-        }
-
         /// <summary>
         /// The get built in presets.
         /// Requires an hb_init to have been invoked.
@@ -45,9 +35,9 @@ namespace HandBrake.Interop.Interop
         /// </returns>
         public static IList<HBPresetCategory> GetBuiltInPresets()
         {
-            IntPtr presets = hbFunctions.hb_presets_builtin_get_json();
+            IntPtr presets = HBFunctions.hb_presets_builtin_get_json();
             string presetJson = Marshal.PtrToStringAnsi(presets);
-            IList<HBPresetCategory> presetList = JsonConvert.DeserializeObject<IList<HBPresetCategory>>(presetJson);
+            IList<HBPresetCategory> presetList = JsonSerializer.Deserialize<IList<HBPresetCategory>>(presetJson, JsonSettings.Options);
 
             return presetList;
         }
@@ -63,7 +53,7 @@ namespace HandBrake.Interop.Interop
         /// </returns>
         public static PresetTransportContainer GetPresetsFromFile(string filename)
         {
-            IntPtr presetStringPointer = hbFunctions.hb_presets_read_file_json(InteropUtilities.ToUtf8PtrFromString(filename));
+            IntPtr presetStringPointer = HBFunctions.hb_presets_read_file_json(InteropUtilities.ToUtf8PtrFromString(filename));
             string presetJson = Marshal.PtrToStringAnsi(presetStringPointer);
 
             if (!string.IsNullOrEmpty(presetJson))
@@ -74,7 +64,7 @@ namespace HandBrake.Interop.Interop
                     presetJson = "{ \"PresetList\":" + presetJson + " } ";
                 }
 
-                PresetTransportContainer preset = JsonConvert.DeserializeObject<PresetTransportContainer>(presetJson);
+                PresetTransportContainer preset = JsonSerializer.Deserialize<PresetTransportContainer>(presetJson, JsonSettings.Options);
 
                 return preset;
             }
@@ -93,7 +83,7 @@ namespace HandBrake.Interop.Interop
         /// </param>
         public static void ExportPreset(string filename, PresetTransportContainer container)
         {
-            string preset = JsonConvert.SerializeObject(container, Formatting.Indented, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+            string preset = JsonSerializer.Serialize(container, JsonSettings.Options);
             using (StreamWriter writer = new StreamWriter(filename))
             {
                 writer.Write(preset);
@@ -106,7 +96,7 @@ namespace HandBrake.Interop.Interop
             IntPtr minor = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(int)));
             IntPtr micro = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(int)));
 
-            hbFunctions.hb_presets_current_version(major, minor, micro);
+            HBFunctions.hb_presets_current_version(major, minor, micro);
 
             int majorVersion = Marshal.ReadInt32(major);
             int minorVersion = Marshal.ReadInt32(minor);

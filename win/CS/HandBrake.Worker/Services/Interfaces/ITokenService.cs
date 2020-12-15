@@ -1,18 +1,20 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="IHbFunctionsProvider.cs" company="HandBrake Project (http://handbrake.fr)">
+// <copyright file="ITokenService.cs" company="HandBrake Project (http://handbrake.fr)">
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
 // <summary>
-//   Provides an instance of IHbFunctions for use by the GUI.
+//   Defines the ITokenService type.
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
-namespace HandBrake.Interop.Interop.Providers.Interfaces
+namespace HandBrake.Worker.Services.Interfaces
 {
-    using HandBrake.Interop.Interop.HbLib.Wrappers.Interfaces;
-
-    public interface IHbFunctionsProvider
+    public interface ITokenService
     {
-        IHbFunctions GetHbFunctionsWrapper();
+        string RegisterToken(string request);
+
+        bool IsTokenSet();
+
+        bool IsAuthenticated(string token);
     }
 }

@@ -138,13 +138,13 @@ namespace HandBrakeWPF.Helpers
                 destinationFilename = userSettingService.GetUserSetting<string>(UserSettingConstants.AutoNameFormat);
                 destinationFilename =
                     destinationFilename
-                        .RegexReplace(Constants.Source, sourceName)
-                        .RegexReplace(Constants.Title, dvdTitle)
-                        .RegexReplace(Constants.Chapters, combinedChapterTag)
-                        .RegexReplace(Constants.Date, DateTime.Now.Date.ToShortDateString().Replace('/', '-'))
-                        .RegexReplace(Constants.Time, DateTime.Now.ToString("HH-mm"))
-                        .RegexReplace(Constants.CretaionDate, createDate)
-                        .RegexReplace(Constants.CreationTime, createTime);
+                        .Replace(Constants.Source, sourceName)
+                        .Replace(Constants.Title, dvdTitle)
+                        .Replace(Constants.Chapters, combinedChapterTag)
+                        .Replace(Constants.Date, DateTime.Now.Date.ToShortDateString().Replace('/', '-'))
+                        .Replace(Constants.Time, DateTime.Now.ToString("HH-mm"))
+                        .Replace(Constants.CretaionDate, createDate)
+                        .Replace(Constants.CreationTime, createTime);
 
                 if (task.VideoEncodeRateType == VideoEncodeRateType.ConstantQuality)
                 {
@@ -266,17 +266,14 @@ namespace HandBrakeWPF.Helpers
 
             if (behaviour != AutonameFileCollisionBehaviour.AppendNumber)
             {
-                if (autoNamePath?.ToLower() == task.Source?.ToLower())
-                {
-                    autoNamePath = Path.Combine(Path.GetDirectoryName(autoNamePath), prefix + filenameWithoutExt + postfix + extension);
+                autoNamePath = Path.Combine(Path.GetDirectoryName(autoNamePath), prefix + filenameWithoutExt + postfix + extension);
 
-                    int counter = 0;
-                    while (File.Exists(autoNamePath))
-                    {
-                        counter = counter + 1;
-                        string appendedNumber = string.Format("({0})", counter);
-                        autoNamePath = Path.Combine(Path.GetDirectoryName(autoNamePath), prefix + filenameWithoutExt + postfix + appendedNumber + extension);
-                    }
+                int counter = 0;
+                while (File.Exists(autoNamePath))
+                {
+                    counter = counter + 1;
+                    string appendedNumber = string.Format("({0})", counter);
+                    autoNamePath = Path.Combine(Path.GetDirectoryName(autoNamePath), prefix + filenameWithoutExt + postfix + appendedNumber + extension);
                 }
             }
             else

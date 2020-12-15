@@ -41,7 +41,7 @@
 static void *HBControllerScanCoreContext = &HBControllerScanCoreContext;
 static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 
-@interface HBController () <HBPresetsViewControllerDelegate, HBTitleSelectionDelegate, NSDraggingDestination, NSPopoverDelegate>
+@interface HBController () <HBPresetsViewControllerDelegate, HBTitleSelectionDelegate, NSMenuItemValidation, NSDraggingDestination, NSPopoverDelegate>
 {
     IBOutlet NSTabView *fMainTabView;
 
@@ -235,7 +235,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
     self.presetsPopover = [[NSPopover alloc] init];
 
     self.presetsPopover.contentViewController = fPresetsView;
-    self.presetsPopover.contentSize = NSMakeSize(294, 580);
+    self.presetsPopover.contentSize = NSMakeSize(300, 580);
     self.presetsPopover.animates = YES;
 
     // AppKit will close the popover when the user interacts with a user interface element outside the popover.
@@ -512,8 +512,8 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 
 - (void)setUpForSingleWorker
 {
-    HBQueueItem *firstWorkingItem = nil;
-    for (HBQueueItem *item in self.queue.items)
+    HBQueueJobItem *firstWorkingItem = nil;
+    for (HBQueueJobItem *item in self.queue.items)
     {
         if (item.state == HBQueueItemStateWorking)
         {
@@ -1114,7 +1114,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
  */
 - (void)runDestinationAlerts:(HBJob *)job completionHandler:(void (^ __nullable)(NSModalResponse returnCode))handler
 {
-    if ([[NSFileManager defaultManager] fileExistsAtPath:job.outputURL.path] == 0)
+    if ([NSFileManager.defaultManager fileExistsAtPath:job.outputURL.path] == NO)
     {
         NSAlert *alert = [[NSAlert alloc] init];
         [alert setMessageText:NSLocalizedString(@"Warning!", @"Invalid destination alert -> message")];
@@ -1131,13 +1131,19 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         [alert setAlertStyle:NSAlertStyleCritical];
         [alert beginSheetModalForWindow:self.window completionHandler:handler];
     }
-    else if ([[NSFileManager defaultManager] fileExistsAtPath:job.completeOutputURL.path])
+    else if ([NSFileManager.defaultManager fileExistsAtPath:job.completeOutputURL.path])
     {
         NSAlert *alert = [[NSAlert alloc] init];
         [alert setMessageText:NSLocalizedString(@"A file already exists at the selected destination.", @"File already exists alert -> message")];
         [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @"File already exists alert -> informative text"), job.completeOutputURL.path]];
         [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"File already exists alert -> first button")];
         [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"File already exists alert -> second button")];
+#if defined(__MAC_11_0)
+    if (@available(macOS 11, *))
+    {
+        alert.buttons.lastObject.hasDestructiveAction = true;
+    }
+#endif
         [alert setAlertStyle:NSAlertStyleCritical];
 
         [alert beginSheetModalForWindow:self.window completionHandler:handler];
@@ -1149,6 +1155,12 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @"File already exists in queue alert -> informative text"), job.completeOutputURL.path]];
         [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"File already exists in queue alert -> first button")];
         [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"File already exists in queue alert -> second button")];
+#if defined(__MAC_11_0)
+    if (@available(macOS 11, *))
+    {
+        alert.buttons.lastObject.hasDestructiveAction = true;
+    }
+#endif
         [alert setAlertStyle:NSAlertStyleCritical];
 
         [alert beginSheetModalForWindow:self.window completionHandler:handler];
@@ -1307,6 +1319,12 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         [alert setInformativeText:NSLocalizedString(@"One or more file already exists. Do you want to overwrite?", @"File already exists alert -> informative text")];
         [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"File already exists alert -> first button")];
         [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"File already exists alert -> second button")];
+#if defined(__MAC_11_0)
+    if (@available(macOS 11, *))
+    {
+        alert.buttons.lastObject.hasDestructiveAction = true;
+    }
+#endif
         [alert setAlertStyle:NSAlertStyleCritical];
 
         [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse returnCode) {
@@ -1436,15 +1454,12 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 {
     [self.window HB_endEditing];
 
-    BOOL defaultToCustom = ((self.job.picture.width + self.job.picture.cropRight + self.job.picture.cropLeft) < self.job.picture.sourceWidth) ||
-                           ((self.job.picture.height + self.job.picture.cropTop + self.job.picture.cropBottom) < self.job.picture.sourceHeight);
-
     // Show the add panel
     HBAddPresetController *addPresetController = [[HBAddPresetController alloc] initWithPreset:[self createPresetFromCurrentSettings]
                                                                                  presetManager:presetManager
-                                                                                   customWidth:self.job.picture.width
-                                                                                  customHeight:self.job.picture.height
-                                                                               defaultToCustom:defaultToCustom];
+                                                                                   customWidth:self.job.picture.maxWidth
+                                                                                  customHeight:self.job.picture.maxHeight
+                                                                           resolutionLimitMode:self.job.picture.resolutionLimitMode];
 
     [self.window beginSheet:addPresetController.window completionHandler:^(NSModalResponse returnCode) {
         if (returnCode == NSModalResponseOK)

@@ -1,5 +1,5 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="Video.cs" company="HandBrake Project (http://handbrake.fr)">
+// <copyright file="Video.cs" company="HandBrake Project (https://handbrake.fr)">
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
 // <summary>
@@ -70,7 +70,7 @@ namespace HandBrake.Interop.Interop.Json.Encode
         /// <summary>
         /// Gets or sets the quality.
         /// </summary>
-        public double? Quality { get; set; }
+        public decimal? Quality { get; set; }
 
         /// <summary>
         /// Gets or sets the tune.

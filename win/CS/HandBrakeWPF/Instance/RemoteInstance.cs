@@ -11,9 +11,11 @@
 namespace HandBrakeWPF.Instance
 {
     using System;
+    using System.ComponentModel;
     using System.Diagnostics;
     using System.IO;
     using System.Text;
+    using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -21,6 +23,7 @@ namespace HandBrakeWPF.Instance
     using HandBrake.Interop.Interop.Interfaces;
     using HandBrake.Interop.Interop.Json.Encode;
     using HandBrake.Interop.Interop.Json.State;
+    using HandBrake.Interop.Json;
     using HandBrake.Worker.Routing.Commands;
 
     using HandBrakeWPF.Instance.Model;
@@ -28,8 +31,6 @@ namespace HandBrakeWPF.Instance
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Logging.Interfaces;
     using HandBrakeWPF.Utilities;
-
-    using Newtonsoft.Json;
 
     using Timer = System.Timers.Timer;
 
@@ -43,7 +44,9 @@ namespace HandBrakeWPF.Instance
 
         private Process workerProcess;
         private Timer encodePollTimer;
-        private int retryCount = 0;
+        private int retryCount;
+        private bool encodeCompleteFired;
+        private bool serverStarted;
 
         public RemoteInstance(ILog logService, IUserSettingService userSettingService, IPortService portService)
         {
@@ -60,25 +63,41 @@ namespace HandBrakeWPF.Instance
 
         public async void PauseEncode()
         {
-            await this.MakeHttpGetRequest("PauseEncode");
-            this.StopPollingProgress();
+            if (this.IsServerRunning())
+            {
+                await this.MakeHttpGetRequest("PauseEncode");
+                this.StopPollingProgress();
+            }
         }
 
         public async void ResumeEncode()
         {
-            await this.MakeHttpGetRequest("ResumeEncode");
-            this.MonitorEncodeProgress();
+            if (this.IsServerRunning())
+            {
+                await this.MakeHttpGetRequest("ResumeEncode");
+                this.MonitorEncodeProgress();
+            }
         }
 
-        public void StartEncode(JsonEncodeObject jobToStart)
+        public async void StartEncode(JsonEncodeObject jobToStart)
         {
-           Thread thread1 = new Thread(() => RunEncodeInitProcess(jobToStart));
-           thread1.Start();
+            if (this.IsServerRunning())
+            {
+                Thread thread1 = new Thread(() => RunEncodeInitProcess(jobToStart));
+                thread1.Start();
+            }
+            else
+            {
+                this.EncodeCompleted?.Invoke(sender: this, e: new EncodeCompletedEventArgs(-10));
+            }
         }
 
         public async void StopEncode()
         {
-            await this.MakeHttpGetRequest("StopEncode");
+            if (this.IsServerRunning())
+            {
+                await this.MakeHttpGetRequest("StopEncode");
+            }
         }
 
         public JsonState GetEncodeProgress()
@@ -93,7 +112,7 @@ namespace HandBrakeWPF.Instance
 
             string statusJson = response.Result?.JsonResponse;
 
-            JsonState state = JsonConvert.DeserializeObject<JsonState>(statusJson);
+            JsonState state = JsonSerializer.Deserialize<JsonState>(statusJson, JsonSettings.Options);
             return state;
         }
 
@@ -130,8 +149,7 @@ namespace HandBrakeWPF.Instance
                     workerProcess.BeginErrorReadLine();
 
                     // Set Process Priority
-                    switch ((ProcessPriority)this.userSettingService.GetUserSetting<int>(
-                        UserSettingConstants.ProcessPriorityInt))
+                    switch ((ProcessPriority)this.userSettingService.GetUserSetting<int>(UserSettingConstants.ProcessPriorityInt))
                     {
                         case ProcessPriority.High:
                             workerProcess.PriorityClass = ProcessPriorityClass.High;
@@ -149,8 +167,9 @@ namespace HandBrakeWPF.Instance
                             workerProcess.PriorityClass = ProcessPriorityClass.BelowNormal;
                             break;
                     }
-                    
-                    this.logService.LogMessage(string.Format("Remote Process started with Process ID: {0} and port: {1}", this.workerProcess.Id, port));
+
+                    int maxAllowed = userSettingService.GetUserSetting<int>(UserSettingConstants.SimultaneousEncodes);
+                    this.logService.LogMessage(string.Format("Remote Process started with Process ID: {0} using port: {1}. Max Allowed Instances: {2}", this.workerProcess.Id, port, maxAllowed));
                 }
             }
             catch (Exception e)
@@ -218,15 +237,23 @@ namespace HandBrakeWPF.Instance
 
         private async void PollEncodeProgress()
         {
+            if (encodeCompleteFired)
+            {
+                this.encodePollTimer?.Stop();
+                this.encodePollTimer?.Dispose();
+                return;
+            }
+
             ServerResponse response = null;
             try
             {
                 if (this.retryCount > 5)
                 {
-                    this.EncodeCompleted?.Invoke(sender: this, e: new EncodeCompletedEventArgs(4));
-
+                    encodeCompleteFired = true;
                     this.encodePollTimer?.Stop();
 
+                    this.EncodeCompleted?.Invoke(sender: this, e: new EncodeCompletedEventArgs(-11));
+                    
                     if (this.workerProcess != null && !this.workerProcess.HasExited)
                     {
                         this.workerProcess?.Kill();
@@ -252,7 +279,7 @@ namespace HandBrakeWPF.Instance
 
             string statusJson = response.JsonResponse;
 
-            JsonState state = JsonConvert.DeserializeObject<JsonState>(statusJson);
+            JsonState state = JsonSerializer.Deserialize<JsonState>(statusJson, JsonSettings.Options);
 
             TaskState taskState = state != null ? TaskState.FromRepositoryValue(state.State) : null;
 
@@ -276,9 +303,18 @@ namespace HandBrakeWPF.Instance
             else if (taskState != null && taskState == TaskState.WorkDone)
             {
                 this.encodePollTimer.Stop();
+                encodeCompleteFired = true;
+
                 if (this.workerProcess != null && !this.workerProcess.HasExited)
                 {
-                    this.workerProcess?.Kill();
+                    try
+                    {
+                        this.workerProcess?.Kill();
+                    }
+                    catch (Win32Exception e)
+                    {
+                        Debug.WriteLine(e);
+                    }
                 }
 
                 this.EncodeCompleted?.Invoke(sender: this, e: new EncodeCompletedEventArgs(state.WorkDone.Error));
@@ -288,7 +324,9 @@ namespace HandBrakeWPF.Instance
 
         private void RunEncodeInitProcess(JsonEncodeObject jobToStart)
         {
-            InitCommand initCommand = new InitCommand
+            if (this.IsServerRunning())
+            {
+                InitCommand initCommand = new InitCommand
                                       {
                                           EnableDiskLogging = false,
                                           AllowDisconnectedWorker = false,
@@ -298,15 +336,55 @@ namespace HandBrakeWPF.Instance
                                           LogVerbosity = this.userSettingService.GetUserSetting<int>(UserSettingConstants.Verbosity)
                                       };
 
-            initCommand.LogFile = Path.Combine(initCommand.LogDirectory, string.Format("activity_log.worker.{0}.txt", GeneralUtilities.ProcessId));
+                initCommand.LogFile = Path.Combine(initCommand.LogDirectory, string.Format("activity_log.worker.{0}.txt", GeneralUtilities.ProcessId));
 
-            JsonSerializerSettings settings = new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore };
+                string job = JsonSerializer.Serialize(new EncodeCommand { InitialiseCommand = initCommand, EncodeJob = jobToStart }, JsonSettings.Options);
 
-            string job = JsonConvert.SerializeObject(new EncodeCommand { InitialiseCommand = initCommand, EncodeJob = jobToStart }, Formatting.None, settings);
+                var task = Task.Run(async () => await this.MakeHttpJsonPostRequest("StartEncode", job));
+                task.Wait();
+                this.MonitorEncodeProgress();
+            }
+        }
 
-            var task = Task.Run(async () => await this.MakeHttpJsonPostRequest("StartEncode", job));
-            task.Wait();
-            this.MonitorEncodeProgress();
+        private bool IsServerRunning()
+        {
+            // Poll the server until it's started up. This allows us to prevent failures in upstream methods.
+            if (this.serverStarted)
+            {
+                return this.serverStarted;  
+            }
+
+            int count = 0;
+            while (!this.serverStarted)
+            {
+                if (count > 10)
+                {
+                    logService.LogMessage("Unable to connect to the HandBrake Worker instance after 10 attempts. Try disabling this option in Tools -> Preferences -> Advanced.");
+                    return false;
+                }
+
+                try
+                {
+                    var task = Task.Run(async () => await this.MakeHttpGetRequest("IsTokenSet"));
+                    task.Wait(2000);
+
+                    if (string.Equals(task.Result.JsonResponse, "True", StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        this.serverStarted = true;
+                        return true;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Do nothing. We'll try again. The service isn't ready yet.
+                }
+                finally
+                {
+                    count = count + 1;
+                }
+            }
+
+            return true;
         }
     }
 }

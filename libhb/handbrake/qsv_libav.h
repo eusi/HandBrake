@@ -331,8 +331,10 @@ typedef struct hb_qsv_context {
     void *qsv_config;
 
     int num_cpu_filters;
+    int la_is_enabled;
     int qsv_filters_are_enabled;
     char *qsv_device;
+    int dx_index;
     AVBufferRef *hb_hw_device_ctx;
     HBQSVFramesContext *hb_dec_qsv_frames_ctx;
     HBQSVFramesContext *hb_vpp_qsv_frames_ctx;

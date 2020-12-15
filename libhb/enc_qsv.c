@@ -998,6 +998,35 @@ int qsv_enc_init(hb_work_private_t *pv)
     return 0;
 }
 
+static mfxIMPL hb_qsv_dx_index_to_impl(int dx_index)
+{
+    mfxIMPL impl;
+
+    switch (dx_index)
+    {
+        {
+        case 0:
+            impl = MFX_IMPL_HARDWARE;
+            break;
+        case 1:
+            impl = MFX_IMPL_HARDWARE2;
+            break;
+        case 2:
+            impl = MFX_IMPL_HARDWARE3;
+            break;
+        case 3:
+            impl = MFX_IMPL_HARDWARE4;
+            break;
+
+        default:
+            // try searching on all display adapters
+            impl = MFX_IMPL_HARDWARE_ANY;
+            break;
+        }
+    }
+    return impl;
+}
+
 /***********************************************************************
  * encqsvInit
  ***********************************************************************
@@ -1075,7 +1104,16 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         }
         hb_dict_free(&options_list);
     }
-
+#if !defined(SYS_LINUX) && !defined(SYS_FREEBSD)
+    if (pv->is_sys_mem)
+    {
+        // select the right hardware implementation based on dx index
+        if (!job->qsv.ctx->qsv_device)
+            hb_qsv_param_parse_dx_index(pv->job, -1);
+        mfxIMPL hw_preference = MFX_IMPL_VIA_D3D11;
+        pv->qsv_info->implementation = hb_qsv_dx_index_to_impl(job->qsv.ctx->dx_index) | hw_preference;
+    }
+#endif
     // reload colorimetry in case values were set in encoder_options
     if (pv->param.videoSignalInfo.ColourDescriptionPresent)
     {
@@ -1211,7 +1249,12 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     {
         pv->param.rc.lookahead = pv->param.rc.lookahead && (pv->param.rc.icq || job->vquality <= HB_INVALID_VIDEO_QUALITY);
     }
-
+#if HB_PROJECT_FEATURE_QSV
+    if (pv->job->qsv.ctx != NULL)
+    {
+        job->qsv.ctx->la_is_enabled = pv->param.rc.lookahead ? 1 : 0;
+    }
+#endif
     // set VBV here (this will be overridden for CQP and ignored for LA)
     // only set BufferSizeInKB, InitialDelayInKB and MaxKbps if we have
     // them - otheriwse Media SDK will pick values for us automatically
@@ -1396,7 +1439,7 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     err = MFXInit(pv->qsv_info->implementation, &version, &session);
     if (err != MFX_ERR_NONE)
     {
-        hb_error("encqsvInit: MFXInit failed (%d)", err);
+        hb_error("encqsvInit: MFXInit failed (%d) with implementation %d", err, pv->qsv_info->implementation);
         return -1;
     }
 
@@ -2066,6 +2109,11 @@ static int qsv_enc_work(hb_work_private_t *pv,
 
             if (sts == MFX_ERR_MORE_DATA)
             {
+                if(!pv->is_sys_mem && surface)
+                {
+                    hb_qsv_release_surface_from_pool_by_surface_pointer(frames_ctx, surface);
+                }
+
                 if (qsv_atom != NULL)
                 {
                     hb_list_add(pv->delayed_processing, qsv_atom);
@@ -2093,6 +2141,11 @@ static int qsv_enc_work(hb_work_private_t *pv,
                 new_stage->out.p_bs            = task->bs;
                 task->stage                    = new_stage;
                 pv->async_depth++;
+
+                if(!pv->is_sys_mem && surface)
+                {
+                    hb_qsv_release_surface_from_pool_by_surface_pointer(frames_ctx, surface);
+                }
 
                 if (qsv_atom != NULL)
                 {
@@ -2137,13 +2190,6 @@ static int qsv_enc_work(hb_work_private_t *pv,
 
                 /* perform a sync operation to get the output bitstream */
                 hb_qsv_wait_on_sync(qsv_ctx, task->stage);
-
-                mfxFrameSurface1   *surface    = task->stage->in.p_surface;
-                HBQSVFramesContext *frames_ctx = task->stage->in.p_frames_ctx;
-                if(!pv->is_sys_mem && surface)
-                {
-                    hb_qsv_release_surface_from_pool_by_surface_pointer(frames_ctx, surface);
-                }
 
                 if (task->bs->DataLength > 0)
                 {

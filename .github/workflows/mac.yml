@@ -2,23 +2,15 @@ name: macOS build
 
 on: [push, pull_request]
 
+env:
+  DEVELOPER_DIR: /Applications/Xcode_12.2.app/Contents/Developer
+
 jobs:
-  handle_forks:
-    name: Forked Repo
-    runs-on: ubuntu-latest
-    if: github.repository != 'HandBrake/HandBrake'
-    steps:
-    - name: Print Warning
-      run: |
-        echo "Builds are disabled for forked repositories."  
-
-
   build:
     name: Build on macOS
-    runs-on: macOS-latest
-    if: github.repository == 'HandBrake/HandBrake'
+    runs-on: macos-11.0
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v2
 
     - name: Toolchain Cache
       id: mac-toolchain
@@ -31,24 +23,16 @@ jobs:
       if: steps.mac-toolchain.outputs.cache-hit != 'true'
       run: |
         scripts/mac-toolchain-build /usr/local
-        
+
     - name: Build HandBrake
       run: |
         git submodule update --init --recursive
-        ./configure --launch-jobs=$(sysctl -n hw.ncpu) --launch
+        ./configure
         cd build
-        make pkg.create
-    
+        make ub && make pkg.create
+
     - name: Upload Assets
       uses: actions/upload-artifact@v2
       with:
         name: HandBrake-macos
         path: ./build/pkg
-        
-    - name: Tidy up past artifacts
-      uses: kolpav/purge-artifacts-action@v1
-      if: github.event_name != 'pull_request'
-      with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          expire-in: 3days
-
