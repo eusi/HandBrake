@@ -61,7 +61,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Copyright (C) 2003-2020 The HandBrake Team.
+        ///   Looks up a localized string similar to Copyright (C) 2003-2021 The HandBrake Team.
         /// </summary>
         public static string About_Copyright {
             get {
@@ -154,6 +154,15 @@ namespace HandBrakeWPF.Properties {
         public static string AddPresetView_Description {
             get {
                 return ResourceManager.GetString("AddPresetView_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Is Default:.
+        /// </summary>
+        public static string AddPresetView_IsDefault {
+            get {
+                return ResourceManager.GetString("AddPresetView_IsDefault", resourceCulture);
             }
         }
         
@@ -2623,7 +2632,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Build in presets can not be modified..
+        ///   Looks up a localized string similar to Built in presets can not be modified..
         /// </summary>
         public static string ManagePresetView_RestrictedPreset {
             get {
@@ -2745,6 +2754,15 @@ namespace HandBrakeWPF.Properties {
         public static string Mp4Behaviour_UseMp4 {
             get {
                 return ResourceManager.GetString("Mp4Behaviour_UseMp4", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No.
+        /// </summary>
+        public static string No {
+            get {
+                return ResourceManager.GetString("No", resourceCulture);
             }
         }
         
@@ -4458,15 +4476,6 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to (Default Preset).
-        /// </summary>
-        public static string PresetManagerView_DefaultPreset {
-            get {
-                return ResourceManager.GetString("PresetManagerView_DefaultPreset", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Delete Preset.
         /// </summary>
         public static string PresetManagerView_Delete {
@@ -5685,6 +5694,15 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Fine Tune Picture Settings.
+        /// </summary>
+        public static string StaticPreviewView_FineTuning {
+            get {
+                return ResourceManager.GetString("StaticPreviewView_FineTuning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Live Preview.
         /// </summary>
         public static string StaticPreviewView_LivePreview {
@@ -5708,6 +5726,15 @@ namespace HandBrakeWPF.Properties {
         public static string StaticPreviewView_SelectPreviewImage {
             get {
                 return ResourceManager.GetString("StaticPreviewView_SelectPreviewImage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Show crop adjustment controls..
+        /// </summary>
+        public static string StaticPreviewView_ShowPictureSettingsAdjustment {
+            get {
+                return ResourceManager.GetString("StaticPreviewView_ShowPictureSettingsAdjustment", resourceCulture);
             }
         }
         
@@ -6669,6 +6696,15 @@ namespace HandBrakeWPF.Properties {
         public static string WindowTitleStatus {
             get {
                 return ResourceManager.GetString("WindowTitleStatus", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Yes.
+        /// </summary>
+        public static string Yes {
+            get {
+                return ResourceManager.GetString("Yes", resourceCulture);
             }
         }
     }

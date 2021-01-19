@@ -1,20 +1,18 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="IPresetManagerViewModel.cs" company="HandBrake Project (http://handbrake.fr)">
+// <copyright file="CropPanelView.xaml.cs" company="HandBrake Project (http://handbrake.fr)">
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
-// <summary>
-//   Defines the IPresetManagerViewModel type.
-// </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
-namespace HandBrakeWPF.ViewModels.Interfaces
+namespace HandBrakeWPF.Views.Standalone
 {
-    using System;
+    using System.Windows.Controls;
 
-    public interface IPresetManagerViewModel
-    {
-        bool IsOpen { get; set; }
-
-        void SetupWindow(Action callback);
+    public partial class CropPanelView : UserControl
+    { 
+        public CropPanelView()
+        {
+            this.InitializeComponent();
+        }
     }
 }

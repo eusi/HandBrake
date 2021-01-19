@@ -9,7 +9,7 @@
     <Authors>HandBrake Team</Authors>
     <Company>HandBrake Team</Company>
     <Product>HandBrake</Product>
-    <Copyright>Copyright © 2003-2020 HandBrake Team</Copyright>
+    <Copyright>Copyright © 2003-2021 HandBrake Team</Copyright>
     <Description>HandBrake is an open-source, GPL-licensed, multiplatform,video transcoder.</Description>
     <PackageProjectUrl>https://handbrake.fr</PackageProjectUrl>
     <RepositoryUrl>https://github.com/HandBrake/HandBrake</RepositoryUrl>
@@ -155,6 +155,9 @@
     </Page>
     <Page Update="Themes\Controls\ToolbarDark.xaml">
       <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Standalone\CropPanelView.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
     </Page>
   </ItemGroup>
 
