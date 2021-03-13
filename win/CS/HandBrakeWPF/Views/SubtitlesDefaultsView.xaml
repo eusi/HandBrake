@@ -9,6 +9,7 @@
              xmlns:helpers="clr-namespace:HandBrakeWPF.Helpers"
              xmlns:subtitles="clr-namespace:HandBrakeWPF.Converters.Subtitles"
              xmlns:Properties="clr-namespace:HandBrakeWPF.Properties"
+             d:DesignHeight="440"
              d:DesignWidth="500"
              ResizeMode="NoResize"
              SizeToContent="WidthAndHeight"
@@ -16,7 +17,7 @@
              TextOptions.TextFormattingMode="Display"
              mc:Ignorable="d"
              Title="{Binding Title}"
-             x:Name="subTab" Height="440">
+             x:Name="subTab">
     <Window.Resources>
         <Converters:BooleanToVisibilityConverter x:Key="booleanToVisConverter" />
         <subtitles:SubtitleBehaviourConverter x:Key="subtitleBehaviourConverter" />

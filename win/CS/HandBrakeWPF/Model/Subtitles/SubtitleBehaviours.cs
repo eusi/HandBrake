@@ -146,7 +146,7 @@ namespace HandBrakeWPF.Model.Subtitles
             }
             set
             {
-                if( this.subtitleDefaultKeyword == null )
+                if (this.subtitleDefaultKeyword == null)
                     this.subtitleDefaultKeyword = string.Empty;
 
                 if (value == null || value.Equals(this.subtitleDefaultKeyword))
@@ -191,7 +191,7 @@ namespace HandBrakeWPF.Model.Subtitles
                 SelectedBehaviour = this.selectedBehaviour, 
                 SelectedBurnInBehaviour = this.selectedBurnInBehaviour, 
                 SelectedLangauges = new BindingList<string>(), 
-                AddClosedCaptions = this.addClosedCaptions, 
+                AddClosedCaptions = this.addClosedCaptions,
                 AddForeignAudioScanTrack = this.addForeignAudioScanTrack,
                 SubtitleDefaultKeyword = this.subtitleDefaultKeyword,
             };
