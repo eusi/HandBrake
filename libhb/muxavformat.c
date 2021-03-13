@@ -154,9 +154,9 @@ static int avformatInit( hb_mux_object_t * m )
 
             av_dict_set(&av_opts, "brand", "mp42", 0);
             if (job->mp4_optimize)
-                av_dict_set(&av_opts, "movflags", "faststart+disable_chpl", 0);
+                av_dict_set(&av_opts, "movflags", "faststart+disable_chpl+write_colr", 0);
             else
-                av_dict_set(&av_opts, "movflags", "+disable_chpl", 0);
+                av_dict_set(&av_opts, "movflags", "+disable_chpl+write_colr", 0);
             break;
 
         case HB_MUX_AV_MKV:
@@ -166,6 +166,7 @@ static int avformatInit( hb_mux_object_t * m )
             m->time_base.den = 1000;
             muxer_name = "matroska";
             meta_mux = META_MUX_MKV;
+            av_dict_set(&av_opts, "default_mode", "passthrough", 0);
             break;
 
         case HB_MUX_AV_WEBM:
@@ -175,6 +176,7 @@ static int avformatInit( hb_mux_object_t * m )
             m->time_base.den = 1000;
             muxer_name = "webm";
             meta_mux = META_MUX_WEBM;
+            av_dict_set(&av_opts, "default_mode", "passthrough", 0);
             break;
 
         default:
@@ -195,6 +197,11 @@ static int avformatInit( hb_mux_object_t * m )
                      &m->oc->interrupt_callback, NULL);
     if( ret < 0 )
     {
+      if( ret == -2 ) 
+      {
+        hb_error( "avio_open2 failed, errno -2: Could not write to indicated output file. Please check destination path and file permissions" );
+      }
+      else
         hb_error( "avio_open2 failed, errno %d", ret);
         goto error;
     }
@@ -268,6 +275,7 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_FFMPEG_VCE_H264:
         case HB_VCODEC_FFMPEG_NVENC_H264:
         case HB_VCODEC_FFMPEG_VT_H264:
+        case HB_VCODEC_FFMPEG_MF_H264:
             track->st->codecpar->codec_id = AV_CODEC_ID_H264;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
             {
@@ -404,6 +412,8 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_FFMPEG_VCE_H265:
         case HB_VCODEC_FFMPEG_NVENC_H265:
         case HB_VCODEC_FFMPEG_VT_H265:
+        case HB_VCODEC_FFMPEG_VT_H265_10BIT:
+        case HB_VCODEC_FFMPEG_MF_H265:
             track->st->codecpar->codec_id  = AV_CODEC_ID_HEVC;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
             {
@@ -442,6 +452,42 @@ static int avformatInit( hb_mux_object_t * m )
     track->st->codecpar->width                   = job->width;
     track->st->codecpar->height                  = job->height;
     track->st->disposition |= AV_DISPOSITION_DEFAULT;
+
+    track->st->codecpar->color_primaries = job->color_prim;
+    track->st->codecpar->color_trc       = job->color_transfer;
+    track->st->codecpar->color_space     = job->color_matrix;
+    track->st->codecpar->color_range     = job->color_range;
+
+    if (job->color_transfer == HB_COLR_TRA_SMPTEST2084)
+    {
+        if (job->mastering.has_primaries || job->mastering.has_luminance)
+        {
+            AVMasteringDisplayMetadata mastering = hb_mastering_hb_to_ff(job->mastering);
+
+            uint8_t *mastering_data = av_malloc(sizeof(AVMasteringDisplayMetadata));
+            memcpy(mastering_data, &mastering, sizeof(AVMasteringDisplayMetadata));
+
+            av_stream_add_side_data(track->st,
+                                    AV_PKT_DATA_MASTERING_DISPLAY_METADATA,
+                                    mastering_data,
+                                    sizeof(AVMasteringDisplayMetadata));
+        }
+
+        if (job->coll.max_cll && job->coll.max_fall)
+        {
+            AVContentLightMetadata coll;
+            coll.MaxCLL = job->coll.max_cll;
+            coll.MaxFALL = job->coll.max_fall;
+
+            uint8_t *coll_data = av_malloc(sizeof(AVContentLightMetadata));
+            memcpy(coll_data, &coll, sizeof(AVContentLightMetadata));
+
+            av_stream_add_side_data(track->st,
+                                    AV_PKT_DATA_CONTENT_LIGHT_LEVEL,
+                                    coll_data,
+                                    sizeof(AVContentLightMetadata));
+        }
+    }
 
     hb_rational_t vrate = job->vrate;
 
@@ -626,7 +672,7 @@ static int avformatInit( hb_mux_object_t * m )
                     ret = av_bsf_alloc(bsf, &ctx);
                     if (ret < 0)
                     {
-                        hb_error("AAC bistream filter: alloc failure");
+                        hb_error("AAC bitstream filter: alloc failure");
                         goto error;
                     }
                     ctx->time_base_in.num = 1;
@@ -650,7 +696,7 @@ static int avformatInit( hb_mux_object_t * m )
             ret = av_bsf_init(track->bitstream_context);
             if (ret < 0)
             {
-                hb_error("bistream filter: init failure");
+                hb_error("bitstream filter: init failure");
                 goto error;
             }
         }

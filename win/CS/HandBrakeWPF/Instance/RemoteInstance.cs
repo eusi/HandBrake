@@ -19,15 +19,15 @@ namespace HandBrakeWPF.Instance
     using System.Threading;
     using System.Threading.Tasks;
 
-    using HandBrake.Interop.Interop.EventArgs;
     using HandBrake.Interop.Interop.Interfaces;
+    using HandBrake.Interop.Interop.Interfaces.EventArgs;
     using HandBrake.Interop.Interop.Json.Encode;
     using HandBrake.Interop.Interop.Json.State;
-    using HandBrake.Interop.Json;
-    using HandBrake.Worker.Routing.Commands;
+    using HandBrake.Interop.Utilities;
 
     using HandBrakeWPF.Instance.Model;
     using HandBrakeWPF.Model.Options;
+    using HandBrakeWPF.Model.Worker;
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Logging.Interfaces;
     using HandBrakeWPF.Utilities;
@@ -79,7 +79,7 @@ namespace HandBrakeWPF.Instance
             }
         }
 
-        public async void StartEncode(JsonEncodeObject jobToStart)
+        public void StartEncode(JsonEncodeObject jobToStart)
         {
             if (this.IsServerRunning())
             {
@@ -264,7 +264,7 @@ namespace HandBrakeWPF.Instance
 
                 response = await this.MakeHttpGetRequest("PollEncodeProgress");
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 retryCount = this.retryCount + 1;
             }

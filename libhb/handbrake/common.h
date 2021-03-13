@@ -254,6 +254,16 @@ struct hb_rational_s
     int den;
 };
 
+static inline hb_rational_t hb_make_q(int num, int den)
+{
+    hb_rational_t r = { num, den };
+    return r;
+}
+
+static inline double hb_q2d(hb_rational_t a){
+    return a.num / (double) a.den;
+}
+
 struct hb_geometry_s
 {
     int width;
@@ -307,6 +317,20 @@ struct hb_subtitle_config_s
     const char * src_filename;
     char         src_codeset[40];
     int64_t      offset;
+};
+
+struct hb_mastering_display_metadata_s {
+    hb_rational_t display_primaries[3][2];
+    hb_rational_t white_point[2];
+    hb_rational_t min_luminance;
+    hb_rational_t max_luminance;
+    int has_primaries;
+    int has_luminance;
+};
+
+struct hb_content_light_metadata_s {
+    unsigned max_cll;
+    unsigned max_fall;
 };
 
 /*******************************************************************************
@@ -512,7 +536,7 @@ struct hb_job_s
          cfr:               0 (vfr), 1 (cfr), 2 (pfr) [see render.c]
          pass:              0, 1 or 2 (or -1 for scan)
          areBframes:        boolean to note if b-frames are used */
-#define HB_VCODEC_MASK         0x0FFFFFF
+#define HB_VCODEC_MASK         0x7FFFFFF
 #define HB_VCODEC_INVALID      0x0000000
 #define HB_VCODEC_THEORA       0x0000002
 #define HB_VCODEC_FFMPEG_MPEG4 0x0000010
@@ -525,7 +549,10 @@ struct hb_job_s
 #define HB_VCODEC_FFMPEG_NVENC_H265 0x00200000
 #define HB_VCODEC_FFMPEG_VT_H264 0x00400000
 #define HB_VCODEC_FFMPEG_VT_H265 0x00800000
-#define HB_VCODEC_FFMPEG_MASK  (0x00000F0|HB_VCODEC_FFMPEG_VCE_H264|HB_VCODEC_FFMPEG_VCE_H265|HB_VCODEC_FFMPEG_NVENC_H264|HB_VCODEC_FFMPEG_NVENC_H265|HB_VCODEC_FFMPEG_VT_H264|HB_VCODEC_FFMPEG_VT_H265)
+#define HB_VCODEC_FFMPEG_VT_H265_10BIT 0x01000000
+#define HB_VCODEC_FFMPEG_MF_H264 0x02000000
+#define HB_VCODEC_FFMPEG_MF_H265 0x04000000
+#define HB_VCODEC_FFMPEG_MASK  (0x00000F0|HB_VCODEC_FFMPEG_VCE_H264|HB_VCODEC_FFMPEG_VCE_H265|HB_VCODEC_FFMPEG_NVENC_H264|HB_VCODEC_FFMPEG_NVENC_H265|HB_VCODEC_FFMPEG_VT_H264|HB_VCODEC_FFMPEG_VT_H265|HB_VCODEC_FFMPEG_VT_H265_10BIT|HB_VCODEC_FFMPEG_MF_H264|HB_VCODEC_FFMPEG_MF_H265)
 #define HB_VCODEC_QSV_H264     0x0000100
 #define HB_VCODEC_QSV_H265_8BIT     0x0000200
 #define HB_VCODEC_QSV_H265_10BIT    0x0000400
@@ -536,14 +563,14 @@ struct hb_job_s
 #define HB_VCODEC_X264         HB_VCODEC_X264_8BIT
 #define HB_VCODEC_X264_10BIT   0x0020000
 #define HB_VCODEC_X264_MASK    0x0030000
-#define HB_VCODEC_H264_MASK    (HB_VCODEC_X264_MASK|HB_VCODEC_QSV_H264|HB_VCODEC_FFMPEG_VCE_H264|HB_VCODEC_FFMPEG_NVENC_H264|HB_VCODEC_FFMPEG_VT_H264)
+#define HB_VCODEC_H264_MASK    (HB_VCODEC_X264_MASK|HB_VCODEC_QSV_H264|HB_VCODEC_FFMPEG_VCE_H264|HB_VCODEC_FFMPEG_NVENC_H264|HB_VCODEC_FFMPEG_VT_H264|HB_VCODEC_FFMPEG_MF_H264)
 #define HB_VCODEC_X265_8BIT    0x0001000
 #define HB_VCODEC_X265         HB_VCODEC_X265_8BIT
 #define HB_VCODEC_X265_10BIT   0x0002000
 #define HB_VCODEC_X265_12BIT   0x0004000
 #define HB_VCODEC_X265_16BIT   0x0008000
 #define HB_VCODEC_X265_MASK    0x000F000
-#define HB_VCODEC_H265_MASK    (HB_VCODEC_X265_MASK|HB_VCODEC_QSV_H265_MASK|HB_VCODEC_FFMPEG_VCE_H265|HB_VCODEC_FFMPEG_NVENC_H265|HB_VCODEC_FFMPEG_VT_H265)
+#define HB_VCODEC_H265_MASK    (HB_VCODEC_X265_MASK|HB_VCODEC_QSV_H265_MASK|HB_VCODEC_FFMPEG_VCE_H265|HB_VCODEC_FFMPEG_NVENC_H265|HB_VCODEC_FFMPEG_VT_H265|HB_VCODEC_FFMPEG_VT_H265_10BIT|HB_VCODEC_FFMPEG_MF_H265)
 
 /* define an invalid CQ value compatible with all CQ-capable codecs */
 #define HB_INVALID_VIDEO_QUALITY (-1000.)
@@ -625,6 +652,9 @@ struct hb_job_s
 #define HB_COLR_MAT_CD_CL        13 // chromaticity derived constant lum
 #define HB_COLR_MAT_ICTCP        14 // ITU-R BT.2100-0, ICtCp
 // 0, 3-5, 8, 11-65535: reserved/not implemented
+
+    hb_mastering_display_metadata_t mastering;
+    hb_content_light_metadata_t coll;
 
     hb_list_t     * list_chapter;
 
@@ -1090,6 +1120,8 @@ struct hb_title_s
     int             color_transfer;
     int             color_matrix;
     int             color_range;
+    hb_mastering_display_metadata_t mastering;
+    hb_content_light_metadata_t     coll;
     hb_rational_t   vrate;
     int             crop[4];
     enum {HB_DVD_DEMUXER, HB_TS_DEMUXER, HB_PS_DEMUXER, HB_NULL_DEMUXER} demuxer;

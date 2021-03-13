@@ -333,6 +333,9 @@ typedef struct hb_qsv_context {
     int num_cpu_filters;
     int la_is_enabled;
     int qsv_filters_are_enabled;
+    int full_path_is_enabled;
+    char *vpp_scale_mode;
+    char *vpp_interpolation_method;
     char *qsv_device;
     int dx_index;
     AVBufferRef *hb_hw_device_ctx;

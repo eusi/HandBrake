@@ -141,6 +141,9 @@ static void work_func( void * _work )
             hb_job_close(&job);
             job = new_job;
         }
+#if HB_PROJECT_FEATURE_QSV
+        hb_qsv_setup_job(job);
+#endif
         hb_job_setup_passes(job->h, job, passes);
         hb_job_close(&job);
 
@@ -293,6 +296,17 @@ hb_work_object_t* hb_video_encoder(hb_handle_t *h, int vcodec)
             w->codec_param = AV_CODEC_ID_H264;
             break;
         case HB_VCODEC_FFMPEG_VT_H265:
+        case HB_VCODEC_FFMPEG_VT_H265_10BIT:
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_HEVC;
+            break;
+#endif
+#if HB_PROJECT_FEATURE_MF
+        case HB_VCODEC_FFMPEG_MF_H264:
+            w = hb_get_work(h, WORK_ENCAVCODEC);
+            w->codec_param = AV_CODEC_ID_H264;
+            break;
+        case HB_VCODEC_FFMPEG_MF_H265:
             w = hb_get_work(h, WORK_ENCAVCODEC);
             w->codec_param = AV_CODEC_ID_HEVC;
             break;
@@ -539,6 +553,9 @@ void hb_display_job_info(hb_job_t *job)
                 case HB_VCODEC_FFMPEG_NVENC_H265:
                 case HB_VCODEC_FFMPEG_VT_H264:
                 case HB_VCODEC_FFMPEG_VT_H265:
+                case HB_VCODEC_FFMPEG_VT_H265_10BIT:
+                case HB_VCODEC_FFMPEG_MF_H264:
+                case HB_VCODEC_FFMPEG_MF_H265:
                     hb_log("     + profile: %s", job->encoder_profile);
                 default:
                     break;
@@ -563,6 +580,9 @@ void hb_display_job_info(hb_job_t *job)
                 case HB_VCODEC_FFMPEG_VT_H264:
                 // VT h.265 currently only supports auto level
                 // case HB_VCODEC_FFMPEG_VT_H265:
+                // MF h.264/h.265 currently only supports auto level
+                // case HB_VCODEC_FFMPEG_MF_H264:
+                // case HB_VCODEC_FFMPEG_MF_H265:
                     hb_log("     + level:   %s", job->encoder_level);
                 default:
                     break;
@@ -593,6 +613,28 @@ void hb_display_job_info(hb_job_t *job)
 
         hb_log("     + color profile: %d-%d-%d",
                job->color_prim, job->color_transfer, job->color_matrix);
+
+        if (job->color_transfer == HB_COLR_TRA_SMPTEST2084)
+        {
+            if (job->mastering.has_primaries || job->mastering.has_luminance)
+            {
+                hb_log("     + mastering display metadata: r(%5.4f,%5.4f) g(%5.4f,%5.4f) b(%5.4f %5.4f) wp(%5.4f, %5.4f) min_luminance=%f, max_luminance=%f",
+                       hb_q2d(job->mastering.display_primaries[0][0]),
+                       hb_q2d(job->mastering.display_primaries[0][1]),
+                       hb_q2d(job->mastering.display_primaries[1][0]),
+                       hb_q2d(job->mastering.display_primaries[1][1]),
+                       hb_q2d(job->mastering.display_primaries[2][0]),
+                       hb_q2d(job->mastering.display_primaries[2][1]),
+                       hb_q2d(job->mastering.white_point[0]), hb_q2d(job->mastering.white_point[1]),
+                       hb_q2d(job->mastering.min_luminance), hb_q2d(job->mastering.max_luminance));
+            }
+            if (job->coll.max_cll && job->coll.max_fall)
+            {
+                hb_log("     + content light level: max_cll=%u, max_fall=%u",
+                       job->coll.max_cll,
+                       job->coll.max_fall);
+            }
+        }
     }
 
     if (job->indepth_scan)
@@ -801,11 +843,38 @@ static int bit_depth_is_supported(hb_job_t * job, int bit_depth)
     return 1;
 }
 
+static int pix_fmt_is_supported(hb_job_t * job, int pix_fmt)
+{
+    for (int i = 0; i < hb_list_count(job->list_filter); i++)
+    {
+        hb_filter_object_t *filter = hb_list_item(job->list_filter, i);
+
+        switch (filter->id)
+        {
+            case HB_FILTER_DETELECINE:
+            case HB_FILTER_COMB_DETECT:
+            case HB_FILTER_DECOMB:
+            case HB_FILTER_DENOISE:
+            case HB_FILTER_NLMEANS:
+            case HB_FILTER_CHROMA_SMOOTH:
+            case HB_FILTER_LAPSHARP:
+            case HB_FILTER_UNSHARP:
+            case HB_FILTER_GRAYSCALE:
+                if (pix_fmt != AV_PIX_FMT_YUV420P)
+                {
+                    return 0;
+                }
+        }
+    }
+
+    return 1;
+}
+
 static int get_best_pix_ftm(hb_job_t * job)
 {
     int bit_depth = hb_get_bit_depth(job->title->pix_fmt);
 #if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
-    if (hb_qsv_info_get(job->vcodec))
+    if (hb_qsv_encoder_info_get(hb_qsv_get_adapter_index(), job->vcodec))
     {
         if (hb_qsv_full_path_is_enabled(job))
         {
@@ -825,6 +894,13 @@ static int get_best_pix_ftm(hb_job_t * job)
         }
     }
 #endif
+    if (job->vcodec == HB_VCODEC_FFMPEG_MF_H264 || job->vcodec == HB_VCODEC_FFMPEG_MF_H265)
+    {
+        if (pix_fmt_is_supported(job, AV_PIX_FMT_NV12))
+        {
+            return AV_PIX_FMT_NV12;
+        }
+    }
     if (bit_depth >= 12 && bit_depth_is_supported(job, 12))
     {
         return AV_PIX_FMT_YUV420P12;
@@ -1388,7 +1464,6 @@ static void do_job(hb_job_t *job)
 #if HB_PROJECT_FEATURE_QSV
     if (hb_qsv_is_enabled(job))
     {
-        job->qsv.ctx = hb_qsv_context_init();
 #if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
         if (hb_qsv_full_path_is_enabled(job))
         {
@@ -1483,6 +1558,9 @@ static void do_job(hb_job_t *job)
             i++;
         }
         job->pix_fmt = init.pix_fmt;
+        job->color_prim = init.color_prim;
+        job->color_transfer = init.color_transfer;
+        job->color_matrix = init.color_matrix;
         job->width = init.geometry.width;
         job->height = init.geometry.height;
         job->par = init.geometry.par;
@@ -1537,33 +1615,14 @@ static void do_job(hb_job_t *job)
     hb_reduce(&job->vrate.num, &job->vrate.den,
                job->vrate.num,  job->vrate.den);
 
-#if HB_PROJECT_FEATURE_QSV
-#if 0 // TODO: re-implement QSV zerocopy path
-    if (hb_qsv_decode_is_enabled(job) && (job->vcodec & HB_VCODEC_QSV_MASK))
+    job->fifo_mpeg2  = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
+    job->fifo_raw    = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
+    if (!job->indepth_scan)
     {
-        job->fifo_mpeg2  = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
-        job->fifo_raw    = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
-        if (!job->indepth_scan)
-        {
-            // When doing subtitle indepth scan, the pipeline ends at sync
-            job->fifo_sync   = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
-            job->fifo_render = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
-            job->fifo_mpeg4  = hb_fifo_init( FIFO_MINI, FIFO_MINI_WAKE );
-        }
-    }
-    else
-#endif // QSV zerocopy path
-#endif
-    {
-        job->fifo_mpeg2  = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
-        job->fifo_raw    = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
-        if (!job->indepth_scan)
-        {
-            // When doing subtitle indepth scan, the pipeline ends at sync
-            job->fifo_sync   = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
-            job->fifo_render = NULL; // Attached to filter chain
-            job->fifo_mpeg4  = hb_fifo_init( FIFO_LARGE, FIFO_LARGE_WAKE );
-        }
+        // When doing subtitle indepth scan, the pipeline ends at sync
+        job->fifo_sync   = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
+        job->fifo_render = NULL; // Attached to filter chain
+        job->fifo_mpeg4  = hb_fifo_init( FIFO_LARGE, FIFO_LARGE_WAKE );
     }
 
     result = sanitize_audio(job);
@@ -1999,7 +2058,7 @@ void hb_work_loop( void * _w )
  * Loops calling work function for associated filter object.
  * Sleeps when fifo is full.
  * Monitors work done indicator.
- * Exits loop when work indiactor is set.
+ * Exits loop when work indicator is set.
  * @param _w Handle to work object.
  */
 static void filter_loop( void * _f )

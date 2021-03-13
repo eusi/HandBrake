@@ -382,7 +382,11 @@ static hb_buffer_t * CreateBlackBuf( sync_stream_t * stream,
                 linesizes[i] = buf->plane[i].stride;
             }
             av_image_fill_black(planes, linesizes, stream->common->job->pix_fmt,
-                                AVCOL_RANGE_JPEG, buf->f.width, buf->f.height);
+                                stream->common->job->color_range, buf->f.width, buf->f.height);
+            buf->f.color_prim = stream->common->job->title->color_prim;
+            buf->f.color_transfer = stream->common->job->title->color_transfer;
+            buf->f.color_matrix = stream->common->job->title->color_matrix;
+            buf->f.color_range = stream->common->job->color_range;
         }
         else
         {
@@ -461,8 +465,19 @@ static void alignStream( sync_common_t * common, sync_stream_t * stream,
                 buf = hb_list_item(other_stream->in_queue, 0);
                 if (buf->s.start < pts)
                 {
-                    hb_list_rem(other_stream->in_queue, buf);
-                    hb_buffer_close(&buf);
+                    if (other_stream->type == SYNC_TYPE_SUBTITLE &&
+                        buf->s.stop > pts)
+                    {
+                        // Subtitle ends after start time, keep sub and
+                        // adjust it's start time
+                        buf->s.start = pts;
+                        break;
+                    }
+                    else
+                    {
+                        hb_list_rem(other_stream->in_queue, buf);
+                        hb_buffer_close(&buf);
+                    }
                 }
                 else
                 {
@@ -1419,8 +1434,7 @@ static int OutputBuffer( sync_common_t * common )
                 hb_list_count(stream->in_queue) > min)
             {
                 buf = hb_list_item(stream->in_queue, 0);
-                if (buf->s.start < pts &&
-                    !(buf->s.flags & HB_BUF_FLAG_EOF))
+                if (buf->s.start < pts)
                 {
                     pts = buf->s.start;
                     out_stream = stream;
@@ -1491,8 +1505,7 @@ static int OutputBuffer( sync_common_t * common )
                     out_stream->frame_count = 0;
                 }
             }
-            else if (common->wait_for_pts &&
-                     out_stream->type != SYNC_TYPE_SUBTITLE)
+            else if (common->wait_for_pts)
             {
                 if (buf->s.start >= common->pts_to_start)
                 {
@@ -2902,7 +2915,7 @@ static int syncVideoWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
     // as currently for such support we cannot allocate >64 slices per texture
     // due to MSFT limitation, not impacting other cases
     if (pv->common->job->qsv.ctx && (pv->common->job->qsv.ctx->la_is_enabled == 1)
-        && hb_qsv_full_path_is_enabled(pv->common->job))
+        && pv->common->job->qsv.ctx->full_path_is_enabled)
     {
         pv->stream->max_len = SYNC_MIN_VIDEO_QUEUE_LEN;
         pv->common->job->qsv.ctx->la_is_enabled++;

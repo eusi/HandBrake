@@ -209,7 +209,7 @@ static int decavcodecaInit( hb_work_object_t * w, hb_job_t * job )
         // Currently, samplerate conversion is performed in sync.c
         // So set output samplerate to input samplerate
         // This should someday get reworked to be part of an audio
-        // filter pipleine.
+        // filter pipeline.
         pv->resample =
             hb_audio_resample_init(AV_SAMPLE_FMT_FLT,
                                    w->audio->config.in.samplerate,
@@ -962,6 +962,14 @@ static hb_buffer_t *copy_frame( hb_work_private_t *pv )
         out = hb_avframe_to_video_buffer(pv->frame, (AVRational){1,1});
     }
 
+    // Make sure every frame is tagged.
+    if (out->f.color_prim == HB_COLR_PRI_UNDEF || out->f.color_transfer == HB_COLR_TRA_UNDEF || out->f.color_matrix == HB_COLR_MAT_UNDEF)
+    {
+        out->f.color_prim = pv->title->color_prim;
+        out->f.color_transfer = pv->title->color_transfer;
+        out->f.color_matrix = pv->title->color_matrix;
+    }
+
     if (pv->frame->pts != AV_NOPTS_VALUE)
     {
         reordered = reordered_hash_rem(pv, pv->frame->pts);
@@ -1087,6 +1095,29 @@ static hb_buffer_t *copy_frame( hb_work_private_t *pv )
                 cc_buf->s.scr_sequence = out->s.scr_sequence;
             }
             cc_send_to_decoder(pv, cc_buf);
+        }
+    }
+
+    // Check for HDR mastering data
+    sd = av_frame_get_side_data(pv->frame, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
+    if (sd != NULL)
+    {
+        if (!pv->job && pv->title && sd->size > 0)
+        {
+            AVMasteringDisplayMetadata *mastering = (AVMasteringDisplayMetadata *)sd->data;
+            pv->title->mastering = hb_mastering_ff_to_hb(*mastering);
+        }
+    }
+
+    // Check for HDR content light level data
+    sd = av_frame_get_side_data(pv->frame, AV_FRAME_DATA_CONTENT_LIGHT_LEVEL);
+    if (sd != NULL)
+    {
+        if (!pv->job && pv->title && sd->size > 0)
+        {
+            AVContentLightMetadata *coll = (AVContentLightMetadata *)sd->data;
+            pv->title->coll.max_cll = coll->MaxCLL;
+            pv->title->coll.max_fall = coll->MaxFALL;
         }
     }
 
@@ -1392,7 +1423,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         pv->qsv.config.io_pattern = MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
         if(hb_qsv_full_path_is_enabled(job))
         {
-            hb_qsv_info_t *info = hb_qsv_info_get(job->vcodec);
+            hb_qsv_info_t *info = hb_qsv_encoder_info_get(hb_qsv_get_adapter_index(), job->vcodec);
             if (info != NULL)
             {
                 // setup the QSV configuration
@@ -1412,6 +1443,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
                     hb_error( "decavcodecvInit: no context" );
                     return 1;
                 }
+                pv->job->qsv.ctx->full_path_is_enabled = 1;
                 if (!pv->job->qsv.ctx->hb_dec_qsv_frames_ctx)
                 {
                     pv->job->qsv.ctx->hb_dec_qsv_frames_ctx = av_mallocz(sizeof(HBQSVFramesContext));
@@ -2100,32 +2132,8 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
     info->video_decode_support = HB_DECODE_SUPPORT_SW;
 
 #if HB_PROJECT_FEATURE_QSV
-    if (avcodec_find_decoder_by_name(hb_qsv_decode_get_codec_name(pv->context->codec_id)))
-    {
-        switch (pv->context->codec_id)
-        {
-            case AV_CODEC_ID_HEVC:
-            case AV_CODEC_ID_H264:
-                if (pv->context->pix_fmt == AV_PIX_FMT_YUV420P  ||
-                    pv->context->pix_fmt == AV_PIX_FMT_YUVJ420P ||
-                    pv->context->pix_fmt == AV_PIX_FMT_YUV420P10LE)
-                {
-                    info->video_decode_support |= HB_DECODE_SUPPORT_QSV;
-                }
-                break;
-            case AV_CODEC_ID_AV1:
-                if ((qsv_hardware_generation(hb_get_cpu_platform()) >= QSV_G8) &&
-                    (pv->context->pix_fmt == AV_PIX_FMT_YUV420P  ||
-                    pv->context->pix_fmt == AV_PIX_FMT_YUVJ420P ||
-                    pv->context->pix_fmt == AV_PIX_FMT_YUV420P10LE))
-                {
-                    info->video_decode_support |= HB_DECODE_SUPPORT_QSV;
-                }
-                break;
-            default:
-                break;
-        }
-    }
+    if (hb_qsv_decode_codec_supported_codec(hb_qsv_get_adapter_index(), pv->context->codec_id, pv->context->pix_fmt))
+        info->video_decode_support |= HB_DECODE_SUPPORT_QSV;
 #endif
 
     return 1;

@@ -19,7 +19,7 @@ namespace HandBrakeWPF.ViewModels
     using System.Windows;
     using System.Windows.Media.Imaging;
 
-    using HandBrake.Interop.Interop.Model.Encoding;
+    using HandBrake.Interop.Interop.Interfaces.Model.Picture;
 
     using HandBrakeWPF.Factories;
     using HandBrakeWPF.Properties;
@@ -489,7 +489,7 @@ namespace HandBrakeWPF.ViewModels
             SubtitleTrack scanTrack = null;
             foreach (var track in encodeTask.SubtitleTracks)
             {
-                if (track.SourceTrack != null && track.SourceTrack.SubtitleType == SubtitleType.ForeignAudioSearch)
+                if (track.SourceTrack != null && track.SourceTrack.IsFakeForeignAudioScanTrack)
                 {
                     scanTrack = track;
                     break;

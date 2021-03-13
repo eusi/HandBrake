@@ -893,7 +893,7 @@ int hb_detect_comb( hb_buffer_t * buf, int color_equal, int color_diff, int thre
 
         // compare results
         /*  The final cc score for a plane is the percentage of combed pixels it contains.
-            Because sensitivity goes down to hundreths of a percent, multiply by 1000
+            Because sensitivity goes down to hundredths of a percent, multiply by 1000
             so it will be easy to compare against the threshold value which is an integer. */
         cc[k] = (int)( ( cc_1 + cc_2 ) * 1000.0 / ( width * height ) );
     }
@@ -1830,10 +1830,9 @@ int hb_global_init()
 #if HB_PROJECT_FEATURE_QSV
     if (!disable_hardware)
     {
-        result = hb_qsv_info_init();
-        if (result < 0)
+        if (hb_qsv_available() < 0)
         {
-            hb_error("hb_qsv_info_init failed!");
+            hb_error("hb_qsv_available failed!");
             return -1;
         }
         hb_param_configure_qsv();

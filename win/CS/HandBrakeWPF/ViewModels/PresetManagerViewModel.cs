@@ -390,7 +390,7 @@ namespace HandBrakeWPF.ViewModels
             audioDefaultsViewModel.ResetApplied();
             audioDefaultsViewModel.Setup(this.selectedPreset, this.selectedPreset.Task);
 
-            this.windowManager.ShowDialog(audioDefaultsViewModel);
+            this.windowManager.ShowDialogAsync(audioDefaultsViewModel);
             if (audioDefaultsViewModel.IsApplied)
             {
                 this.SelectedPreset.AudioTrackBehaviours = audioDefaultsViewModel.AudioBehaviours.Clone();
@@ -438,7 +438,7 @@ namespace HandBrakeWPF.ViewModels
 
         public void LaunchHelp()
         {
-            Process.Start("https://handbrake.fr/docs/en/latest/advanced/custom-presets.html");
+            Process.Start("explorer.exe", "https://handbrake.fr/docs/en/latest/advanced/custom-presets.html");
         }
 
         private void SetDefaultPreset()

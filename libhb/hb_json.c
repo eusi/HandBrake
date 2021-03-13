@@ -530,6 +530,13 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     json_error_t error;
     int subtitle_search_burn;
     int ii;
+    int adapter_index;
+
+#if HB_PROJECT_FEATURE_QSV
+    adapter_index = job->qsv.ctx->dx_index;
+#else
+    adapter_index = 0;
+#endif
 
     if (job == NULL || job->title == NULL)
         return NULL;
@@ -538,7 +545,6 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     // necessary PAR value
 
     subtitle_search_burn = job->select_subtitle_config.dest == RENDERSUB;
-
     dict = json_pack_ex(&error, 0,
     "{"
     // SequenceID
@@ -550,8 +556,8 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     "s:{s:o, s:o, s:o,},"
     // PAR {Num, Den}
     "s:{s:o, s:o},"
-    // Video {Encoder, QSV {Decode, AsyncDepth}}
-    "s:{s:o, s:{s:o, s:o}},"
+    // Video {Encoder, QSV {Decode, AsyncDepth, AdapterIndex}}
+    "s:{s:o, s:{s:o, s:o, s:o}},"
     // Audio {CopyMask, FallbackEncoder, AudioList []}
     "s:{s:[], s:o, s:[]},"
     // Subtitles {Search {Enable, Forced, Default, Burn}, SubtitleList []}
@@ -580,6 +586,7 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
             "QSV",
                 "Decode",       hb_value_bool(job->qsv.decode),
                 "AsyncDepth",   hb_value_int(job->qsv.async_depth),
+                "AdapterIndex", hb_value_int(adapter_index),
         "Audio",
             "CopyMask",
             "FallbackEncoder",  hb_value_int(job->acodec_fallback),
@@ -686,6 +693,55 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     {
         hb_dict_set(video_dict, "ColorMatrixOverride",
                     hb_value_int(job->color_matrix_override));
+    }
+
+    // Mastering metadata
+    hb_dict_t *mastering_dict;
+    if (job->mastering.has_primaries || job->mastering.has_luminance)
+    {
+        mastering_dict = json_pack_ex(&error, 0,
+        "{"
+        // DisplayPrimaries[3][2]
+        "s:[[[ii],[ii]],[[ii],[ii]],[[ii],[ii]]],"
+        // WhitePoint[2],
+        "s:[[i,i],[i,i]],"
+        // MinLuminance, MaxLuminance, HasPrimaries, HasLuminance
+        "s:[i,i],s:[i,i],s:b,s:b"
+        "}",
+            "DisplayPrimaries", job->mastering.display_primaries[0][0].num,
+                                job->mastering.display_primaries[0][0].den,
+                                job->mastering.display_primaries[0][1].num,
+                                job->mastering.display_primaries[0][1].den,
+                                job->mastering.display_primaries[1][0].num,
+                                job->mastering.display_primaries[1][0].den,
+                                job->mastering.display_primaries[1][1].num,
+                                job->mastering.display_primaries[1][1].den,
+                                job->mastering.display_primaries[2][0].num,
+                                job->mastering.display_primaries[2][0].den,
+                                job->mastering.display_primaries[2][1].num,
+                                job->mastering.display_primaries[2][1].den,
+            "WhitePoint", job->mastering.white_point[0].num,
+                          job->mastering.white_point[0].den,
+                          job->mastering.white_point[1].num,
+                          job->mastering.white_point[1].den,
+            "MinLuminance", job->mastering.min_luminance.num,
+                            job->mastering.min_luminance.den,
+            "MaxLuminance", job->mastering.max_luminance.num,
+                            job->mastering.max_luminance.den,
+            "HasPrimaries", job->mastering.has_primaries,
+            "HasLuminance", job->mastering.has_luminance
+        );
+        hb_dict_set(video_dict, "Mastering", mastering_dict);
+    }
+
+    // Content Light Level metadata
+    hb_dict_t *coll_dict;
+    if (job->coll.max_cll && job->coll.max_fall)
+    {
+        coll_dict = json_pack_ex(&error, 0, "{s:i, s:i}",
+            "MaxCLL",  job->coll.max_cll,
+            "MaxFALL", job->coll.max_fall);
+        hb_dict_set(video_dict, "ContentLightLevel", coll_dict);
     }
 
     if (job->vquality > HB_INVALID_VIDEO_QUALITY)
@@ -928,6 +984,7 @@ typedef const char * const_str_t;
 
 static double*      unpack_f(double *f)     { return f; }
 static int*         unpack_i(int *i)        { return i; }
+static unsigned*    unpack_u(unsigned *u)   { return u; }
 static json_int_t*  unpack_I(json_int_t *i) { return i; }
 static int *        unpack_b(int *b)        { return b; }
 static const_str_t* unpack_s(const_str_t *s){ return s; }
@@ -1026,6 +1083,8 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     hb_value_array_t * subtitle_list = NULL;
     hb_value_array_t * filter_list = NULL;
     hb_value_t       * mux = NULL, * vcodec = NULL;
+    hb_dict_t        * mastering_dict = NULL;
+    hb_dict_t        * coll_dict = NULL;
     hb_value_t       * acodec_copy_mask = NULL, * acodec_fallback = NULL;
     const char       * destfile = NULL;
     const char       * range_type = NULL;
@@ -1042,6 +1101,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     json_int_t         range_start = -1, range_end = -1, range_seek_points = -1;
     int                vbitrate = -1;
     double             vquality = HB_INVALID_VIDEO_QUALITY;
+    int                adapter_index = -1;
 
     result = json_unpack_ex(dict, &error, 0,
     "{"
@@ -1059,14 +1119,18 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     //       TwoPass, Turbo,
     //       ColorFormat, ColorRange,
     //       ColorPrimaries, ColorTransfer, ColorMatrix,
+    //       Mastering,
+    //       ContentLightLevel,
     //       ColorPrimariesOverride, ColorTransferOverride, ColorMatrixOverride,
-    //       QSV {Decode, AsyncDepth}}
+    //       QSV {Decode, AsyncDepth, AdapterIndex}}
     "s:{s:o, s?F, s?i, s?s, s?s, s?s, s?s, s?s,"
     "   s?b, s?b,"
     "   s?i, s?i,"
     "   s?i, s?i, s?i,"
+    "   s?o,"
+    "   s?o,"
     "   s?i, s?i, s?i,"
-    "   s?{s?b, s?i}},"
+    "   s?{s?b, s?i, s?i}},"
     // Audio {CopyMask, FallbackEncoder, AudioList}
     "s?{s?o, s?o, s?o},"
     // Subtitle {Search {Enable, Forced, Default, Burn}, SubtitleList}
@@ -1113,12 +1177,15 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             "ColorPrimaries",       unpack_i(&job->color_prim),
             "ColorTransfer",        unpack_i(&job->color_transfer),
             "ColorMatrix",          unpack_i(&job->color_matrix),
+            "Mastering",            unpack_o(&mastering_dict),
+            "ContentLightLevel",    unpack_o(&coll_dict),
             "ColorPrimariesOverride", unpack_i(&job->color_prim_override),
             "ColorTransferOverride",  unpack_i(&job->color_transfer_override),
             "ColorMatrixOverride",    unpack_i(&job->color_matrix_override),
             "QSV",
                 "Decode",           unpack_b(&job->qsv.decode),
                 "AsyncDepth",       unpack_i(&job->qsv.async_depth),
+                "AdapterIndex",     unpack_i(&adapter_index),
         "Audio",
             "CopyMask",             unpack_o(&acodec_copy_mask),
             "FallbackEncoder",      unpack_o(&acodec_fallback),
@@ -1139,15 +1206,6 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         hb_error("hb_dict_to_job: failed to parse dict: %s", error.text);
         goto fail;
     }
-    // Make sure QSV Decode is only True if the hardware is available.
-    job->qsv.decode = job->qsv.decode && hb_qsv_available();
-#if HB_PROJECT_FEATURE_QSV
-    int async_depth_default = hb_qsv_param_default_async_depth();
-    if(job->qsv.async_depth <= 0 || job->qsv.async_depth > async_depth_default)
-    {
-        job->qsv.async_depth = async_depth_default;
-    }
-#endif
     // Lookup mux id
     if (hb_value_type(mux) == HB_VALUE_TYPE_STRING)
     {
@@ -1217,6 +1275,9 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     hb_job_set_encoder_level(job, video_level);
     hb_job_set_encoder_options(job, video_options);
 
+#if HB_PROJECT_FEATURE_QSV
+    job->qsv.ctx->dx_index = adapter_index;
+#endif
     // If both vbitrate and vquality were specified, vbitrate is used;
     // we need to ensure the unused rate contro mode is always set to an
     // invalid value, as if both values are valid, behavior is undefined
@@ -1236,6 +1297,63 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
 
     job->select_subtitle_config.dest = subtitle_search_burn ?
                                             RENDERSUB : PASSTHRUSUB;
+
+    if (mastering_dict != NULL)
+    {
+        result = json_unpack_ex(mastering_dict, &error, 0,
+        "{"
+        // DisplayPrimaries[3][2]
+        "s:[[[ii],[ii]],[[ii],[ii]],[[ii],[ii]]],"
+        // WhitePoint[2],
+        "s:[[i,i],[i,i]],"
+        // MinLuminance, MaxLuminance, HasPrimaries, HasLuminance
+        "s:[i,i],s:[i,i],s:b,s:b"
+        "}",
+            "DisplayPrimaries", unpack_i(&job->mastering.display_primaries[0][0].num),
+                                unpack_i(&job->mastering.display_primaries[0][0].den),
+                                unpack_i(&job->mastering.display_primaries[0][1].num),
+                                unpack_i(&job->mastering.display_primaries[0][1].den),
+                                unpack_i(&job->mastering.display_primaries[1][0].num),
+                                unpack_i(&job->mastering.display_primaries[1][0].den),
+                                unpack_i(&job->mastering.display_primaries[1][1].num),
+                                unpack_i(&job->mastering.display_primaries[1][1].den),
+                                unpack_i(&job->mastering.display_primaries[2][0].num),
+                                unpack_i(&job->mastering.display_primaries[2][0].den),
+                                unpack_i(&job->mastering.display_primaries[2][1].num),
+                                unpack_i(&job->mastering.display_primaries[2][1].den),
+            "WhitePoint", unpack_i(&job->mastering.white_point[0].num),
+                          unpack_i(&job->mastering.white_point[0].den),
+                          unpack_i(&job->mastering.white_point[1].num),
+                          unpack_i(&job->mastering.white_point[1].den),
+            "MinLuminance", unpack_i(&job->mastering.min_luminance.num),
+                            unpack_i(&job->mastering.min_luminance.den),
+            "MaxLuminance", unpack_i(&job->mastering.max_luminance.num),
+                            unpack_i(&job->mastering.max_luminance.den),
+            "HasPrimaries", unpack_b(&job->mastering.has_primaries),
+            "HasLuminance", unpack_b(&job->mastering.has_luminance)
+        );
+        if (result < 0)
+        {
+            hb_error("hb_dict_to_job: failed to parse mastering_dict: %s", error.text);
+            goto fail;
+        }
+    }
+
+    if (coll_dict != NULL)
+    {
+        result = json_unpack_ex(coll_dict, &error, 0,
+        // {MaxCLL, MaxFALL}
+        "{s:i, s:i}",
+            "MaxCLL",   unpack_u(&job->coll.max_cll),
+            "MaxFALL",  unpack_u(&job->coll.max_fall)
+        );
+        if (result < 0)
+        {
+            hb_error("hb_dict_to_job: failed to parse coll_dict: %s", error.text);
+            goto fail;
+        }
+    }
+
     if (meta_dict != NULL)
     {
         // By default, the job is populated with the metadata
