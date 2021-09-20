@@ -118,9 +118,8 @@
                           HorizontalAlignment="Left" IsChecked="{Binding SubtitleBehaviours.AddClosedCaptions}"/>
             <CheckBox Content="{x:Static Properties:Resources.SubtitlesView_AddForeignAudioSearch}"  Grid.Column="1" Grid.Row="4" Margin="0,5,0,0" 
                           HorizontalAlignment="Left" IsChecked="{Binding SubtitleBehaviours.AddForeignAudioScanTrack}"/>
-
-            <!--- -->
-            <TextBlock Text="Default Track Name:" Grid.Row="5" Grid.Column="0" Margin="0,5,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" />
+            <!--- Default Subtitle pattern -->
+            <TextBlock Text="Default Subtitle Name:" Grid.Row="5" Grid.Column="0" Margin="0,5,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" />
             <TextBox Text="{Binding SubtitleBehaviours.SubtitleDefaultKeyword, UpdateSourceTrigger=PropertyChanged}" 
                              Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,15,10,2" HorizontalAlignment="Stretch" >
                 <TextBox.ContextMenu>

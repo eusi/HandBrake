@@ -219,7 +219,7 @@ namespace HandBrakeWPF.ViewModels
             this.SubtitleBehaviours.AddClosedCaptions = false;
             this.SubtitleBehaviours.AddForeignAudioScanTrack = false;
             this.subtitleBehaviours.SubtitleDefaultKeyword = string.Empty;
-            this.SubtitleBehaviours.SelectedLangauges.Clear();
+            this.SubtitleBehaviours.SelectedLanguages.Clear();
 
             // Step 2, Get all the languages
             IDictionary<string, string> langList = LanguageUtilities.MapLanguages();

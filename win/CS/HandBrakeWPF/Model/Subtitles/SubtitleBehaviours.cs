@@ -134,9 +134,6 @@ namespace HandBrakeWPF.Model.Subtitles
             }
         }
 
-        /// <summary>
-        /// Gets or sets a value indicating whether add closed captions.
-        /// </summary>
         public bool AddClosedCaptions
         {
             get
@@ -152,32 +149,6 @@ namespace HandBrakeWPF.Model.Subtitles
                 this.addClosedCaptions = value;
                 this.NotifyOfPropertyChange(() => this.AddClosedCaptions);
             }
-        }
-
-        /// <summary>
-        /// Clone this object
-        /// </summary>
-        /// <returns>
-        /// The <see cref="object"/>.
-        /// </returns>
-        public SubtitleBehaviours Clone()
-        {
-            SubtitleBehaviours cloned = new SubtitleBehaviours
-            {
-                SelectedBehaviour = this.selectedBehaviour, 
-                SelectedBurnInBehaviour = this.selectedBurnInBehaviour, 
-                SelectedLangauges = new BindingList<string>(), 
-                AddClosedCaptions = this.addClosedCaptions,
-                AddForeignAudioScanTrack = this.addForeignAudioScanTrack,
-                SubtitleDefaultKeyword = this.subtitleDefaultKeyword,
-            };
-
-            foreach (var item in this.SelectedLangauges)
-            {
-                cloned.SelectedLangauges.Add(item);
-            }
-
-            return cloned;
         }
     }
 }
