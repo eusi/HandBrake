@@ -139,13 +139,9 @@ void      * hb_list_item( const hb_list_t *, int );
 void        hb_list_close( hb_list_t ** );
 
 void hb_reduce( int *x, int *y, int num, int den );
-void hb_limit_rational( int *x, int *y, int num, int den, int limit );
+void hb_limit_rational( int *x, int *y, int64_t num, int64_t den, int limit );
 void hb_reduce64( int64_t *x, int64_t *y, int64_t num, int64_t den );
 void hb_limit_rational64( int64_t *x, int64_t *y, int64_t num, int64_t den, int64_t limit );
-
-#define HB_KEEP_WIDTH           0x01
-#define HB_KEEP_HEIGHT          0x02
-#define HB_KEEP_DISPLAY_ASPECT  0x04
 
 void hb_job_set_encoder_preset (hb_job_t *job, const char *preset);
 void hb_job_set_encoder_tune   (hb_job_t *job, const char *tune);
@@ -188,16 +184,8 @@ void hb_attachment_close(hb_attachment_t **attachment);
 hb_metadata_t * hb_metadata_init(void);
 hb_metadata_t * hb_metadata_copy(const hb_metadata_t *src);
 void hb_metadata_close(hb_metadata_t **metadata);
-void hb_metadata_set_name( hb_metadata_t *metadata, const char *name );
-void hb_metadata_set_artist( hb_metadata_t *metadata, const char *artist );
-void hb_metadata_set_composer( hb_metadata_t *metadata, const char *composer );
-void hb_metadata_set_release_date( hb_metadata_t *metadata, const char *release_date );
-void hb_metadata_set_comment( hb_metadata_t *metadata, const char *comment );
-void hb_metadata_set_genre( hb_metadata_t *metadata, const char *genre );
-void hb_metadata_set_album( hb_metadata_t *metadata, const char *album );
-void hb_metadata_set_album_artist( hb_metadata_t *metadata, const char *album_artist );
-void hb_metadata_set_description( hb_metadata_t *metadata, const char *description );
-void hb_metadata_set_long_description( hb_metadata_t *metadata, const char *long_description );
+void hb_update_meta_dict(hb_dict_t * dict, const char * key, const char * value);
+const char * hb_lookup_meta_key(const char * mux_key);
 void hb_metadata_add_coverart( hb_metadata_t *metadata, const uint8_t *data, int size, int type );
 void hb_metadata_rem_coverart( hb_metadata_t *metadata, int ii );
 
@@ -271,15 +259,38 @@ struct hb_geometry_s
     hb_rational_t par;
 };
 
+struct hb_geometry_crop_s
+{
+    int crop[4];
+    int pad[4];
+    hb_geometry_t geometry;
+};
+
+// hb_geometry_settings_s 'keep' flags
+#define HB_KEEP_WIDTH           0x01
+#define HB_KEEP_HEIGHT          0x02
+#define HB_KEEP_DISPLAY_ASPECT  0x04
+#define HB_KEEP_DISPLAY_WIDTH   0x08
+#define HB_KEEP_PAD             0x10
+
+// hb_geometry_settings_s 'flags'
+#define HB_GEO_SCALE_UP         0x01
+#define HB_GEO_SCALE_BEST       0x02
+
 struct hb_geometry_settings_s
 {
-    int mode;                   // Anamorphic mode, see job struct anamorphic
-    int keep;                   // Specifies settings that shouldn't be changed
-    int itu_par;                // use dvd dimensions to determine PAR
-    int modulus;                // pixel alignment for loose anamorphic
-    int crop[4];                // Pixels cropped from source before scaling
-    int maxWidth;               // max destination storage width
-    int maxHeight;              // max destination storage height
+    int mode;               // Anamorphic mode, see job struct anamorphic
+    int keep;               // Specifies settings that shouldn't be changed
+    int flags;              // Flags that affect calculations
+    int itu_par;            // use dvd dimensions to determine PAR
+    int modulus;            // pixel alignment for loose anamorphic
+    int crop[4];            // Pixels cropped from source before scaling
+    int pad[4];             // Pixels cropped from source before scaling
+    int maxWidth;           // max destination storage width
+    int maxHeight;          // max destination storage height
+    int displayWidth;       // display width, used with !HB_KEEP_DISPLAY_ASPECT
+    int displayHeight;      // display height, used with !HB_KEEP_DISPLAY_ASPECT
+                            // Note that display size includes pad!
     hb_geometry_t geometry;
 };
 
@@ -290,6 +301,9 @@ struct hb_image_s
     int max_plane;
     int width;
     int height;
+    int color_prim;
+    int color_transfer;
+    int color_matrix;
     uint8_t *data;
 
     struct image_plane
@@ -395,11 +409,13 @@ const char* hb_video_quality_get_name(uint32_t codec);
 int         hb_video_quality_is_supported(uint32_t codec);
 
 int                hb_video_encoder_is_supported(int encoder);
+int                hb_video_encoder_pix_fmt_is_supported(int encoder, int pix_fmt);
 int                hb_video_encoder_get_depth   (int encoder);
 const char* const* hb_video_encoder_get_presets (int encoder);
 const char* const* hb_video_encoder_get_tunes   (int encoder);
 const char* const* hb_video_encoder_get_profiles(int encoder);
 const char* const* hb_video_encoder_get_levels  (int encoder);
+const int*         hb_video_encoder_get_pix_fmts(int encoder);
 
 void  hb_audio_quality_get_limits(uint32_t codec, float *low, float *high, float *granularity, int *direction);
 float hb_audio_quality_get_best(uint32_t codec, float quality);
@@ -594,11 +610,15 @@ struct hb_job_s
     char           *encoder_level;
     int             areBframes;
 
-    int             pix_fmt;
+    // Pixel format from decoder to the end of the filters chain
+    int             input_pix_fmt;
+    // Pixel format from the end of filters chain to the encoder
+    int             output_pix_fmt;
     int             color_prim;
     int             color_transfer;
     int             color_matrix;
     int             color_range;
+    int             chroma_location;
 
     int             color_prim_override;
     int             color_transfer_override;
@@ -880,7 +900,7 @@ struct hb_audio_config_s
         PRIVATE uint32_t reg_desc; /* Registration descriptor of source */
         PRIVATE uint32_t stream_type; /* Stream type from source stream */
         PRIVATE uint32_t substream_type; /* Substream type for multiplexed streams */
-        PRIVATE uint32_t version; /* Bitsream version */
+        PRIVATE uint32_t version; /* Bitstream version */
         PRIVATE uint32_t flags; /* Bitstream flags, codec-specific */
         PRIVATE uint32_t mode; /* Bitstream mode, codec-specific */
         PRIVATE int samplerate; /* Input sample rate (Hz) */
@@ -1016,7 +1036,7 @@ struct hb_subtitle_s
     const char * name;
     char         lang[1024];
     char         iso639_2[4];
-    uint32_t     attributes; /* Closed Caption, Childrens, Directors etc */
+    uint32_t     attributes; /* Closed Caption, Children, Directors etc */
 
     // Color lookup table for VOB subtitle tracks. Each entry is in YCbCr format.
     // Must be filled out by the demuxer for VOB subtitle tracks.
@@ -1076,16 +1096,7 @@ struct hb_coverart_s
 
 struct hb_metadata_s
 {
-    char  *name;
-    char  *artist;          // Actors
-    char  *composer;
-    char  *release_date;
-    char  *comment;
-    char  *album;           // DVD
-    char  *album_artist;    // Director
-    char  *genre;
-    char  *description;
-    char  *long_description;
+    hb_dict_t * dict;
     hb_list_t * list_coverart;
 };
 
@@ -1120,6 +1131,7 @@ struct hb_title_s
     int             color_transfer;
     int             color_matrix;
     int             color_range;
+    int             chroma_location;
     hb_mastering_display_metadata_t mastering;
     hb_content_light_metadata_t     coll;
     hb_rational_t   vrate;
@@ -1231,6 +1243,7 @@ typedef struct hb_work_info_s
             int           color_transfer;
             int           color_matrix;
             int           color_range;
+            int           chroma_location;
             int           video_decode_support;
         };
         struct
@@ -1332,6 +1345,7 @@ typedef struct hb_filter_init_s
     int             color_transfer;
     int             color_matrix;
     int             color_range;
+    int             chroma_location;
     hb_geometry_t   geometry;
     int             crop[4];
     hb_rational_t   vrate;
@@ -1408,14 +1422,15 @@ enum
     HB_FILTER_HQDN3D = HB_FILTER_DENOISE,
     HB_FILTER_NLMEANS,
     HB_FILTER_CHROMA_SMOOTH,
+    HB_FILTER_ROTATE,
     HB_FILTER_RENDER_SUB,
     HB_FILTER_CROP_SCALE,
     HB_FILTER_LAPSHARP,
     HB_FILTER_UNSHARP,
-    HB_FILTER_ROTATE,
     HB_FILTER_GRAYSCALE,
     HB_FILTER_PAD,
     HB_FILTER_COLORSPACE,
+    HB_FILTER_FORMAT,
 
     // Finally filters that don't care what order they are in,
     // except that they must be after the above filters
@@ -1434,6 +1449,8 @@ hb_filter_object_t * hb_filter_get( int filter_id );
 hb_filter_object_t * hb_filter_init( int filter_id );
 hb_filter_object_t * hb_filter_copy( hb_filter_object_t * filter );
 hb_list_t          * hb_filter_list_copy(const hb_list_t *src);
+hb_dict_t          * hb_filter_dict_find(const hb_value_array_t * list,
+                                         int filter_id);
 hb_filter_object_t * hb_filter_find(const hb_list_t *list, int filter_id);
 void                 hb_filter_close( hb_filter_object_t ** );
 void                 hb_filter_info_close( hb_filter_info_t ** );
@@ -1461,6 +1478,7 @@ char ** hb_str_vsplit( const char * str, char delem );
 
 int hb_yuv2rgb(int yuv);
 int hb_rgb2yuv(int rgb);
+int hb_rgb2yuv_bt709(int rgb);
 
 const char * hb_subsource_name( int source );
 
@@ -1483,6 +1501,7 @@ int hb_output_color_transfer(hb_job_t * job);
 int hb_output_color_matrix(hb_job_t * job);
 
 int hb_get_bit_depth(int format);
+int hb_get_best_pix_fmt(hb_job_t * job);
 
 #define HB_NEG_FLOAT_REG "(([-])?(([0-9]+([.,][0-9]+)?)|([.,][0-9]+))"
 #define HB_FLOAT_REG     "(([0-9]+([.,][0-9]+)?)|([.,][0-9]+))"

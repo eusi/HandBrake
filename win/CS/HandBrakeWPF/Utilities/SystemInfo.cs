@@ -11,8 +11,8 @@ namespace HandBrakeWPF.Utilities
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Management;
+    using System.Runtime.InteropServices;
     using System.Windows.Forms;
 
     using Microsoft.Win32;
@@ -50,17 +50,26 @@ namespace HandBrakeWPF.Utilities
             }
         }
 
+        public static bool IsArmDevice => RuntimeInformation.ProcessArchitecture == Architecture.Arm64;
+        
         public static int GetCpuCoreCount
         {
             get
             {
+                if (IsArmDevice)
+                {
+                    // TODO find a better way to get logical count. 
+                    // This is for ARM64 code path as System.Management is not available.
+                    return Environment.ProcessorCount;
+                }
+
                 if (cpuCoreCount != -1)
                 {
                     return cpuCoreCount;
                 }
 
                 int coreCount = 0;
-                var cpuList = new System.Management.ManagementObjectSearcher("Select NumberOfCores from Win32_Processor").Get();
+                var cpuList = new ManagementObjectSearcher("Select NumberOfCores from Win32_Processor").Get();
 
                 foreach (var item in cpuList)
                 {
@@ -90,6 +99,15 @@ namespace HandBrakeWPF.Utilities
             get
             {
                 List<string> gpuInfo = new List<string>();
+
+                if (IsArmDevice)
+                {
+                    // We don't have .NET Framework on ARM64 devices so cannot use System.Management
+                    // Default to ARM Chipset for now.
+                    gpuInfo.Add("ARM Chipset");
+
+                    return gpuInfo;
+                }
 
                 try
                 {
@@ -133,16 +151,8 @@ namespace HandBrakeWPF.Utilities
 
         public static bool IsWindows10()
         {
-            var reg = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
-
-            string productName = (string)reg.GetValue("ProductName");
-
-            if (productName.StartsWith("Windows 10"))
-            {
-                return true;
-            }
-
-            if (productName.StartsWith("Windows Server 2019"))
+            OperatingSystem os = Environment.OSVersion;
+            if (os.Version.Major >= 10)
             {
                 return true;
             }

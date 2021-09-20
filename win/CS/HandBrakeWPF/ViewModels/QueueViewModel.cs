@@ -23,7 +23,6 @@ namespace HandBrakeWPF.ViewModels
     using Caliburn.Micro;
 
     using HandBrakeWPF.EventArgs;
-    using HandBrakeWPF.Extensions;
     using HandBrakeWPF.Model.Options;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Interfaces;
@@ -127,7 +126,7 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        public bool JobInfoVisible => SelectedItems.Count == 1;
+        public bool JobInfoVisible => SelectedItems.Count == 1 && this.SelectedTask != null && !this.SelectedTask.IsBreakpointTask;
 
         public int SelectedTabIndex { get; set; }
 
@@ -142,7 +141,7 @@ namespace HandBrakeWPF.ViewModels
         public bool CanPerformActionOnSource => this.SelectedTask != null;
 
         public bool CanPlayFile =>
-            this.SelectedTask != null && this.SelectedTask.Task.Destination != null && 
+            this.SelectedTask != null && this.SelectedTask.Task != null && this.SelectedTask.Task.Destination != null && 
             this.SelectedTask.Status == QueueItemStatus.Completed && File.Exists(this.SelectedTask.Task.Destination);
 
         public bool StatsVisible
@@ -180,7 +179,7 @@ namespace HandBrakeWPF.ViewModels
         public void Clear()
         {
             MessageBoxResult result = this.errorService.ShowMessageBox(
-                Resources.QueueViewModel_ClearQueueConfrimation, Resources.Confirm, MessageBoxButton.YesNo, MessageBoxImage.Question);
+                Resources.QueueViewModel_ClearQueueConfirmation, Resources.Confirm, MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result == MessageBoxResult.Yes)
             {
                 this.queueProcessor.Clear();
@@ -329,13 +328,25 @@ namespace HandBrakeWPF.ViewModels
 
         public void StartQueue()
         {
-            if (!this.QueueTasks.Any(a => a.Status == QueueItemStatus.Waiting || a.Status == QueueItemStatus.InProgress))
+            // Remove any old Stop Tasks.
+            if (this.QueueTasks.Any(t => t.TaskType == QueueTaskType.Breakpoint))
+            {
+                IEnumerable<QueueTask> stopTasks = this.QueueTasks.Where(t => t.TaskType == QueueTaskType.Breakpoint).ToList();
+                foreach (var item in stopTasks)
+                {
+                    this.QueueTasks.Remove(item);
+                }
+            }
+
+            // Check for Pending Jobs
+            if (!this.QueueTasks.Any(a => a.Status == QueueItemStatus.Waiting || a.Status == QueueItemStatus.InProgress || a.Status == QueueItemStatus.Paused))
             {
                 this.errorService.ShowMessageBox(
                     Resources.QueueViewModel_NoPendingJobs, Resources.Error, MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-
+            
+            // Low disk space Check
             var firstOrDefault = this.QueueTasks.FirstOrDefault(s => s.Status == QueueItemStatus.Waiting);
             if (firstOrDefault != null && !DriveUtilities.HasMinimumDiskSpace(firstOrDefault.Task.Destination,
                     this.userSettingService.GetUserSetting<long>(UserSettingConstants.PauseQueueOnLowDiskspaceLevel)))
@@ -397,8 +408,8 @@ namespace HandBrakeWPF.ViewModels
         public void EditJob(QueueTask task)
         {
             MessageBoxResult result = this.errorService.ShowMessageBox(
-                Resources.QueueViewModel_EditConfrimation,
-                "Modify Job?",
+                Resources.QueueViewModel_EditConfirmation,
+                Resources.QueueViewModel_EditJob,
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
@@ -482,32 +493,14 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        public void MoveUp()
+        public void MoveToTop()
         {
-            Dictionary<int, QueueTask> tasks = new Dictionary<int, QueueTask>();
-            foreach (var item in this.SelectedItems)
-            {
-                tasks.Add(this.QueueTasks.IndexOf(item), item);
-            }
-
-            foreach (var item in tasks.OrderBy(s => s.Key))
-            {
-                this.QueueTasks.MoveUp(item.Value);
-            }
+            this.queueProcessor.MoveToTop(this.SelectedItems);
         }
 
-        public void MoveDown()
+        public void MoveToBottom()
         {
-            Dictionary<int, QueueTask> tasks = new Dictionary<int, QueueTask>();
-            foreach (var item in this.SelectedItems)
-            {
-                tasks.Add(this.QueueTasks.IndexOf(item), item);
-            }
-
-            foreach (var item in tasks.OrderByDescending(s => s.Key))
-            {
-                this.QueueTasks.MoveDown(item.Value);
-            }
+            this.queueProcessor.MoveToBottom(this.SelectedItems);
         }
 
         public void Activate()
@@ -529,8 +522,9 @@ namespace HandBrakeWPF.ViewModels
             this.queueProcessor.JobProcessingStarted += this.QueueProcessorJobProcessingStarted;
             this.queueProcessor.QueuePaused += this.QueueProcessor_QueuePaused;
 
+            this.IsQueueRunning = this.queueProcessor.IsProcessing;
             this.JobsPending = string.Format(Resources.QueueViewModel_JobsPending, this.queueProcessor.Count);
-
+            
             return base.OnActivateAsync(cancellationToken);
         }
 
@@ -673,7 +667,7 @@ namespace HandBrakeWPF.ViewModels
         private void QueueProcessorJobProcessingStarted(object sender, QueueProgressEventArgs e)
         {
             this.JobsPending = string.Format(Resources.QueueViewModel_JobsPending, this.queueProcessor.Count);
-            this.IsQueueRunning = true;
+            this.IsQueueRunning = this.queueProcessor.IsProcessing;
         }
 
         private void QueueProcessor_QueuePaused(object sender, EventArgs e)

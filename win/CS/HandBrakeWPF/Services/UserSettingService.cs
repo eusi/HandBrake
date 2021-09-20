@@ -22,6 +22,7 @@ namespace HandBrakeWPF.Services
     using HandBrakeWPF.Model.Video;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Interfaces;
+    using HandBrakeWPF.Services.Logging.Interfaces;
     using HandBrakeWPF.Utilities;
 
     using GeneralApplicationException = Exceptions.GeneralApplicationException;
@@ -33,6 +34,8 @@ namespace HandBrakeWPF.Services
     /// </summary>
     public class UserSettingService : IUserSettingService
     {
+        private readonly ILog logService;
+
         private readonly string settingsFile = Path.Combine(DirectoryUtilities.GetUserStoragePath(HandBrakeVersionHelper.IsNightly()), "settings.json");
         private readonly string releaseSettingsFile = Path.Combine(DirectoryUtilities.GetUserStoragePath(false), "settings.json");
         private readonly string nightlySettingsFile = Path.Combine(DirectoryUtilities.GetUserStoragePath(true), "settings.json");
@@ -41,8 +44,9 @@ namespace HandBrakeWPF.Services
         /// <summary>
         /// Initializes a new instance of the <see cref="UserSettingService"/> class.
         /// </summary>
-        public UserSettingService()
+        public UserSettingService(ILog logService)
         {
+            this.logService = logService;
             this.Load();
         }
 
@@ -82,17 +86,27 @@ namespace HandBrakeWPF.Services
         /// </returns>
         public T GetUserSetting<T>(string name)
         {
-            if (this.userSettings.ContainsKey(name))
+            try
             {
-                object settingValue = this.userSettings[name];
-                if (settingValue is JsonElement)
+                if (this.userSettings.ContainsKey(name))
                 {
-                    T rawValue = JsonSerializer.Deserialize<T>(((JsonElement)settingValue).GetRawText(), JsonSettings.Options);
-                    return rawValue;
+                    object settingValue = this.userSettings[name];
+                    if (settingValue is JsonElement)
+                    {
+                        T rawValue = JsonSerializer.Deserialize<T>(
+                            ((JsonElement)settingValue).GetRawText(),
+                            JsonSettings.Options);
+                        return rawValue;
+                    }
+
+                    T objectElement = (T)this.userSettings[name];
+                    return objectElement;
                 }
-                
-                T objectElement = (T)this.userSettings[name];
-                return objectElement;
+            }
+            catch (Exception e)
+            {
+                this.logService.LogMessage("Unable to fetch user setting:  " + name + " - " + e);
+                return GetDefaultValue<T>(name);
             }
 
             return default(T);
@@ -148,7 +162,7 @@ namespace HandBrakeWPF.Services
             catch (Exception exc)
             {
                 throw new GeneralApplicationException(
-                    Resources.UserSettings_AnErrorOccured,
+                    Resources.UserSettings_AnErrorOccurred,
                     Resources.SettingService_SaveErrorReset,
                     exc);
             }
@@ -167,9 +181,9 @@ namespace HandBrakeWPF.Services
                     using (StreamReader reader = new StreamReader(this.settingsFile))
                     {
                         string appSettings = reader.ReadToEnd();
-                        Dictionary<string, object> deserialisedSettings = JsonSerializer.Deserialize<Dictionary<string, object>>(appSettings, JsonSettings.Options);
+                        Dictionary<string, object> deserializedSettings = JsonSerializer.Deserialize<Dictionary<string, object>>(appSettings, JsonSettings.Options);
 
-                        this.userSettings = deserialisedSettings;
+                        this.userSettings = deserializedSettings;
                     }
                 }
                 else if (HandBrakeVersionHelper.IsNightly() && File.Exists(this.releaseSettingsFile))
@@ -185,8 +199,8 @@ namespace HandBrakeWPF.Services
                     using (StreamReader reader = new StreamReader(this.settingsFile))
                     {
                         string appSettings = reader.ReadToEnd();
-                        Dictionary<string, object> deserialisedSettings = JsonSerializer.Deserialize<Dictionary<string, object>>(appSettings, JsonSettings.Options);
-                        this.userSettings = deserialisedSettings;
+                        Dictionary<string, object> deserializedSettings = JsonSerializer.Deserialize<Dictionary<string, object>>(appSettings, JsonSettings.Options);
+                        this.userSettings = deserializedSettings;
                     }
                 }
                 else
@@ -235,6 +249,11 @@ namespace HandBrakeWPF.Services
                 this.userSettings[UserSettingConstants.ProcessIsolationEnabled] = false;
                 this.userSettings[UserSettingConstants.SimultaneousEncodes] = 1;
             }
+
+            if (!SystemInfo.IsWindows10())
+            {
+                this.userSettings[UserSettingConstants.DarkThemeMode] = DarkThemeMode.Light;
+            }
         }
         
         /// <summary>
@@ -250,7 +269,7 @@ namespace HandBrakeWPF.Services
             defaults.Add(UserSettingConstants.Verbosity, 1);
 
             // General
-            defaults.Add(UserSettingConstants.UpdateStatus, true);
+            defaults.Add(UserSettingConstants.UpdateStatus, false);
             defaults.Add(UserSettingConstants.LastUpdateCheckDate, DateTime.Now.Date.AddDays(-30));
             defaults.Add(UserSettingConstants.DaysBetweenUpdateCheck, 1);
             defaults.Add(UserSettingConstants.DarkThemeMode, DarkThemeMode.Light);
@@ -308,7 +327,6 @@ namespace HandBrakeWPF.Services
             defaults.Add(UserSettingConstants.ClearOldLogs, true);
 
             // Preview
-            defaults.Add(UserSettingConstants.PreviewRotationFlip, false);
             defaults.Add(UserSettingConstants.LastPreviewDuration, 30);
             defaults.Add(UserSettingConstants.DefaultPlayer, false);
 
@@ -320,10 +338,34 @@ namespace HandBrakeWPF.Services
             // Misc
             defaults.Add(UserSettingConstants.ScalingMode, 0);
             defaults.Add(UserSettingConstants.ForcePresetReset, 3);
-            defaults.Add(UserSettingConstants.MetadataPassthru, true);
             defaults.Add(UserSettingConstants.PreviewShowPictureSettingsOverlay, false);
+            defaults.Add(UserSettingConstants.RunCounter, 0);
+            defaults.Add(UserSettingConstants.ForceSoftwareRendering, false);
+
+            // Hidden Settings
+            defaults.Add(UserSettingConstants.PresetDisplayMode, 1);
 
             return defaults;
+        }
+
+        private T GetDefaultValue<T>(string name)
+        {
+            try
+            {
+                // If the current setting is corrupt, return the default and log it.
+                Dictionary<string, object> defaults = this.GetDefaults();
+                if (defaults.ContainsKey(name))
+                {
+                    return (T)this.userSettings[name];
+                }
+            }
+            catch (Exception e)
+            {
+                this.logService.LogMessage("Unable to fetch default setting:  " + name + " - " + e);
+                return default(T);
+            }
+
+            return default(T);
         }
     }
 }

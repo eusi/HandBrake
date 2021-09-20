@@ -25,7 +25,9 @@ ManifestDPIAware true
 ; GPL is not an EULA, no need to agree to it.
 !define MUI_LICENSEPAGE_BUTTON $(^NextBtn)
 !define MUI_LICENSEPAGE_TEXT_BOTTOM "You are now aware of your rights. Click Next to continue."
+
 !define MUI_WELCOMEFINISHPAGE_BITMAP "InstallerBackground.bmp"
+!define MUI_TEXT_WELCOME_INFO_TEXT "Setup will guide you through the installation of HandBrake.$\r$\n$\r$\nIt is recommended you close any running instances of HandBrake before running setup.$\r$\n$\r$\nWARNING: Before updating, please make sure that there are no pending encodes in the Queue. Please make sure you have backed up any presets and made a note of your settings.$\r$\n$\r$\nHandBrake requires Microsoft .NET *Desktop* Runtime 5. If this is not installed, you will be prompted to install it when you first run the app."
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "Create desktop shortcut (all users)"
 !define MUI_FINISHPAGE_RUN_FUNCTION "desktopShortcut"
@@ -76,7 +78,7 @@ Function .onInit
   MessageBox MB_OK|MB_ICONEXCLAMATION "The installer is already running." /SD IDOK
   Abort
 
-  ; Detect if the intsaller is running on Windows XP/Vista and abort if it is.
+  ; Detect if the installer is running on Windows XP/Vista and abort if it is.
   ${IfNot} ${AtLeastWin7}
     MessageBox MB_OK "Windows 7 with Service Pack 1 or later is required in order to run HandBrake."
     Quit

@@ -80,11 +80,6 @@ namespace HandBrakeWPF.Services.Scan.Model
         public Size Resolution { get; set; }
 
         /// <summary>
-        /// Gets or sets the aspect ratio of this Title
-        /// </summary>
-        public decimal AspectRatio { get; set; }
-
-        /// <summary>
         /// Gets or sets AngleCount.
         /// </summary>
         public int AngleCount { get; set; }
@@ -198,11 +193,11 @@ namespace HandBrakeWPF.Services.Scan.Model
         /// <returns>A Timespan</returns>
         public TimeSpan CalculateDuration(long startPoint, long endPoint)
         {
-            IEnumerable<Chapter> chapers =
+            IEnumerable<Chapter> chapters =
                 this.Chapters.Where(c => c.ChapterNumber >= startPoint && c.ChapterNumber <= endPoint);
 
             TimeSpan duration = TimeSpan.FromSeconds(0.0);
-            duration = chapers.Aggregate(duration, (current, chapter) => current + chapter.Duration);
+            duration = chapters.Aggregate(duration, (current, chapter) => current + chapter.Duration);
 
             return duration;
         }

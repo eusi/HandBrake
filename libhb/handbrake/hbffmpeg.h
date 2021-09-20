@@ -46,8 +46,8 @@ hb_mastering_display_metadata_t hb_mastering_ff_to_hb(AVMasteringDisplayMetadata
 AVMasteringDisplayMetadata hb_mastering_hb_to_ff(hb_mastering_display_metadata_t mastering);
 
 struct SwsContext*
-hb_sws_get_context(int srcW, int srcH, enum AVPixelFormat srcFormat,
-                   int dstW, int dstH, enum AVPixelFormat dstFormat,
+hb_sws_get_context(int srcW, int srcH, enum AVPixelFormat srcFormat, int srcRange,
+                   int dstW, int dstH, enum AVPixelFormat dstFormat, int dstRange,
                    int flags, int colorspace);
 
 static const char* const hb_vce_preset_names[] = { "speed", "balanced", "quality", NULL, };
@@ -62,5 +62,6 @@ void            hb_avframe_set_video_buffer_flags(hb_buffer_t * buf,
 int hb_av_encoder_present(int encoder);
 const char* const* hb_av_profile_get_names(int encoder);
 const char* const* hb_av_level_get_names(int encoder);
+const int* hb_av_get_pix_fmts(int encoder);
 
 #endif // HANDBRAKE_FFMPEG_H

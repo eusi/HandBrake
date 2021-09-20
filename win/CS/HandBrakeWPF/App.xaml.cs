@@ -15,9 +15,10 @@ namespace HandBrakeWPF
     using System.IO;
     using System.Linq;
     using System.Threading;
-    using System.Threading.Tasks;
     using System.Windows;
     using System.Windows.Controls;
+    using System.Windows.Interop;
+    using System.Windows.Media;
 
     using Caliburn.Micro;
 
@@ -73,7 +74,7 @@ namespace HandBrakeWPF
                 Application.Current.Shutdown();
                 return;
             }
-            
+
             if (e.Args.Any(f => f.Equals("--reset")))
             {
                 HandBrakeApp.ResetToDefaults();
@@ -97,6 +98,8 @@ namespace HandBrakeWPF
                 StartupOptions.AutoRestartQueue = true;
             }
 
+           
+            
             // Portable Mode
             if (Portable.IsPortable())
             {
@@ -120,6 +123,28 @@ namespace HandBrakeWPF
                 }
             }
 
+            int runCounter = userSettingService.GetUserSetting<int>(UserSettingConstants.RunCounter);
+            if (!SystemInfo.IsWindows10() && runCounter < 2)
+            {
+                MessageBox.Show(HandBrakeWPF.Properties.Resources.OldOperatingSystem, HandBrakeWPF.Properties.Resources.Warning, MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            // Software Rendering 
+            if (e.Args.Any(f => f.Equals("--force-software-rendering")) || Portable.IsForcingSoftwareRendering() || userSettingService.GetUserSetting<bool>(UserSettingConstants.ForceSoftwareRendering))
+            {
+                RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
+            }
+
+            // Check if the user would like to check for updates AFTER the first run, but only once. 
+            if (runCounter == 1)
+            {
+                CheckForUpdateCheckPermission(userSettingService);
+            }
+
+            // Increment the counter so we can change startup behavior for the above warning and update check question.
+            userSettingService.SetUserSetting(UserSettingConstants.RunCounter, runCounter + 1); // Only display once.
+
+            // App Theme
             DarkThemeMode useDarkTheme = (DarkThemeMode)userSettingService.GetUserSetting<int>(UserSettingConstants.DarkThemeMode);
             if (SystemInfo.IsWindows10())
             {
@@ -188,6 +213,18 @@ namespace HandBrakeWPF
             }
         }
 
+        private static void CheckForUpdateCheckPermission(IUserSettingService userSettingService)
+        {
+            if (Portable.IsPortable() && !Portable.IsUpdateCheckEnabled())
+            {
+                return; // If Portable Mode has disabled it, don't bother the user. Just accept it's disabled. 
+            }
+
+            MessageBoxResult result = MessageBox.Show(HandBrakeWPF.Properties.Resources.FirstRun_EnableUpdateCheck, HandBrakeWPF.Properties.Resources.FirstRun_EnableUpdateCheckHeader, MessageBoxButton.YesNo, MessageBoxImage.Question);
+            // Be explicit setting it to true/false as it may have been turned on during first-run.
+            userSettingService.SetUserSetting(UserSettingConstants.UpdateStatus, result == MessageBoxResult.Yes);
+        }
+
         private void CurrentDomain_ProcessExit(object sender, System.EventArgs e)
         {
             HandBrakeUtils.DisposeGlobal();
@@ -204,23 +241,22 @@ namespace HandBrakeWPF
         /// </param>
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            Task t = new Task(
-                () =>
+            Execute.BeginOnUIThread(
+                () => 
+            {
+                if (e.ExceptionObject.GetType() == typeof(FileNotFoundException))
                 {
-                    if (e.ExceptionObject.GetType() == typeof(FileNotFoundException))
-                    {
-                        GeneralApplicationException exception = new GeneralApplicationException(
-                            "A file appears to be missing.",
-                            "Try re-installing Microsoft .NET Framework 4.8",
-                            (Exception)e.ExceptionObject);
-                        this.ShowError(exception);
-                    }
-                    else
-                    {
-                        this.ShowError(e.ExceptionObject);
-                    }
-                });
-            Execute.OnUIThreadAsync(() => t);
+                    GeneralApplicationException exception = new GeneralApplicationException(
+                        "A file appears to be missing.",
+                        "Try re-installing Microsoft .NET 5 Desktop Runtime",
+                        (Exception)e.ExceptionObject);
+                    this.ShowError(exception);
+                }
+                else
+                {
+                    this.ShowError(e.ExceptionObject);
+                }
+            });
         }
 
         /// <summary>
@@ -237,7 +273,7 @@ namespace HandBrakeWPF
         {
             if (e.Exception.GetType() == typeof(FileNotFoundException))
             {
-                GeneralApplicationException exception = new GeneralApplicationException("A file appears to be missing.", "Try re-installing Microsoft .NET Framework 4.7.1", e.Exception);
+                GeneralApplicationException exception = new GeneralApplicationException("A file appears to be missing.", "Try re-installing Microsoft .NET 5 Desktop Runtime", e.Exception);
                 this.ShowError(exception);
             }
             else if (e.Exception.GetType() == typeof(GeneralApplicationException))
@@ -310,8 +346,7 @@ namespace HandBrakeWPF
             }
             catch (Exception)
             {
-                MessageBox.Show("An Unknown Error has occurred. \n\n Exception:" + exception, "Unhandled Exception",
-                     MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("An Unknown Error has occurred. \n\n Exception:" + exception, "Unhandled Exception", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }

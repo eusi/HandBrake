@@ -17,12 +17,11 @@ namespace HandBrakeWPF.Services
     using System.Security.Cryptography;
     using System.Threading;
     using HandBrake.Interop.Interop;
-    using HandBrake.Interop.Utilities;
     using HandBrakeWPF.Model;
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Utilities;
 
-    using AppcastReader = HandBrakeWPF.Utilities.AppcastReader;
+    using AppcastReader = Utilities.AppcastReader;
 
     /// <summary>
     /// The Update Service
@@ -97,11 +96,11 @@ namespace HandBrakeWPF.Services
                     try
                     {
                         // Figure out which appcast we want to read.
-                        string url = Constants.Appcast64;
+                        string url = SystemInfo.IsArmDevice ? Constants.Appcast64Arm : Constants.Appcast64;
 
                         if (HandBrakeVersionHelper.IsNightly())
                         {
-                            url = Constants.AppcastUnstable64;
+                            url = SystemInfo.IsArmDevice ? Constants.AppcastUnstable64Arm : Constants.AppcastUnstable64;
                         }
 
                         var currentBuild = HandBrakeVersionHelper.Build;
@@ -124,9 +123,10 @@ namespace HandBrakeWPF.Services
                         // Security Check
                         // Verify the download URL is for handbrake.fr and served over https.
                         // This prevents a compromised appcast download tricking the GUI into downloading a file, or accessing another website or local network resource.
+                        // The download itself will also be checked against a signature later. 
                         Uri uriResult;
                         bool result = Uri.TryCreate(reader.DownloadFile, UriKind.Absolute, out uriResult) && uriResult.Scheme == Uri.UriSchemeHttps;
-                        if (!result || (uriResult.Host != "handbrake.fr" && uriResult.Host != "download.handbrake.fr"))
+                        if (!result || (uriResult.Host != "handbrake.fr" && uriResult.Host != "download.handbrake.fr" && uriResult.Host != "github.com"))
                         {
                             callback(new UpdateCheckInformation { NewVersionAvailable = false, Error = new Exception("The HandBrake update service is currently unavailable.") });
                             return;
@@ -186,19 +186,19 @@ namespace HandBrakeWPF.Services
                        HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse();
                        long fileSize = webResponse.ContentLength;
 
-                       Stream responceStream = wcDownload.OpenRead(url);
+                       Stream responseStream = wcDownload.OpenRead(url);
                        Stream localStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
                        int bytesSize;
                        byte[] downBuffer = new byte[2048];
 
-                       while ((bytesSize = responceStream.Read(downBuffer, 0, downBuffer.Length)) > 0)
+                       while ((bytesSize = responseStream.Read(downBuffer, 0, downBuffer.Length)) > 0)
                        {
                            localStream.Write(downBuffer, 0, bytesSize);
                            progress(new DownloadStatus { BytesRead = localStream.Length, TotalBytes = fileSize });
                        }
 
-                       responceStream.Close();
+                       responseStream.Close();
                        localStream.Close();
 
                        completed(
@@ -255,10 +255,10 @@ namespace HandBrakeWPF.Services
             try
             {
                 byte[] file = File.ReadAllBytes(updateFile);
-                using (RSACryptoServiceProvider verifyProfider = new RSACryptoServiceProvider())
+                using (RSACryptoServiceProvider verifyProvider = new RSACryptoServiceProvider())
                 {
-                    verifyProfider.FromXmlString(publicKey);
-                    return verifyProfider.VerifyData(file, "SHA256", Convert.FromBase64String(signature));
+                    verifyProvider.FromXmlString(publicKey);
+                    return verifyProvider.VerifyData(file, "SHA256", Convert.FromBase64String(signature));
                 }
             }
             catch (Exception e)

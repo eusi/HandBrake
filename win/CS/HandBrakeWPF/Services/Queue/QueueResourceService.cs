@@ -23,7 +23,7 @@ namespace HandBrakeWPF.Services.Queue
     {
         private readonly IUserSettingService userSettingService;
 
-        private readonly object lockOjb = new object();
+        private readonly object lockObj = new object();
 
         private readonly HashSet<Guid> qsvInstances = new HashSet<Guid>();
         private readonly HashSet<Guid> nvencInstances = new HashSet<Guid>();
@@ -43,13 +43,26 @@ namespace HandBrakeWPF.Services.Queue
         public QueueResourceService(IUserSettingService userSettingService)
         {
             this.userSettingService = userSettingService;
+            this.userSettingService.SettingChanged += this.UserSettingService_SettingChanged;
+        }
+
+        private void UserSettingService_SettingChanged(object sender, HandBrakeWPF.EventArgs.SettingChangedEventArgs e)
+        {
+            if (e.Key == UserSettingConstants.SimultaneousEncodes)
+            {
+                this.maxAllowedInstances = this.userSettingService.GetUserSetting<int>(UserSettingConstants.SimultaneousEncodes);
+                if (this.maxAllowedInstances > Utilities.SystemInfo.GetCpuCoreCount)
+                {
+                    this.maxAllowedInstances = Utilities.SystemInfo.GetCpuCoreCount;
+                }
+            }
         }
 
         public int TotalActiveInstances
         {
             get
             {
-                lock (this.lockOjb)
+                lock (this.lockObj)
                 {
                     return this.totalInstances.Count;
                 }
@@ -81,7 +94,7 @@ namespace HandBrakeWPF.Services.Queue
 
         public Guid? GetToken(EncodeTask task)
         {
-            lock (this.lockOjb)
+            lock (this.lockObj)
             {
                 switch (task.VideoEncoder)
                 {
@@ -160,6 +173,18 @@ namespace HandBrakeWPF.Services.Queue
             }
         }
 
+        public void ClearTokens()
+        {
+            lock (this.lockObj)
+            {
+                qsvInstances.Clear();
+                nvencInstances.Clear();
+                vceInstances.Clear();
+                mfInstances.Clear();
+                this.totalInstances.Clear();
+            }
+        }
+
         public void ReleaseToken(VideoEncoder encoder, Guid? unlockKey)
         {
             if (unlockKey == null)
@@ -167,7 +192,7 @@ namespace HandBrakeWPF.Services.Queue
                 return;
             }
 
-            lock (this.lockOjb)
+            lock (this.lockObj)
             {
                 if (this.totalInstances.Contains(unlockKey.Value))
                 {
@@ -246,13 +271,21 @@ namespace HandBrakeWPF.Services.Queue
 
             // For now, it's not expected we'll see users with more than 2 Intel GPUs. Typically 1 CPU, 1 Discrete will likely be the norm.
             // Use the modulus of the above counter to flip between the 2 Intel encoders. 
-            // We don't set GPU for the jobs  1, 3, 5, 7, 9 .... etc  (Default to first)
-            // We do set the GPU for jobs 2, 4, 5, 8, 10 .... etc 
+            // We set GPU for the jobs  1, 3, 5, 7, 9 to index 0
+            // We set the GPU for jobs 2, 4, 5, 8, 10  to index 1 
             if (modulus == 1)
             {
+                // GPU List 1
                 task.ExtraAdvancedArguments = string.IsNullOrEmpty(task.ExtraAdvancedArguments)
                                                   ? string.Format("gpu={0}", this.qsvGpus[1])
                                                   : string.Format("{0}:gpu={1}", task.ExtraAdvancedArguments, this.qsvGpus[1]);
+            }
+            else
+            {
+                // GPU List 0
+                task.ExtraAdvancedArguments = string.IsNullOrEmpty(task.ExtraAdvancedArguments)
+                    ? string.Format("gpu={0}", this.qsvGpus[0])
+                    : string.Format("{0}:gpu={1}", task.ExtraAdvancedArguments, this.qsvGpus[0]);
             }
         }
     }

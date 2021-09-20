@@ -235,14 +235,14 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
         "s:{s:o, s:o, s:{s:o, s:o}},"
         // Crop[Top, Bottom, Left, Right]}
         "s:[oooo],"
-        // Color {Format, Range, Primary, Transfer, Matrix}
-        "s:{s:o, s:o, s:o, s:o, s:o},"
+        // Color {Format, Range, Primary, Transfer, Matrix, ChromaLocation}
+        "s:{s:o, s:o, s:o, s:o, s:o, s:o},"
         // FrameRate {Num, Den}
         "s:{s:o, s:o},"
         // InterlaceDetected, VideoCodec
         "s:o, s:o,"
         // Metadata
-        "s:{}"
+        "s:o"
     "}",
     "Type",                 hb_value_int(title->type),
     "Path",                 hb_value_string(title->path),
@@ -271,12 +271,13 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
         "Primary",          hb_value_int(title->color_prim),
         "Transfer",         hb_value_int(title->color_transfer),
         "Matrix",           hb_value_int(title->color_matrix),
+        "ChromaLocation",   hb_value_int(title->chroma_location),
     "FrameRate",
         "Num",              hb_value_int(title->vrate.num),
         "Den",              hb_value_int(title->vrate.den),
     "InterlaceDetected",    hb_value_bool(title->detected_interlacing),
     "VideoCodec",           hb_value_string(title->video_codec_name),
-    "Metadata"
+    "Metadata",             hb_value_dup(title->metadata->dict)
     );
     if (dict == NULL)
     {
@@ -287,58 +288,6 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
     if (title->container_name != NULL)
     {
         hb_dict_set(dict, "Container", hb_value_string(title->container_name));
-    }
-
-    // Add metadata
-    hb_dict_t *meta_dict = hb_dict_get(dict, "Metadata");
-    if (title->metadata->name != NULL)
-    {
-        hb_dict_set(meta_dict, "Name", hb_value_string(title->metadata->name));
-    }
-    if (title->metadata->artist != NULL)
-    {
-        hb_dict_set(meta_dict, "Artist",
-                    hb_value_string(title->metadata->artist));
-    }
-    if (title->metadata->composer != NULL)
-    {
-        hb_dict_set(meta_dict, "Composer",
-                    hb_value_string(title->metadata->composer));
-    }
-    if (title->metadata->comment != NULL)
-    {
-        hb_dict_set(meta_dict, "Comment",
-                    hb_value_string(title->metadata->comment));
-    }
-    if (title->metadata->genre != NULL)
-    {
-        hb_dict_set(meta_dict, "Genre",
-                    hb_value_string(title->metadata->genre));
-    }
-    if (title->metadata->album != NULL)
-    {
-        hb_dict_set(meta_dict, "Album",
-                    hb_value_string(title->metadata->album));
-    }
-    if (title->metadata->album_artist != NULL)
-    {
-        hb_dict_set(meta_dict, "AlbumArtist",
-                    hb_value_string(title->metadata->album_artist));
-    }
-    if (title->metadata->description != NULL)
-    {
-        hb_dict_set(meta_dict, "Description",
-                    hb_value_string(title->metadata->description));
-    }
-    if (title->metadata->long_description != NULL)
-    {
-        hb_dict_set(meta_dict, "LongDescription",
-                    hb_value_string(title->metadata->long_description));
-    }
-    if (title->metadata->release_date != NULL)
-    {
-        hb_dict_set(meta_dict, "ReleaseDate",
-                    hb_value_string(title->metadata->release_date));
     }
 
     // process chapter list
@@ -533,7 +482,10 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     int adapter_index;
 
 #if HB_PROJECT_FEATURE_QSV
-    adapter_index = job->qsv.ctx->dx_index;
+    if (job->qsv.ctx){
+        adapter_index = job->qsv.ctx->dx_index;
+    }
+    
 #else
     adapter_index = 0;
 #endif
@@ -563,7 +515,7 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     // Subtitles {Search {Enable, Forced, Default, Burn}, SubtitleList []}
     "s:{s:{s:o, s:o, s:o, s:o}, s:[]},"
     // Metadata
-    "s:{},"
+    "s:o,"
     // Filters {FilterList []}
     "s:{s:[]}"
     "}",
@@ -598,7 +550,7 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
                 "Default",      hb_value_bool(job->select_subtitle_config.default_track),
                 "Burn",         hb_value_bool(subtitle_search_burn),
             "SubtitleList",
-        "Metadata",
+        "Metadata",             hb_value_dup(job->metadata->dict),
         "Filters",
             "FilterList"
     );
@@ -669,8 +621,10 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     hb_dict_set(source_dict, "Range", range_dict);
 
     hb_dict_t *video_dict = hb_dict_get(dict, "Video");
-    hb_dict_set(video_dict, "ColorFormat",
-                hb_value_int(job->pix_fmt));
+    hb_dict_set(video_dict, "ColorInputFormat",
+                hb_value_int(job->input_pix_fmt));
+    hb_dict_set(video_dict, "ColorOutputFormat",
+                hb_value_int(job->output_pix_fmt));
     hb_dict_set(video_dict, "ColorRange",
                 hb_value_int(job->color_range));
     hb_dict_set(video_dict, "ColorPrimaries",
@@ -679,6 +633,8 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
                 hb_value_int(job->color_transfer));
     hb_dict_set(video_dict, "ColorMatrix",
                 hb_value_int(job->color_matrix));
+    hb_dict_set(video_dict, "ChromaLocation",
+                hb_value_int(job->chroma_location));
     if (job->color_prim_override != HB_COLR_PRI_UNDEF)
     {
         hb_dict_set(video_dict, "ColorPrimariesOverride",
@@ -777,54 +733,6 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     {
         hb_dict_set(video_dict, "Options",
                     hb_value_string(job->encoder_options));
-    }
-    hb_dict_t *meta_dict = hb_dict_get(dict, "Metadata");
-    if (job->metadata->name != NULL)
-    {
-        hb_dict_set(meta_dict, "Name", hb_value_string(job->metadata->name));
-    }
-    if (job->metadata->artist != NULL)
-    {
-        hb_dict_set(meta_dict, "Artist",
-                    hb_value_string(job->metadata->artist));
-    }
-    if (job->metadata->composer != NULL)
-    {
-        hb_dict_set(meta_dict, "Composer",
-                    hb_value_string(job->metadata->composer));
-    }
-    if (job->metadata->comment != NULL)
-    {
-        hb_dict_set(meta_dict, "Comment",
-                    hb_value_string(job->metadata->comment));
-    }
-    if (job->metadata->genre != NULL)
-    {
-        hb_dict_set(meta_dict, "Genre", hb_value_string(job->metadata->genre));
-    }
-    if (job->metadata->album != NULL)
-    {
-        hb_dict_set(meta_dict, "Album", hb_value_string(job->metadata->album));
-    }
-    if (job->metadata->album_artist != NULL)
-    {
-        hb_dict_set(meta_dict, "AlbumArtist",
-                    hb_value_string(job->metadata->album_artist));
-    }
-    if (job->metadata->description != NULL)
-    {
-        hb_dict_set(meta_dict, "Description",
-                    hb_value_string(job->metadata->description));
-    }
-    if (job->metadata->long_description != NULL)
-    {
-        hb_dict_set(meta_dict, "LongDescription",
-                    hb_value_string(job->metadata->long_description));
-    }
-    if (job->metadata->release_date != NULL)
-    {
-        hb_dict_set(meta_dict, "ReleaseDate",
-                    hb_value_string(job->metadata->release_date));
     }
 
     // process chapter list
@@ -1092,16 +1000,11 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     const char       * video_profile = NULL, * video_level = NULL;
     const char       * video_options = NULL;
     int                subtitle_search_burn = 0;
-    hb_dict_t        * meta_dict = NULL;
-    const char       * meta_name = NULL, * meta_artist = NULL;
-    const char       * meta_album_artist = NULL, * meta_release = NULL;
-    const char       * meta_comment = NULL, * meta_genre = NULL;
-    const char       * meta_composer = NULL, * meta_desc = NULL;
-    const char       * meta_long_desc = NULL;
     json_int_t         range_start = -1, range_end = -1, range_seek_points = -1;
     int                vbitrate = -1;
     double             vquality = HB_INVALID_VIDEO_QUALITY;
     int                adapter_index = -1;
+    hb_dict_t        * meta_dict = NULL;
 
     result = json_unpack_ex(dict, &error, 0,
     "{"
@@ -1117,16 +1020,16 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     "s?{s:i, s:i},"
     // Video {Codec, Quality, Bitrate, Preset, Tune, Profile, Level, Options
     //       TwoPass, Turbo,
-    //       ColorFormat, ColorRange,
-    //       ColorPrimaries, ColorTransfer, ColorMatrix,
+    //       ColorInputFormat, ColorOutputFormat, ColorRange,
+    //       ColorPrimaries, ColorTransfer, ColorMatrix, ChromaLocation,
     //       Mastering,
     //       ContentLightLevel,
     //       ColorPrimariesOverride, ColorTransferOverride, ColorMatrixOverride,
     //       QSV {Decode, AsyncDepth, AdapterIndex}}
     "s:{s:o, s?F, s?i, s?s, s?s, s?s, s?s, s?s,"
     "   s?b, s?b,"
-    "   s?i, s?i,"
     "   s?i, s?i, s?i,"
+    "   s?i, s?i, s?i, s?i,"
     "   s?o,"
     "   s?o,"
     "   s?i, s?i, s?i,"
@@ -1172,11 +1075,13 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             "Options",              unpack_s(&video_options),
             "TwoPass",              unpack_b(&job->twopass),
             "Turbo",                unpack_b(&job->fastfirstpass),
-            "ColorFormat",          unpack_i(&job->pix_fmt),
+            "ColorInputFormat",     unpack_i(&job->input_pix_fmt),
+            "ColorOutputFormat",    unpack_i(&job->output_pix_fmt),
             "ColorRange",           unpack_i(&job->color_range),
             "ColorPrimaries",       unpack_i(&job->color_prim),
             "ColorTransfer",        unpack_i(&job->color_transfer),
             "ColorMatrix",          unpack_i(&job->color_matrix),
+            "ChromaLocation",       unpack_i(&job->chroma_location),
             "Mastering",            unpack_o(&mastering_dict),
             "ContentLightLevel",    unpack_o(&coll_dict),
             "ColorPrimariesOverride", unpack_i(&job->color_prim_override),
@@ -1205,6 +1110,10 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     {
         hb_error("hb_dict_to_job: failed to parse dict: %s", error.text);
         goto fail;
+    }
+    if (meta_dict != NULL)
+    {
+        job->metadata->dict = hb_value_dup(meta_dict);
     }
     // Lookup mux id
     if (hb_value_type(mux) == HB_VALUE_TYPE_STRING)
@@ -1276,10 +1185,12 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     hb_job_set_encoder_options(job, video_options);
 
 #if HB_PROJECT_FEATURE_QSV
-    job->qsv.ctx->dx_index = adapter_index;
+    if (job->qsv.ctx) {
+        job->qsv.ctx->dx_index = adapter_index;
+    }
 #endif
     // If both vbitrate and vquality were specified, vbitrate is used;
-    // we need to ensure the unused rate contro mode is always set to an
+    // we need to ensure the unused rate control mode is always set to an
     // invalid value, as if both values are valid, behavior is undefined
     // (some encoders first check for a valid vquality, whereas others
     //  check for a valid vbitrate instead)
@@ -1351,137 +1262,6 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         {
             hb_error("hb_dict_to_job: failed to parse coll_dict: %s", error.text);
             goto fail;
-        }
-    }
-
-    if (meta_dict != NULL)
-    {
-        // By default, the job is populated with the metadata
-        // from the source title.
-        //
-        // If the metadata dict is present, assume any fields not
-        // present are to be removed from the job's metadata
-        meta_name = meta_artist = meta_composer = meta_album_artist =
-        meta_release = meta_comment = meta_genre = meta_desc =
-        meta_long_desc = "";
-
-        result = json_unpack_ex(meta_dict, &error, 0,
-        // {Name, Artist, Composer, AlbumArtist, ReleaseDate,
-        //  Comment, Genre, Description, LongDescription}
-        "{s?s, s?s, s?s, s?s, s?s, s?s, s?s, s?s, s?s}",
-            "Name",                 unpack_s(&meta_name),
-            "Artist",               unpack_s(&meta_artist),
-            "Composer",             unpack_s(&meta_composer),
-            "AlbumArtist",          unpack_s(&meta_album_artist),
-            "ReleaseDate",          unpack_s(&meta_release),
-            "Comment",              unpack_s(&meta_comment),
-            "Genre",                unpack_s(&meta_genre),
-            "Description",          unpack_s(&meta_desc),
-            "LongDescription",      unpack_s(&meta_long_desc)
-        );
-        if (result < 0)
-        {
-            hb_error("hb_dict_to_job: failed to parse meta_dict: %s", error.text);
-            goto fail;
-        }
-    }
-    if (meta_name != NULL)
-    {
-        if (meta_name[0] != 0)
-        {
-            hb_metadata_set_name(job->metadata, meta_name);
-        }
-        else
-        {
-            hb_metadata_set_name(job->metadata, NULL);
-        }
-    }
-    if (meta_artist != NULL)
-    {
-        if (meta_artist[0] != 0)
-        {
-            hb_metadata_set_artist(job->metadata, meta_artist);
-        }
-        else
-        {
-            hb_metadata_set_artist(job->metadata, NULL);
-        }
-    }
-    if (meta_composer != NULL)
-    {
-        if (meta_composer[0] != 0)
-        {
-            hb_metadata_set_composer(job->metadata, meta_composer);
-        }
-        else
-        {
-            hb_metadata_set_composer(job->metadata, NULL);
-        }
-    }
-    if (meta_album_artist != NULL)
-    {
-        if (meta_album_artist[0] != 0)
-        {
-            hb_metadata_set_album_artist(job->metadata, meta_album_artist);
-        }
-        else
-        {
-            hb_metadata_set_album_artist(job->metadata, NULL);
-        }
-    }
-    if (meta_release != NULL)
-    {
-        if (meta_release[0] != 0)
-        {
-            hb_metadata_set_release_date(job->metadata, meta_release);
-        }
-        else
-        {
-            hb_metadata_set_release_date(job->metadata, NULL);
-        }
-    }
-    if (meta_comment != NULL)
-    {
-        if (meta_comment[0] != 0)
-        {
-            hb_metadata_set_comment(job->metadata, meta_comment);
-        }
-        else
-        {
-            hb_metadata_set_comment(job->metadata, NULL);
-        }
-    }
-    if (meta_genre != NULL)
-    {
-        if (meta_genre[0] != 0)
-        {
-            hb_metadata_set_genre(job->metadata, meta_genre);
-        }
-        else
-        {
-            hb_metadata_set_genre(job->metadata, NULL);
-        }
-    }
-    if (meta_desc != NULL)
-    {
-        if (meta_desc[0] != 0)
-        {
-            hb_metadata_set_description(job->metadata, meta_desc);
-        }
-        else
-        {
-            hb_metadata_set_description(job->metadata, NULL);
-        }
-    }
-    if (meta_long_desc != NULL)
-    {
-        if (meta_long_desc[0] != 0)
-        {
-            hb_metadata_set_long_description(job->metadata, meta_long_desc);
-        }
-        else
-        {
-            hb_metadata_set_long_description(job->metadata, NULL);
         }
     }
 
@@ -1912,9 +1692,12 @@ char* hb_set_anamorphic_size_json(const char * json_param)
     "s:{"
     //   Geometry {Width, Height, PAR {Num, Den}},
     "s:{s:i, s:i, s:{s:i, s:i}},"
-    //   AnamorphicMode, Keep, ItuPAR, Modulus, MaxWidth, MaxHeight,
-    "s:i, s?i, s?b, s:i, s:i, s:i,"
+    //   AnamorphicMode, Flags, Keep, ItuPAR, Modulus, MaxWidth, MaxHeight,
+    //   DisplayWidth, DisplayHeight
+    "s:i, s?i, s?i, s?b, s?i, s?i, s?i, s?i, s?i"
     //   Crop [Top, Bottom, Left, Right]
+    "s?[iiii]"
+    //   Pad [Top, Bottom, Left, Right]
     "s?[iiii]"
     "  }"
     "}",
@@ -1932,15 +1715,22 @@ char* hb_set_anamorphic_size_json(const char * json_param)
                 "Num",          unpack_i(&ui_geo.geometry.par.num),
                 "Den",          unpack_i(&ui_geo.geometry.par.den),
         "AnamorphicMode",       unpack_i(&ui_geo.mode),
+        "Flags",                unpack_i(&ui_geo.flags),
         "Keep",                 unpack_i(&ui_geo.keep),
         "ItuPAR",               unpack_b(&ui_geo.itu_par),
         "Modulus",              unpack_i(&ui_geo.modulus),
         "MaxWidth",             unpack_i(&ui_geo.maxWidth),
         "MaxHeight",            unpack_i(&ui_geo.maxHeight),
+        "DisplayWidth",         unpack_i(&ui_geo.displayWidth),
+        "DisplayHeight",        unpack_i(&ui_geo.displayHeight),
         "Crop",                 unpack_i(&ui_geo.crop[0]),
                                 unpack_i(&ui_geo.crop[1]),
                                 unpack_i(&ui_geo.crop[2]),
-                                unpack_i(&ui_geo.crop[3])
+                                unpack_i(&ui_geo.crop[3]),
+        "Pad",                  unpack_i(&ui_geo.pad[0]),
+                                unpack_i(&ui_geo.pad[1]),
+                                unpack_i(&ui_geo.pad[2]),
+                                unpack_i(&ui_geo.pad[3])
     );
     hb_value_free(&dict);
 
@@ -2080,6 +1870,18 @@ char* hb_get_preview_json(hb_handle_t * h, const char *json_param)
     hb_value_free(&dict);
 
     return result;
+}
+
+hb_image_t * hb_get_preview3_json(hb_handle_t * h, int picture, const char *json_job)
+{
+    hb_image_t * image;
+    hb_dict_t  * job_dict;
+
+    job_dict = hb_value_json(json_job);
+    image = hb_get_preview3(h, picture, job_dict);
+    hb_value_free(&job_dict);
+
+    return image;
 }
 
 char* hb_get_preview_params_json(int title_idx, int preview_idx,

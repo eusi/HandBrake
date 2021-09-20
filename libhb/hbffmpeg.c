@@ -43,6 +43,7 @@ void hb_video_buffer_to_avframe(AVFrame *frame, hb_buffer_t * buf)
     frame->color_trc       = hb_colr_tra_hb_to_ff(buf->f.color_transfer);
     frame->colorspace      = hb_colr_mat_hb_to_ff(buf->f.color_matrix);
     frame->color_range     = buf->f.color_range;
+    frame->chroma_location = buf->f.chroma_location;
 }
 
 void hb_avframe_set_video_buffer_flags(hb_buffer_t * buf, AVFrame *frame,
@@ -76,12 +77,13 @@ void hb_avframe_set_video_buffer_flags(hb_buffer_t * buf, AVFrame *frame,
     {
         buf->s.flags |= PIC_FLAG_REPEAT_FRAME;
     }
-    buf->s.frametype      = get_frame_type(frame->pict_type);
-    buf->f.fmt            = frame->format;
-    buf->f.color_prim     = hb_colr_pri_ff_to_hb(frame->color_primaries);
-    buf->f.color_transfer = hb_colr_tra_ff_to_hb(frame->color_trc);
-    buf->f.color_matrix   = hb_colr_mat_ff_to_hb(frame->colorspace);
-    buf->f.color_range    = frame->color_range;
+    buf->s.frametype       = get_frame_type(frame->pict_type);
+    buf->f.fmt             = frame->format;
+    buf->f.color_prim      = hb_colr_pri_ff_to_hb(frame->color_primaries);
+    buf->f.color_transfer  = hb_colr_tra_ff_to_hb(frame->color_trc);
+    buf->f.color_matrix    = hb_colr_mat_ff_to_hb(frame->colorspace);
+    buf->f.color_range     = frame->color_range;
+    buf->f.chroma_location = frame->chroma_location;
 }
 
 hb_buffer_t * hb_avframe_to_video_buffer(AVFrame *frame, AVRational time_base)
@@ -118,21 +120,9 @@ hb_buffer_t * hb_avframe_to_video_buffer(AVFrame *frame, AVRational time_base)
     return buf;
 }
 
-static int handle_jpeg(enum AVPixelFormat *format)
-{
-    switch (*format)
-    {
-        case AV_PIX_FMT_YUVJ420P: *format = AV_PIX_FMT_YUV420P; return 1;
-        case AV_PIX_FMT_YUVJ422P: *format = AV_PIX_FMT_YUV422P; return 1;
-        case AV_PIX_FMT_YUVJ444P: *format = AV_PIX_FMT_YUV444P; return 1;
-        case AV_PIX_FMT_YUVJ440P: *format = AV_PIX_FMT_YUV440P; return 1;
-        default:                                                return 0;
-    }
-}
-
 struct SwsContext*
-hb_sws_get_context(int srcW, int srcH, enum AVPixelFormat srcFormat,
-                   int dstW, int dstH, enum AVPixelFormat dstFormat,
+hb_sws_get_context(int srcW, int srcH, enum AVPixelFormat srcFormat, int srcRange,
+                   int dstW, int dstH, enum AVPixelFormat dstFormat, int dstRange,
                    int flags, int colorspace)
 {
     struct SwsContext * ctx;
@@ -140,10 +130,6 @@ hb_sws_get_context(int srcW, int srcH, enum AVPixelFormat srcFormat,
     ctx = sws_alloc_context();
     if ( ctx )
     {
-        int srcRange, dstRange;
-
-        srcRange = handle_jpeg(&srcFormat);
-        dstRange = handle_jpeg(&dstFormat);
         flags |= SWS_FULL_CHR_H_INT | SWS_FULL_CHR_H_INP;
 
         av_opt_set_int(ctx, "srcw", srcW, 0);

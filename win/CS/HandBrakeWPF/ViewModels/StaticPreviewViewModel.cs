@@ -59,8 +59,6 @@ namespace HandBrakeWPF.ViewModels
         private double percentageValue;
         private bool isEncoding;
         private bool useSystemDefaultPlayer;
-        private bool previewRotateFlip;
-
         private bool showPictureSettingControls;
 
         public StaticPreviewViewModel(IScan scanService, IUserSettingService userSettingService, IErrorService errorService, ILog logService, ILogInstanceManager logInstanceManager, IPortService portService)
@@ -86,8 +84,6 @@ namespace HandBrakeWPF.ViewModels
             this.useSystemDefaultPlayer = userSettingService.GetUserSetting<bool>(UserSettingConstants.DefaultPlayer);
             this.showPictureSettingControls = userSettingService.GetUserSetting<bool>(UserSettingConstants.PreviewShowPictureSettingsOverlay);
             this.Duration = userSettingService.GetUserSetting<int>(UserSettingConstants.LastPreviewDuration);
-            this.previewRotateFlip = userSettingService.GetUserSetting<bool>(UserSettingConstants.PreviewRotationFlip);
-            this.NotifyOfPropertyChange(() => this.previewRotateFlip); // Don't want to trigger an Update, so setting the backing variable. 
         }
         
         public IPictureSettingsViewModel PictureSettingsViewModel { get; private set; }
@@ -143,24 +139,6 @@ namespace HandBrakeWPF.ViewModels
                 this.NotifyOfPropertyChange(() => this.SelectedPreviewImage);
 
                 this.UpdatePreviewFrame();
-            }
-        }
-
-        public bool PreviewRotateFlip
-        {
-            get => this.previewRotateFlip;
-            set
-            {
-                if (value == this.previewRotateFlip)
-                {
-                    return;
-                }
-
-                this.previewRotateFlip = value;
-                this.NotifyOfPropertyChange(() => this.PreviewRotateFlip);
-
-                this.UpdatePreviewFrame();
-                this.userSettingService.SetUserSetting(UserSettingConstants.PreviewRotationFlip, value);
             }
         }
 
@@ -344,14 +322,7 @@ namespace HandBrakeWPF.ViewModels
         [HandleProcessCorruptedStateExceptions]
         public void UpdatePreviewFrame()
         {
-            // Don't preview for small images.
-            if (this.Task.Anamorphic == Anamorphic.Loose && this.Task.Width < 32)
-            {
-                PreviewNotAvailable = true;
-                return;
-            }
-
-            if ((this.Task.Anamorphic == Anamorphic.None || this.Task.Anamorphic == Anamorphic.Custom) && (this.Task.Width < 32 || this.Task.Height < 32))
+            if (this.Task.Width < 32 || this.Task.Height < 32)
             {
                 PreviewNotAvailable = true;
                 return;
@@ -370,11 +341,6 @@ namespace HandBrakeWPF.ViewModels
 
             if (image != null)
             {
-                if (previewRotateFlip)
-                {
-                    image = BitmapHelpers.CreateTransformedBitmap(image, this.Task.Rotation, this.Task.FlipVideo);
-                }
-
                 PreviewNotAvailable = false;
                 this.Width = (int)Math.Ceiling(image.Width);
                 this.Height = (int)Math.Ceiling(image.Height);
@@ -501,7 +467,7 @@ namespace HandBrakeWPF.ViewModels
                 encodeTask.SubtitleTracks.Remove(scanTrack);
             }
 
-            QueueTask task = new QueueTask(encodeTask, HBConfigurationFactory.Create(), this.ScannedSource.ScanPath, null, false);
+            QueueTask task = new QueueTask(encodeTask, HBConfigurationFactory.Create(), this.ScannedSource.ScanPath, null, false, null);
             ThreadPool.QueueUserWorkItem(this.CreatePreview, task);
         }
 
@@ -520,31 +486,35 @@ namespace HandBrakeWPF.ViewModels
             {
                 if (File.Exists(this.CurrentlyPlaying))
                 {
+                    string mediaPlayerPath = userSettingService.GetUserSetting<string>(UserSettingConstants.MediaPlayerPath);
                     string args = "\"" + this.CurrentlyPlaying + "\"";
 
                     if (this.UseSystemDefaultPlayer)
                     {
+                        this.logService.LogMessage(string.Format("# VideoPreview: Using system media player. ({0})", args));
                         Process.Start(args);
                     }
                     else
                     {
-                        if (File.Exists(userSettingService.GetUserSetting<string>(UserSettingConstants.MediaPlayerPath)))
+                        if (File.Exists(mediaPlayerPath))
                         {
-                            ProcessStartInfo process = new ProcessStartInfo(userSettingService.GetUserSetting<string>(UserSettingConstants.MediaPlayerPath), args);
+                            this.logService.LogMessage(string.Format("# Video Preview: Playing file using defined media player. ({0})", args));
+                            this.logService.LogMessage(string.Format("# Video Preview: Media Player Path: {0}", mediaPlayerPath));
+                            ProcessStartInfo process = new ProcessStartInfo(mediaPlayerPath, args);
                             Process.Start(process);
                             return;
                         }
                         else
                         {
                             // Fallback to the System Default
+                            this.logService.LogMessage(string.Format("# Video Preview: Falling back to system media player. ({0})", args));
                             Process.Start(args);
                         }
                     }
                 }
                 else
                 {
-                    this.errorService.ShowMessageBox(Resources.StaticPreviewViewModel_UnableToPlayFile, 
-                                 Resources.Error, MessageBoxButton.OK, MessageBoxImage.Warning);
+                    this.errorService.ShowMessageBox(Resources.StaticPreviewViewModel_UnableToPlayFile, Resources.Error, MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
         }

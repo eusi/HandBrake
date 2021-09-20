@@ -3,7 +3,7 @@
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
 // <summary>
-//   The Options Tab Converter. Controls which tab is dispalyed.
+//   The Options Tab Converter. Controls which tab is displayed.
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -17,7 +17,7 @@ namespace HandBrakeWPF.Converters.Options
     using HandBrakeWPF.Model;
 
     /// <summary>
-    /// The Options Tab Converter. Controls which tab is dispalyed.
+    /// The Options Tab Converter. Controls which tab is displayed.
     /// </summary>
     public class OptionsTabConverter : IValueConverter
     {
@@ -54,6 +54,9 @@ namespace HandBrakeWPF.Converters.Options
                         break;
                     case OptionsTab.Video:
                         if ((OptionsTab)parameter == OptionsTab.Video) return Visibility.Visible;
+                        break;
+                    case OptionsTab.Reset:
+                        if ((OptionsTab)parameter == OptionsTab.Reset) return Visibility.Visible;
                         break;
                 }
             }

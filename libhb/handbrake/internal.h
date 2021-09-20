@@ -125,6 +125,7 @@ struct hb_image_format_s
     int           color_transfer;
     int           color_matrix;
     int           color_range;
+    int           chroma_location;
     int           max_plane;
     int           window_width;
     int           window_height;
@@ -476,6 +477,7 @@ extern hb_filter_object_t hb_filter_unsharp;
 extern hb_filter_object_t hb_filter_avfilter;
 extern hb_filter_object_t hb_filter_mt_frame;
 extern hb_filter_object_t hb_filter_colorspace;
+extern hb_filter_object_t hb_filter_format;
 
 #if HB_PROJECT_FEATURE_QSV
 extern hb_filter_object_t hb_filter_qsv;

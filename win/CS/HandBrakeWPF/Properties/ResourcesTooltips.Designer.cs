@@ -240,7 +240,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Grayscale removes the color component of the video. Often referred to as Black &amp;amp; White video..
+        ///   Looks up a localized string similar to Grayscale removes the color component of the video. Often referred to as Black &amp; White video..
         /// </summary>
         public static string FilterView_Grayscale {
             get {
@@ -492,6 +492,17 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Flat - Presets are displayed as a flat list.
+        ///Partially Flat - The last 8 user presets are displayed as a flat list followed by all presets being shown in category listing.
+        ///Categories - All presets are shown under a sub menu per category..
+        /// </summary>
+        public static string OptionsView_PresetDisplayModes {
+            get {
+                return ResourceManager.GetString("OptionsView_PresetDisplayModes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Anamorphic allows arbitrary storage dimensions while preserving the original aspect during playback.
         ///
         ///None disables anamorphic. Video storage dimensions and display dimensions will be identical. Only useful for compatibility with certain legacy devices.
@@ -592,6 +603,15 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to This field can accept RGB values such as: &quot;0xFF0000&quot; or colour names such as &quot;red&quot;. For a full list of named colours, see the padding filter documentation. .
+        /// </summary>
+        public static string PictureSettingsView_PaddingCustomColourTooltip {
+            get {
+                return ResourceManager.GetString("PictureSettingsView_PaddingCustomColourTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Pixel aspect defines the shape of the pixels.
         ///A 1:1 ratio defines a square pixel.  Other values define rectangular shapes.
         ///Players will scale the image in order to achieve the specified aspect..
@@ -645,6 +665,19 @@ namespace HandBrakeWPF.Properties {
         public static string SourceSelection_TitleSpecific {
             get {
                 return ResourceManager.GetString("SourceSelection_TitleSpecific", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Burn in subtitles to the video stream.
+        ///
+        ///Note, this will be automatically selected if the source subtitle track format is not supported in the output file type.
+        ///
+        ///For example, PGS subtitles are not supported in MP4.
+        /// </summary>
+        public static string SubtitlesView_BurnIn {
+            get {
+                return ResourceManager.GetString("SubtitlesView_BurnIn", resourceCulture);
             }
         }
         

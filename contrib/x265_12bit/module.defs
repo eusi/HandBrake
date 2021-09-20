@@ -2,8 +2,9 @@ __deps__ := X265_8
 $(eval $(call import.MODULE.defs,X265_12,x265_12,$(__deps__),x265))
 $(eval $(call import.CONTRIB.defs,X265_12))
 
-X265_12.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/x265-snapshot-20210203-12666.tar.gz
-X265_12.FETCH.sha256  = a4a712c9fbe724c263f4506e19aeca74e0259b33126d2e60c813352483f5110c
+X265_12.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/x265_3.5.tar.gz
+X265_12.FETCH.url    += https://bitbucket.org/multicoreware/x265_git/downloads/x265_3.5.tar.gz
+X265_12.FETCH.sha256  = e70a3335cacacbba0b3a20ec6fecd6783932288ebc8163ad74bcc9606477cae8
 
 # Silence "warning: overriding recipe for target" messages
 X265_12.FETCH.target =
@@ -14,7 +15,7 @@ X265_12.CONFIGURE.args.prefix = -DCMAKE_INSTALL_PREFIX="$(X265_12.CONFIGURE.pref
 X265_12.CONFIGURE.deps        =
 X265_12.CONFIGURE.static      =
 X265_12.CONFIGURE.shared      = -DENABLE_SHARED=OFF
-X265_12.CONFIGURE.extra       = -DENABLE_CLI=OFF -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DMAIN12=ON
+X265_12.CONFIGURE.extra       = -DENABLE_CLI=OFF -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DMAIN12=ON -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy -DCMAKE_CXX_FLAGS=-flax-vector-conversions
 
 ifneq (1,$(FEATURE.numa))
     X265_12.CONFIGURE.extra  += -DENABLE_LIBNUMA=OFF
@@ -38,6 +39,10 @@ else
     endif
 endif
 
+ifeq (aarch64,$(HOST.machine))
+    X265_12.CONFIGURE.extra += -DCMAKE_CXX_FLAGS=-flax-vector-conversions
+endif
+
 ifeq (1,$(HOST.cross))
     ifeq (mingw,$(HOST.system))
         X265_12.CONFIGURE.extra += -DWIN32=ON
@@ -49,6 +54,7 @@ ifeq (1,$(HOST.cross))
         X265_12.CONFIGURE.extra += -DCMAKE_CXX_FLAGS="-static-libgcc -static-libstdc++ -static"
         X265_12.CONFIGURE.extra += -DCMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS="-static-libgcc -static-libstdc++ -static"
         X265_12.CONFIGURE.extra += -DCMAKE_RC_COMPILER=$(HOST.cross.prefix)windres
+        X265_12.CONFIGURE.args.host  = -DCMAKE_HOST_SYSTEM="$(X265_12.CONFIGURE.host)"
     else ifeq ($(HOST.system),darwin)
         X265_12.CONFIGURE.args.host  = -DCMAKE_HOST_SYSTEM="$(X265_12.CONFIGURE.host)"
     else

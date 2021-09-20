@@ -18,6 +18,9 @@ namespace HandBrakeWPF
         public const string Appcast64 = "https://handbrake.fr/appcast.x86_64.xml";
         public const string AppcastUnstable64 = "https://handbrake.fr/appcast_unstable.x86_64.xml";
 
+        public const string Appcast64Arm = "https://handbrake.fr/appcast.arm64.xml";
+        public const string AppcastUnstable64Arm = "https://handbrake.fr/appcast_unstable.arm64.xml";
+
         /* Languages */
         public const string Any = "(Any)";
         public const string Undefined = "und";
@@ -28,12 +31,13 @@ namespace HandBrakeWPF
         public const string Quality = "{quality}";
         public const string Date = "{date}";
         public const string Time = "{time}";
-        public const string CretaionDate = "{creation-date}";
+        public const string CreationDate = "{creation-date}";
         public const string CreationTime = "{creation-time}";
         public const string Bitrate = "{bitrate}";
         public const string Preset = "{preset}";
-        public const string Source = "{source}";
 
+        /* Auto-name Path Constants */
+        public const string Source = "{source}";
         public const string SourcePath = "{source_path}";
         public const string SourceFolderName = "{source_folder_name}";
 

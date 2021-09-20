@@ -79,15 +79,15 @@ static HBMixdownTransformer    *mixdownTransformer;
         NSString *title = nil;
         if (container->format & HB_MUX_MASK_MP4)
         {
-            title = HBKitLocalizedString(@"MP4 File", @"HBJob -> Format display name");
+            title = @"MP4";
         }
         else if (container->format & HB_MUX_MASK_MKV)
         {
-            title = HBKitLocalizedString(@"MKV File", @"HBJob -> Format display name");
+            title = @"MKV";
         }
         else if (container->format & HB_MUX_MASK_WEBM)
         {
-            title = HBKitLocalizedString(@"WebM File", @"HBJob -> Format display name");
+            title = @"WebM";
         }
         else
         {
@@ -279,10 +279,6 @@ static HBMixdownTransformer    *mixdownTransformer;
     NSMutableAttributedString *attrString = [[NSMutableAttributedString alloc] init];
 
     NSString *pictureInfo = self.picture.summary;
-    if (self.picture.keepDisplayAspect)
-    {
-        pictureInfo = [pictureInfo stringByAppendingString:HBKitLocalizedString(@" Keep Aspect Ratio", @"Dimensions description")];
-    }
     [attrString appendString:@"\t"      withAttributes:detailAttr];
     [attrString appendString:HBKitLocalizedString(@"Dimensions:", @"Dimensions description") withAttributes:detailBoldAttr];
     [attrString appendString:@" \t"             withAttributes:detailAttr];
@@ -986,14 +982,6 @@ static HBMixdownTransformer    *mixdownTransformer;
         [summary appendString:@", "];
     }
 
-    // FIX ME
-    // Rotation
-    //if (picture.rotate || picture.flip)
-    //{
-    //    [summary appendString:HBKitLocalizedString(@"Rotation", @"HBJob -> filters short description")];
-    //    [summary appendString:@", "];
-    //}
-
     if ([summary hasSuffix:@", "])
     {
         [summary deleteCharactersInRange:NSMakeRange(summary.length - 2, 2)];
@@ -1021,15 +1009,15 @@ static HBMixdownTransformer    *mixdownTransformer;
     int container = [value intValue];
     if (container & HB_MUX_MASK_MP4)
     {
-        return HBKitLocalizedString(@"MP4 File", @"HBJob -> Format display name");
+        return @"MP4";
     }
     else if (container & HB_MUX_MASK_MKV)
     {
-        return HBKitLocalizedString(@"MKV File", @"HBJob -> Format display name");
+        return @"MKV";
     }
     else if (container & HB_MUX_MASK_WEBM)
     {
-        return HBKitLocalizedString(@"WebM File", @"HBJob -> Format display name");
+        return @"WebM";
     }
     else
     {
@@ -1052,15 +1040,15 @@ static HBMixdownTransformer    *mixdownTransformer;
 
 - (id)reverseTransformedValue:(id)value
 {
-    if ([value isEqualToString:HBKitLocalizedString(@"MP4 File", @"HBJob -> Format display name")])
+    if ([value isEqualToString:@"MP4"])
     {
         return @(HB_MUX_AV_MP4);
     }
-    else if ([value isEqualToString:HBKitLocalizedString(@"MKV File", @"HBJob -> Format display name")])
+    else if ([value isEqualToString:@"MKV"])
     {
         return @(HB_MUX_AV_MKV);
     }
-    else if ([value isEqualToString:HBKitLocalizedString(@"WebM File", @"HBJob -> Format display name")])
+    else if ([value isEqualToString:@"WebM"])
     {
         return @(HB_MUX_AV_WEBM);
     }

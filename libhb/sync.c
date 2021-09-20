@@ -371,7 +371,7 @@ static hb_buffer_t * CreateBlackBuf( sync_stream_t * stream,
     {
         if (buf == NULL)
         {
-            buf = hb_frame_buffer_init(stream->common->job->pix_fmt,
+            buf = hb_frame_buffer_init(stream->common->job->input_pix_fmt,
                                    stream->common->job->title->geometry.width,
                                    stream->common->job->title->geometry.height);
             uint8_t *planes[4];
@@ -381,16 +381,34 @@ static hb_buffer_t * CreateBlackBuf( sync_stream_t * stream,
                 planes[i] = buf->plane[i].data;
                 linesizes[i] = buf->plane[i].stride;
             }
-            av_image_fill_black(planes, linesizes, stream->common->job->pix_fmt,
+            av_image_fill_black(planes, linesizes, stream->common->job->input_pix_fmt,
                                 stream->common->job->color_range, buf->f.width, buf->f.height);
             buf->f.color_prim = stream->common->job->title->color_prim;
             buf->f.color_transfer = stream->common->job->title->color_transfer;
             buf->f.color_matrix = stream->common->job->title->color_matrix;
             buf->f.color_range = stream->common->job->color_range;
+            buf->f.chroma_location = stream->common->job->chroma_location;
+#if HB_PROJECT_FEATURE_QSV
+            if (hb_qsv_full_path_is_enabled(stream->common->job) && !hb_qsv_hw_filters_are_enabled(stream->common->job))
+            {
+                hb_qsv_attach_surface_to_video_buffer(stream->common->job, buf, 0);
+            }
+#endif
         }
         else
         {
-            buf = hb_buffer_dup(buf);
+#if HB_PROJECT_FEATURE_QSV
+            if (hb_qsv_full_path_is_enabled(stream->common->job) && !hb_qsv_hw_filters_are_enabled(stream->common->job))
+            {
+                hb_buffer_t *temp = hb_buffer_dup(buf);
+                hb_qsv_copy_video_buffer_to_video_buffer(stream->common->job, buf, temp, 0);
+                buf = temp;
+            }
+            else
+#endif
+            {
+                buf = hb_buffer_dup(buf);
+            }
         }
         buf->s.start     = next_pts;
         next_pts        += frame_dur;
@@ -3137,7 +3155,7 @@ static void UpdateState( sync_common_t * common, int frame_count )
 
     if (job->indepth_scan)
     {
-        // Progress for indept scan is handled by reader
+        // Progress for indepth scan is handled by reader
         // frame_count is used during indepth_scan
         // to find start & end points.
         return;
@@ -3202,7 +3220,7 @@ static void UpdateSearchState( sync_common_t * common, int64_t start,
 
     if (job->indepth_scan)
     {
-        // Progress for indept scan is handled by reader
+        // Progress for indepth scan is handled by reader
         // frame_count is used during indepth_scan
         // to find start & end points.
         return;

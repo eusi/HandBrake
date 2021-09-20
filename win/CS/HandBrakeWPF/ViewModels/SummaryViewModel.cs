@@ -236,7 +236,7 @@ namespace HandBrakeWPF.ViewModels
                     this.NotifyOfPropertyChange(() => this.IsMkvOrWebm);
                     this.NotifyOfPropertyChange(() => this.IsIpodAtomVisible);
                     this.SetExtension(string.Format(".{0}", this.Task.OutputFormat.ToString().ToLower()));
-                    this.UpdateDisplayedInfo(); // output format may coreced to another due to container incompatibility
+                    this.UpdateDisplayedInfo(); // output format may be coerced to another due to container incompatibility
 
                     this.OnOutputFormatChanged(new OutputFormatChangedEventArgs(null));
                     this.OnTabStatusChanged(null);
@@ -329,6 +329,16 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
+        public bool MetadataPassthru
+        {
+            get => this.task?.MetaData.PassthruMetadataEnabled ?? false;
+            set
+            {
+                this.task.MetaData.PassthruMetadataEnabled = value;
+                this.NotifyOfPropertyChange(() => this.MetadataPassthru);
+            }
+        }
+
         #endregion
 
         public void SetSource(Source scannedSource, Title selectedTitle, Preset currentPreset, EncodeTask encodeTask)
@@ -336,6 +346,7 @@ namespace HandBrakeWPF.ViewModels
             this.Source = scannedSource;
             this.CurrentTitle = selectedTitle;
             this.Task = encodeTask;
+            this.Task.MetaData = new MetaData(selectedTitle.Metadata, this.MetadataPassthru);
             this.UpdateDisplayedInfo();
             this.SetPreviewControlVisibility();
         }
@@ -360,6 +371,7 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => this.OptimizeMP4);
             this.NotifyOfPropertyChange(() => this.IPod5GSupport);
             this.NotifyOfPropertyChange(() => this.AlignAVStart);
+            this.NotifyOfPropertyChange(() => this.MetadataPassthru);
         }
 
         public bool MatchesPreset(Preset preset)
@@ -474,6 +486,7 @@ namespace HandBrakeWPF.ViewModels
             this.OptimizeMP4 = selectedPreset.Task.OptimizeMP4;
             this.IPod5GSupport = selectedPreset.Task.IPod5GSupport;
             this.AlignAVStart = selectedPreset.Task.AlignAVStart;
+            this.MetadataPassthru = selectedPreset.Task?.MetaData.PassthruMetadataEnabled ?? false;
         }
 
         private void SetExtension(string newExtension)
@@ -549,7 +562,17 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => this.FiltersInfo);
 
             // Picture Section
-            this.DimensionInfo = string.Format("{0}x{1} {2}, {3}x{4} {5}", this.Task.Width, this.Task.Height, Resources.SummaryView_storage, this.Task.DisplayWidth, this.Task.Height, Resources.SummaryView_display);
+            string storageDesc = Resources.SummaryView_storage;
+            int? width = this.task.Width;
+            int? height = this.task.Height;
+            if (this.task.Padding.Enabled)
+            {
+                storageDesc = string.Format("{0} {1}", Resources.SummaryView_storage, Resources.SummaryView_Padded);
+                width = this.task.Width + this.task.Padding.W;
+                height = this.task.Height + this.task.Padding.H;
+            }
+     
+            this.DimensionInfo = string.Format("{0}x{1} {2}, {3}x{4} {5}", width, height, storageDesc, this.Task.DisplayWidth, this.Task.Height, Resources.SummaryView_display);
             this.NotifyOfPropertyChange(() => this.DimensionInfo);
 
             this.AspectInfo = string.Empty;
@@ -705,7 +728,7 @@ namespace HandBrakeWPF.ViewModels
         private void UpdatePreviewFrame()
         {
             // Don't preview for small images.
-            if (this.Task.Anamorphic == Anamorphic.Loose && this.Task.Width < 32)
+            if (this.Task.Width < 32)
             {
                 this.PreviewNotAvailable = true;
                 this.IsPreviewInfoVisible = false;
@@ -732,8 +755,6 @@ namespace HandBrakeWPF.ViewModels
 
             if (image != null)
             {
-                image = BitmapHelpers.CreateTransformedBitmap(image, this.task.Rotation, this.task.FlipVideo);
-
                 this.PreviewNotAvailable = false;
                 this.PreviewImage = image;
                 this.MaxWidth = (int)image.Width;

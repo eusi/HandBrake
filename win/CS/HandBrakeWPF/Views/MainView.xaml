@@ -108,14 +108,15 @@
                     <Separator />
                     <MenuItem Header="{x:Static Properties:Resources.PresetManger_Title}" cal:Message.Attach="[Event Click] = [Action OpenPresetWindow]" />
                     <Separator />
+                    <MenuItem Header="{x:Static Properties:Resources.MainView_SaveNewPreset}" cal:Message.Attach="[Event Click] = [Action PresetAdd]" />
                     <MenuItem Header="{x:Static Properties:Resources.MainView_UpdateSelectedPreset}" cal:Message.Attach="[Event Click] = [Action PresetUpdate]" />
+                    <MenuItem Header="{x:Static Properties:Resources.MainView_SetCurrentAsDefault}" cal:Message.Attach="[Event Click] = [Action PresetSetDefault]" />
                     <MenuItem Header="{x:Static Properties:Resources.MainView_PresetManage}" cal:Message.Attach="[Event Click] = [Action PresetManage]" />
                     <MenuItem Header="{x:Static Properties:Resources.MainView_PresetRemove}" cal:Message.Attach="[Event Click] = [Action PresetRemove]" />
                     <Separator />
                     <MenuItem Header="{x:Static Properties:Resources.MainView_ImportFromFile}" cal:Message.Attach="[Event Click] = [Action PresetImport]" />
                     <MenuItem Header="{x:Static Properties:Resources.MainView_ExportToFile}" cal:Message.Attach="[Event Click] = [Action PresetExport]" />
                     <Separator />
-                    <MenuItem Header="{x:Static Properties:Resources.MainView_SetCurrentAsDefault}" cal:Message.Attach="[Event Click] = [Action PresetSetDefault]" />
                     <MenuItem Header="{x:Static Properties:Resources.MainView_ResetPresets}" cal:Message.Attach="[Event Click] = [Action PresetReset]" />
                 </MenuItem>
 
@@ -289,12 +290,12 @@
                     </StackPanel>
                 </Button>
 
-                <Button Name="Preview" AutomationProperties.Name="Preview Picture Preview Window" cal:Message.Attach="[Event Click] = [Action OpenPreviewWindow]" >
+                <Button Name="Preview" AutomationProperties.Name="{x:Static Properties:Resources.MainView_ShowPreview}" cal:Message.Attach="[Event Click] = [Action OpenPreviewWindow]" >
                     <StackPanel Orientation="Horizontal">
                         <Image Width="32"
                                Height="32"
                                SnapsToDevicePixels="True"
-                               Source="{Binding Converter={StaticResource themeConverter}, ConverterParameter='Queue.png'}"/>
+                               Source="{Binding Converter={StaticResource themeConverter}, ConverterParameter='Preview.png'}"/>
                         <Label Margin="8,0,0,0"
                                VerticalAlignment="Center"
                                Content="{x:Static Properties:Resources.MainView_ShowPreview}"/>
@@ -327,7 +328,7 @@
                     </StackPanel>
 
                     <Button.ContextMenu>
-                        <ContextMenu ItemsSource="{Binding PresetsCategories, Converter={StaticResource presetsMenuConverter}, ConverterParameter=true}" />
+                        <ContextMenu ItemsSource="{Binding PresetsCategories, Converter={StaticResource presetsMenuConverter}, ConverterParameter=true}" MaxHeight="600" />
                     </Button.ContextMenu>
                 </Button>
             </ToolBar>
@@ -480,7 +481,7 @@
                         </Button.Content>
 
                         <Button.ContextMenu>
-                            <ContextMenu x:Name="PresetSelectContextMenu" ItemsSource="{Binding PresetsCategories, Converter={StaticResource presetsMenuConverter}}">
+                            <ContextMenu x:Name="PresetSelectContextMenu" ItemsSource="{Binding PresetsCategories, Converter={StaticResource presetsMenuConverter}}" MaxHeight="600">
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>

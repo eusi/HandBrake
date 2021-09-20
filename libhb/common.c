@@ -1470,6 +1470,8 @@ const char* hb_video_quality_get_name(uint32_t codec)
         case HB_VCODEC_FFMPEG_VP9:
         case HB_VCODEC_FFMPEG_NVENC_H264:
         case HB_VCODEC_FFMPEG_NVENC_H265:
+        case HB_VCODEC_FFMPEG_VCE_H264:
+        case HB_VCODEC_FFMPEG_VCE_H265:
         case HB_VCODEC_FFMPEG_VT_H264:
         case HB_VCODEC_FFMPEG_VT_H265:
         case HB_VCODEC_FFMPEG_VT_H265_10BIT:
@@ -1510,6 +1512,20 @@ int hb_video_encoder_is_supported(int encoder)
         {
             return 1;
         }
+    }
+    return 0;
+}
+
+int hb_video_encoder_pix_fmt_is_supported(int encoder, int pix_fmt)
+{
+    const int *pix_fmts = hb_video_encoder_get_pix_fmts(encoder);
+    while (*pix_fmts != AV_PIX_FMT_NONE)
+    {
+        if (pix_fmt == *pix_fmts)
+        {
+            return 1;
+        }
+        pix_fmts++;
     }
     return 0;
 }
@@ -1673,6 +1689,50 @@ const char* const* hb_video_encoder_get_levels(int encoder)
 
         default:
             return NULL;
+    }
+}
+
+static const enum AVPixelFormat standard_pix_fmts[] =
+{
+    AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat standard_10bit_pix_fmts[] =
+{
+    AV_PIX_FMT_YUV420P10, AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE
+};
+
+static const enum AVPixelFormat standard_12bit_pix_fmts[] =
+{
+    AV_PIX_FMT_YUV420P12, AV_PIX_FMT_YUV420P10, AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE
+};
+
+const int* hb_video_encoder_get_pix_fmts(int encoder)
+{
+#if HB_PROJECT_FEATURE_QSV
+    if (encoder & HB_VCODEC_QSV_MASK)
+    {
+        return hb_qsv_get_pix_fmts(encoder);
+    }
+#endif
+
+    if (encoder & HB_VCODEC_FFMPEG_MASK)
+    {
+        return hb_av_get_pix_fmts(encoder);
+    }
+
+    switch (encoder)
+    {
+        case HB_VCODEC_X264_10BIT:
+            return standard_10bit_pix_fmts;
+#if HB_PROJECT_FEATURE_X265
+        case HB_VCODEC_X265_10BIT:
+            return standard_10bit_pix_fmts;
+        case HB_VCODEC_X265_12BIT:
+            return standard_12bit_pix_fmts;
+#endif
+        default:
+            return standard_pix_fmts;
     }
 }
 
@@ -2932,9 +2992,9 @@ void hb_reduce( int *x, int *y, int num, int den )
     }
 }
 
-void hb_limit_rational( int *x, int *y, int num, int den, int limit )
+void hb_limit_rational( int *x, int *y, int64_t num, int64_t den, int limit )
 {
-    hb_reduce( &num, &den, num, den );
+    hb_reduce64( &num, &den, num, den );
     if ( num < limit && den < limit )
     {
         *x = num;
@@ -3327,7 +3387,7 @@ void hb_list_add( hb_list_t * l, void * p )
 /**********************************************************************
  * hb_list_insert
  **********************************************************************
- * Adds an item at the specifiec position in the list, making it bigger
+ * Adds an item at the specified position in the list, making it bigger
  * if necessary.
  * Can safely be called with a NULL pointer to add, it will be ignored.
  *********************************************************************/
@@ -3851,23 +3911,22 @@ static void job_setup(hb_job_t * job, hb_title_t * title)
     /* Autocrop by default. Gnark gnark */
     memcpy( job->crop, title->crop, 4 * sizeof( int ) );
 
-
-    hb_geometry_t resultGeo, srcGeo;
+    hb_geometry_t          srcGeo, resultGeo;
     hb_geometry_settings_t uiGeo;
 
     srcGeo = title->geometry;
 
     memset(&uiGeo, 0, sizeof(uiGeo));
     memcpy(uiGeo.crop, title->crop, 4 * sizeof( int ));
-    uiGeo.geometry.width = srcGeo.width - uiGeo.crop[2] - uiGeo.crop[3];
+    uiGeo.geometry.width  = srcGeo.width  - uiGeo.crop[2] - uiGeo.crop[3];
     uiGeo.geometry.height = srcGeo.height - uiGeo.crop[0] - uiGeo.crop[1];
     uiGeo.mode = HB_ANAMORPHIC_NONE;
     uiGeo.keep = HB_KEEP_DISPLAY_ASPECT;
 
     hb_set_anamorphic_size2(&srcGeo, &uiGeo, &resultGeo);
-    job->width = resultGeo.width;
+    job->width  = resultGeo.width;
     job->height = resultGeo.height;
-    job->par = resultGeo.par;
+    job->par    = resultGeo.par;
 
     job->vcodec     = HB_VCODEC_FFMPEG_MPEG4;
     job->vquality   = HB_INVALID_VIDEO_QUALITY;
@@ -3876,11 +3935,13 @@ static void job_setup(hb_job_t * job, hb_title_t * title)
     job->pass_id    = HB_PASS_ENCODE;
     job->vrate      = title->vrate;
 
-    job->pix_fmt        = AV_PIX_FMT_YUV420P;
-    job->color_prim     = title->color_prim;
-    job->color_transfer = title->color_transfer;
-    job->color_matrix   = title->color_matrix;
-    job->color_range    = title->color_range;
+    job->input_pix_fmt   = AV_PIX_FMT_YUV420P;
+    job->output_pix_fmt  = AV_PIX_FMT_YUV420P;
+    job->color_prim      = title->color_prim;
+    job->color_transfer  = title->color_transfer;
+    job->color_matrix    = title->color_matrix;
+    job->color_range     = title->color_range;
+    job->chroma_location = title->chroma_location;
     job->color_prim_override     = HB_COLR_PRI_UNDEF;
     job->color_transfer_override = HB_COLR_TRA_UNDEF;
     job->color_matrix_override   = HB_COLR_MAT_UNDEF;
@@ -3897,9 +3958,12 @@ static void job_setup(hb_job_t * job, hb_title_t * title)
     job->metadata = hb_metadata_copy( title->metadata );
 
 #if HB_PROJECT_FEATURE_QSV
-    job->qsv.ctx                   = hb_qsv_context_init();
+    job->qsv.ctx = NULL;
+    if (!job->indepth_scan)
+    {
+        job->qsv.ctx = hb_qsv_context_init();
+    }
     job->qsv.enc_info.is_init_done = 0;
-    job->qsv.async_depth           = hb_qsv_param_default_async_depth();
     job->qsv.decode                = !!(title->video_decode_support &
                                         HB_DECODE_SUPPORT_QSV);
 #endif
@@ -4160,6 +4224,27 @@ hb_list_t *hb_filter_list_copy(const hb_list_t *src)
     return list;
 }
 
+hb_dict_t * hb_filter_dict_find(const hb_value_array_t * list, int filter_id)
+{
+    hb_dict_t * filter = NULL;
+    int ii;
+
+    if (list == NULL)
+    {
+        return NULL;
+    }
+    for (ii = 0; ii < hb_value_array_len(list); ii++)
+    {
+        filter = hb_value_array_get(list, ii);
+        if (hb_dict_get_int(filter, "ID") == filter_id)
+        {
+            return filter;
+        }
+    }
+
+    return NULL;
+}
+
 hb_filter_object_t * hb_filter_find(const hb_list_t *list, int filter_id)
 {
     hb_filter_object_t *filter = NULL;
@@ -4261,6 +4346,10 @@ hb_filter_object_t * hb_filter_get( int filter_id )
 
         case HB_FILTER_GRAYSCALE:
             filter = &hb_filter_grayscale;
+            break;
+
+        case HB_FILTER_FORMAT:
+            filter = &hb_filter_format;
             break;
 
 #if HB_PROJECT_FEATURE_QSV
@@ -4713,7 +4802,7 @@ void hb_chapter_set_title( hb_chapter_t *chapter, const char *title )
  * Applies information from the given job to the official job instance.
  * @param job Handle to hb_job_t.
  * @param chapter The chapter to apply the name to (1-based).
- * @param titel to apply.
+ * @param title to apply.
  *********************************************************************/
 void hb_chapter_set_title_by_index( hb_job_t * job, int chapter_index, const char * title )
 {
@@ -5195,6 +5284,10 @@ int hb_audio_can_apply_drc2(hb_handle_t *h, int title_idx, int audio_idx, int en
 hb_metadata_t *hb_metadata_init()
 {
     hb_metadata_t *metadata = calloc( 1, sizeof(*metadata) );
+    if (metadata != NULL)
+    {
+        metadata->dict = hb_dict_init();
+    }
     return metadata;
 }
 
@@ -5210,45 +5303,9 @@ hb_metadata_t *hb_metadata_copy( const hb_metadata_t *src )
     if ( src )
     {
         metadata = calloc( 1, sizeof(*metadata) );
-        if ( src->name )
+        if (src->dict != NULL)
         {
-            metadata->name = strdup(src->name);
-        }
-        if ( src->artist )
-        {
-            metadata->artist = strdup(src->artist);
-        }
-        if ( src->album_artist )
-        {
-            metadata->album_artist = strdup(src->album_artist);
-        }
-        if ( src->composer )
-        {
-            metadata->composer = strdup(src->composer);
-        }
-        if ( src->release_date )
-        {
-            metadata->release_date = strdup(src->release_date);
-        }
-        if ( src->comment )
-        {
-            metadata->comment = strdup(src->comment);
-        }
-        if ( src->album )
-        {
-            metadata->album = strdup(src->album);
-        }
-        if ( src->genre )
-        {
-            metadata->genre = strdup(src->genre);
-        }
-        if ( src->description )
-        {
-            metadata->description = strdup(src->description);
-        }
-        if ( src->long_description )
-        {
-            metadata->long_description = strdup(src->long_description);
+            metadata->dict = hb_value_dup(src->dict);
         }
         if ( src->list_coverart )
         {
@@ -5276,16 +5333,10 @@ void hb_metadata_close( hb_metadata_t **_m )
         hb_metadata_t *m = *_m;
         hb_coverart_t *art;
 
-        free( m->name );
-        free( m->artist );
-        free( m->composer );
-        free( m->release_date );
-        free( m->comment );
-        free( m->album );
-        free( m->album_artist );
-        free( m->genre );
-        free( m->description );
-        free( m->long_description );
+        if (m->dict != NULL)
+        {
+            hb_value_free(&m->dict);
+        }
 
         if ( m->list_coverart )
         {
@@ -5308,83 +5359,15 @@ void hb_metadata_close( hb_metadata_t **_m )
  **********************************************************************
  *
  *********************************************************************/
-void hb_metadata_set_name( hb_metadata_t *metadata, const char *name )
+void hb_update_meta_dict(hb_dict_t * dict, const char * key, const char * value)
 {
-    if ( metadata )
+    if (value != NULL)
     {
-        hb_update_str( &metadata->name, name );
+        hb_dict_set_string(dict, key, value);
     }
-}
-
-void hb_metadata_set_artist( hb_metadata_t *metadata, const char *artist )
-{
-    if ( metadata )
+    else
     {
-        hb_update_str( &metadata->artist, artist );
-    }
-}
-
-void hb_metadata_set_composer( hb_metadata_t *metadata, const char *composer )
-{
-    if ( metadata )
-    {
-        hb_update_str( &metadata->composer, composer );
-    }
-}
-
-void hb_metadata_set_release_date( hb_metadata_t *metadata, const char *release_date )
-{
-    if ( metadata )
-    {
-        hb_update_str( &metadata->release_date, release_date );
-    }
-}
-
-void hb_metadata_set_comment( hb_metadata_t *metadata, const char *comment )
-{
-    if ( metadata )
-    {
-        hb_update_str( &metadata->comment, comment );
-    }
-}
-
-void hb_metadata_set_genre( hb_metadata_t *metadata, const char *genre )
-{
-    if ( metadata )
-    {
-        hb_update_str( &metadata->genre, genre );
-    }
-}
-
-void hb_metadata_set_album( hb_metadata_t *metadata, const char *album )
-{
-    if ( metadata )
-    {
-        hb_update_str( &metadata->album, album );
-    }
-}
-
-void hb_metadata_set_album_artist( hb_metadata_t *metadata, const char *album_artist )
-{
-    if ( metadata )
-    {
-        hb_update_str( &metadata->album_artist, album_artist );
-    }
-}
-
-void hb_metadata_set_description( hb_metadata_t *metadata, const char *description )
-{
-    if ( metadata )
-    {
-        hb_update_str( &metadata->description, description );
-    }
-}
-
-void hb_metadata_set_long_description( hb_metadata_t *metadata, const char *long_description )
-{
-    if ( metadata )
-    {
-        hb_update_str( &metadata->long_description, long_description );
+        hb_dict_remove(dict, key);
     }
 }
 
@@ -5609,7 +5592,7 @@ int hb_yuv2rgb(int yuv)
 /**********************************************************************
  * hb_rgb2yuv
  **********************************************************************
- * Converts an RGB pixel to a YCrCb pixel.
+ * Converts an RGB pixel to a limited range Bt.601 YCrCb pixel.
  *
  * This conversion is lossy (due to rounding and clamping).
  *
@@ -5628,6 +5611,30 @@ int hb_rgb2yuv(int rgb)
     y  =  16. + ( 0.257 * r) + (0.504 * g) + (0.098 * b);
     Cb = 128. + (-0.148 * r) - (0.291 * g) + (0.439 * b);
     Cr = 128. + ( 0.439 * r) - (0.368 * g) - (0.071 * b);
+
+    y = (y < 0) ? 0 : y;
+    Cb = (Cb < 0) ? 0 : Cb;
+    Cr = (Cr < 0) ? 0 : Cr;
+
+    y = (y > 255) ? 255 : y;
+    Cb = (Cb > 255) ? 255 : Cb;
+    Cr = (Cr > 255) ? 255 : Cr;
+
+    return (y << 16) | (Cr << 8) | Cb;
+}
+
+int hb_rgb2yuv_bt709(int rgb)
+{
+    double r, g, b;
+    int y, Cr, Cb;
+
+    r = (rgb >> 16) & 0xff;
+    g = (rgb >>  8) & 0xff;
+    b = (rgb      ) & 0xff;
+
+    y  =  16. + ( 0.1826 * r) + (0.6142 * g) + (0.0620 * b);
+    Cb = 128. + (-0.1006 * r) - (0.3386 * g) + (0.4392 * b);
+    Cr = 128. + ( 0.4392 * r) - (0.3986 * g) - (0.0403 * b);
 
     y = (y < 0) ? 0 : y;
     Cb = (Cb < 0) ? 0 : Cb;
@@ -5904,7 +5911,7 @@ int hb_get_bit_depth(int format)
     int i, min, max;
 
     if (!desc || !desc->nb_components) {
-        min = max = 0;
+        return -1;
     }
 
     min = INT_MAX, max = -INT_MAX;
@@ -5914,4 +5921,88 @@ int hb_get_bit_depth(int format)
     }
 
     return max;
+}
+
+static int pix_fmt_is_supported(hb_job_t * job, int pix_fmt)
+{
+    int title_bit_depth = hb_get_bit_depth(job->title->pix_fmt);
+    int pix_fmt_bit_depth = hb_get_bit_depth(pix_fmt);
+
+    if (pix_fmt_bit_depth > title_bit_depth)
+    {
+        return 0;
+    }
+
+    if (job->title->video_decode_support & HB_DECODE_SUPPORT_QSV)
+    {
+        // Allow formats supported by QSV pipeline via system memory
+        // at that stage only, video memory formats will be reassigned later if allowed
+        if (pix_fmt != AV_PIX_FMT_YUV420P10 &&
+            pix_fmt != AV_PIX_FMT_YUV420P)
+        {
+            return 0;
+        }
+    }
+    else
+    {
+        // Allow biplanar formats only if
+        // hardware decoding is enabled.
+        if (pix_fmt == AV_PIX_FMT_P010LE ||
+            pix_fmt == AV_PIX_FMT_NV12)
+        {
+            return 0;
+        }
+    }
+
+    for (int i = 0; i < hb_list_count(job->list_filter); i++)
+    {
+        hb_filter_object_t *filter = hb_list_item(job->list_filter, i);
+
+        switch (filter->id)
+        {
+            case HB_FILTER_DETELECINE:
+            case HB_FILTER_COMB_DETECT:
+            case HB_FILTER_DECOMB:
+            case HB_FILTER_DENOISE:
+            case HB_FILTER_NLMEANS:
+            case HB_FILTER_CHROMA_SMOOTH:
+            case HB_FILTER_LAPSHARP:
+            case HB_FILTER_UNSHARP:
+            case HB_FILTER_GRAYSCALE:
+                if (pix_fmt != AV_PIX_FMT_YUV420P)
+                {
+                    return 0;
+                }
+            case HB_FILTER_RENDER_SUB:
+               if (pix_fmt != AV_PIX_FMT_YUV420P   &&
+                   pix_fmt != AV_PIX_FMT_YUV420P10 &&
+                   pix_fmt != AV_PIX_FMT_YUV420P12)
+               {
+                   return 0;
+               }
+        }
+    }
+
+    return 1;
+}
+
+static const enum AVPixelFormat pipeline_pix_fmts[] =
+{
+    AV_PIX_FMT_YUV420P12, AV_PIX_FMT_P010LE, AV_PIX_FMT_YUV420P10, AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE
+};
+
+int hb_get_best_pix_fmt(hb_job_t * job)
+{
+    const int *pix_fmts = pipeline_pix_fmts;
+
+    while (*pix_fmts != AV_PIX_FMT_NONE)
+    {
+        if (pix_fmt_is_supported(job, *pix_fmts))
+        {
+            return *pix_fmts;
+        }
+        pix_fmts++;
+    }
+
+    return AV_PIX_FMT_YUV420P;
 }
