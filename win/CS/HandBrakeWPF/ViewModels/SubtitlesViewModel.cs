@@ -445,7 +445,7 @@ namespace HandBrakeWPF.ViewModels
             {
                 foreach (var track in this.Task.SubtitleTracks)
                 {
-                    track.Default = (track.Name == this.SubtitleBehaviours.SubtitleDefaultKeyword);
+                    track.Default = (track.Name.ToLower() == this.SubtitleBehaviours.SubtitleDefaultKeyword.ToLower());
                 }
             }
         }
