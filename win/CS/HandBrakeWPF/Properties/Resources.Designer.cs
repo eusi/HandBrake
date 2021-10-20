@@ -311,7 +311,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Configure Automatic Audio Selections.
+        ///   Looks up a localized string similar to Automatic Audio Selections.
         /// </summary>
         public static string AudioDefaultsView_PaneTitle {
             get {
@@ -1701,8 +1701,8 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to HandBrake will not be able to encode the selected source as it did not find a valid source with titles to encode. 
-        ///This could be due to one of the following reasons:
+        ///   Looks up a localized string similar to HandBrake will not be able to encode the selected source as it did not find a valid source with titles to encode. This could be due to one of the following reasons:
+        ///
         ///- The duration of each source title is below the &quot;Minimum Title Duration&quot; threshold option in &apos;Preferences &gt; Advanced&apos;. 
         ///- The source file is not a valid video file or is in a format that HandBrake does not support.
         ///- The source may be copy protected or include DRM. Please note that HandBrake does not support the removal of copy protections [rest of string was truncated]&quot;;.
@@ -4100,7 +4100,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to HandBrake requires a 64bit version of Windows 7 or later to run..
+        ///   Looks up a localized string similar to HandBrake requires a 64bit version of Windows 10 or later to run..
         /// </summary>
         public static string OsBitnessWarning {
             get {
@@ -4109,7 +4109,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to HandBrake requires Windows 7 or later to run. Version 0.9.9 (XP) and 0.10.5 (Vista) was the last version to support these versions..
+        ///   Looks up a localized string similar to HandBrake requires Windows 10 or later to run. Version 0.9.9 (XP), 0.10.5 (Vista), 1.3.3 (7 and 8.x) were the last versions to support these older operating systems..
         /// </summary>
         public static string OsVersionWarning {
             get {
@@ -4742,6 +4742,15 @@ namespace HandBrakeWPF.Properties {
         public static string PresetDisplayMode_Flat {
             get {
                 return ResourceManager.GetString("PresetDisplayMode_Flat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Floating Treeview.
+        /// </summary>
+        public static string PresetDisplayMode_FloatingPanel {
+            get {
+                return ResourceManager.GetString("PresetDisplayMode_FloatingPanel", resourceCulture);
             }
         }
         
@@ -5765,6 +5774,15 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Please make sure you have appropriate file associations setup in Windows to allow it to open this file with a supported video player.
+        /// </summary>
+        public static string QueueViewModel_PlayFileErrorSolution {
+            get {
+                return ResourceManager.GetString("QueueViewModel_PlayFileErrorSolution", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Queue.
         /// </summary>
         public static string QueueViewModel_Queue {
@@ -6358,7 +6376,7 @@ namespace HandBrakeWPF.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Configure Automatic Subtitle Selections.
+        ///   Looks up a localized string similar to Automatic Subtitle Selections.
         /// </summary>
         public static string SubtitlesDefaultsView_PaneTitle {
             get {

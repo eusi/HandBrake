@@ -74,7 +74,7 @@ namespace HandBrakeWPF.ViewModels
         private readonly ILog logService;
         private readonly IUserSettingService userSettingService;
         private readonly IScan scanService;
-        private readonly Win7 windowsTaskbar = new Win7();
+        private readonly WindowsTaskbar windowsTaskbar = new WindowsTaskbar();
         private readonly DelayedActionProcessor delayedPreviewprocessor = new DelayedActionProcessor();
 
         private string windowName;
@@ -97,6 +97,7 @@ namespace HandBrakeWPF.ViewModels
         private bool isSettingPreset;
         private bool isModifiedPreset;
         private bool updateAvailable;
+        private bool isNavigationEnabled;
 
         public MainViewModel(
             IUserSettingService userSettingService,
@@ -149,6 +150,7 @@ namespace HandBrakeWPF.ViewModels
             this.CurrentTask = new EncodeTask();
             this.ScannedSource = new Source();
             this.HasSource = false;
+            this.IsNavigationEnabled = true;
 
             // Setup Events
             this.scanService.ScanStarted += this.ScanStared;
@@ -384,6 +386,7 @@ namespace HandBrakeWPF.ViewModels
             set
             {
                 this.showStatusWindow = value;
+                this.IsNavigationEnabled = !this.showStatusWindow;
                 this.NotifyOfPropertyChange(() => this.ShowStatusWindow);
             }
         }
@@ -636,6 +639,8 @@ namespace HandBrakeWPF.ViewModels
                 this.showSourceSelection = value;
                 this.NotifyOfPropertyChange(() => this.ShowSourceSelection);
 
+                this.IsNavigationEnabled = !showSourceSelection;
+
                 // Refresh the drives.
                 if (this.showSourceSelection)
                 {
@@ -688,6 +693,7 @@ namespace HandBrakeWPF.ViewModels
                     return;
                 }
                 this.showAlertWindow = value;
+                this.IsNavigationEnabled = !this.showAlertWindow;
                 this.NotifyOfPropertyChange(() => this.ShowAlertWindow);
             }
         }
@@ -739,9 +745,21 @@ namespace HandBrakeWPF.ViewModels
             } 
         }
 
+        public bool IsNavigationEnabled
+        {
+            get => this.isNavigationEnabled;
+            set
+            {
+                if (value == this.isNavigationEnabled) return;
+                this.isNavigationEnabled = value;
+                this.NotifyOfPropertyChange(() => this.IsNavigationEnabled);
+                this.NotifyOfPropertyChange(() => this.HasSource);
+            }
+        }
+
         public bool HasSource
         {
-            get => this.hasSource;
+            get => this.hasSource && this.IsNavigationEnabled;
 
             set
             {
@@ -809,6 +827,8 @@ namespace HandBrakeWPF.ViewModels
         public bool IsMultiProcess { get; set; }
 
         public bool IsNightly => HandBrakeVersionHelper.IsNightly();
+
+        public bool IsPresetPaneDisplayed { get; set; }
 
         /* Commands */
 
@@ -1301,6 +1321,11 @@ namespace HandBrakeWPF.ViewModels
 
         public void PauseEncode()
         {
+            if (!this.queueProcessor.IsEncoding || this.queueProcessor.IsPaused)
+            {
+                return;
+            }
+
             this.queueProcessor.Pause(true);
             this.NotifyOfPropertyChange(() => this.IsEncoding);
         }
@@ -1395,6 +1420,12 @@ namespace HandBrakeWPF.ViewModels
                     }
                 }
             }
+        }
+
+        public void TogglePresetPane()
+        {
+            this.IsPresetPaneDisplayed = !this.IsPresetPaneDisplayed;
+            this.NotifyOfPropertyChange(() => IsPresetPaneDisplayed);
         }
 
         /* Main Window Public Methods*/
@@ -1803,12 +1834,18 @@ namespace HandBrakeWPF.ViewModels
         {
             bool value = !this.ShowAddAllToQueue;
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowAddAllToQueue, value);
+
+            var optionsViewModel = IoC.Get<IOptionsViewModel>();
+            optionsViewModel.UpdateSettings();
         }
 
         public void FlipAddSelectionToQueue()
         {
             bool value = !this.ShowAddSelectionToQueue;
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowAddSelectionToQueue, value);
+
+            var optionsViewModel = IoC.Get<IOptionsViewModel>();
+            optionsViewModel.UpdateSettings();
         }
 
         /* Private Methods*/

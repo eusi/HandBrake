@@ -1005,11 +1005,17 @@ namespace HandBrakeWPF.ViewModels
         {
             get
             {
-                return new BindingList<int> { 1, 2, 3, 4, 5, 6, 7, 8 };
+                BindingList<int> list = new BindingList<int>();
+                for (int i = 1; i <= SystemInfo.MaximumSimultaneousInstancesSupported; i++)
+                {
+                    list.Add(i);
+                }
+
+                return list;
             }
         }
 
-        public bool IsSimultaneousEncodesSupported => Utilities.SystemInfo.GetCpuCoreCount >= 4;
+        public bool IsSimultaneousEncodesSupported => SystemInfo.MaximumSimultaneousInstancesSupported > 1;
         
         #region Public Methods
 
@@ -1153,8 +1159,8 @@ namespace HandBrakeWPF.ViewModels
             this.ShowAddAllToQueue = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowAddAllToQueue);
             this.ShowAddSelectionToQueue = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowAddSelectionToQueue);
             this.DarkThemeMode = (DarkThemeMode)this.userSettingService.GetUserSetting<int>(UserSettingConstants.DarkThemeMode);
-            this.SelectedPresetDisplayMode = (PresetDisplayMode)this.userSettingService.GetUserSetting<int>(UserSettingConstants.PresetDisplayMode);
-            
+            this.SelectedPresetDisplayMode = (PresetDisplayMode)this.userSettingService.GetUserSetting<int>(UserSettingConstants.PresetMenuDisplayMode);
+
             // #############################
             // When Done
             // #############################
@@ -1313,6 +1319,8 @@ namespace HandBrakeWPF.ViewModels
         public void UpdateSettings()
         {
             this.WhenDone = (WhenDone)this.userSettingService.GetUserSetting<int>(UserSettingConstants.WhenCompleteAction);
+            this.ShowAddAllToQueue = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowAddAllToQueue);
+            this.ShowAddSelectionToQueue = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowAddSelectionToQueue);
         }
 
         public void GotoTab(OptionsTab tab)
@@ -1348,7 +1356,6 @@ namespace HandBrakeWPF.ViewModels
                 this.presetService.UpdateBuiltInPresets();
                 this.errorService.ShowMessageBox(Resources.Presets_ResetComplete, Resources.Presets_ResetHeader, MessageBoxButton.OK, MessageBoxImage.Information);
             }
-
         }
 
         protected override Task OnActivateAsync(CancellationToken cancellationToken)
@@ -1371,7 +1378,7 @@ namespace HandBrakeWPF.ViewModels
             this.userSettingService.SetUserSetting(UserSettingConstants.UiLanguage, this.SelectedLanguage?.Culture);
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowAddAllToQueue, this.ShowAddAllToQueue);
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowAddSelectionToQueue, this.ShowAddSelectionToQueue);
-            this.userSettingService.SetUserSetting(UserSettingConstants.PresetDisplayMode, this.SelectedPresetDisplayMode);
+            this.userSettingService.SetUserSetting(UserSettingConstants.PresetMenuDisplayMode, this.SelectedPresetDisplayMode);
 
             /* When Done */
             this.userSettingService.SetUserSetting(UserSettingConstants.WhenCompleteAction, (int)this.WhenDone);
