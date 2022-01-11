@@ -1,51 +1,112 @@
 # HandBrake News
 
-## Upgrade Notice
-Before updating, please make sure there are no pending encodes in the Queue.
-Please also make a backup of any custom presets and app preferences you have as they may not be compatible with newer versions.
 
-For Windows users:
-- Please make sure you have Microsoft **DESKTOP** runtime 5.x installed.
-- Users of 1.4.0 may have to run HandBrake as admin for the built-in update check to work correctly. This should not impact users of 1.4.1 or 1.3.x releases
+## Upgrade Notice
+
+Before updating HandBrake, please make sure there are no pending encodes in the queue, and be sure to make a backup of any custom presets and app preferences you have, as they may not be compatible with newer versions.
+
+Windows users, please make sure to install [Microsoft .NET Desktop Runtime version 6.0.0 or later](https://dotnet.microsoft.com/en-us/download/dotnet/6.0). Read carefully: you need the **DESKTOP** runtime.
+
 
 ## HandBrake 1.5.0
 
 ### All platforms
 
-#### Hardware Encoding
-- QuickSync has been updated to use the new OneVPL API.
+#### Video
 
-### Mac
-- macOS 10.13 is now the minimum deployment target
-- The VideoToolbox API is now directly used rather than the libavcodec (ffmpeg) wrapper. Added support for frame multi-pass, mastering display metadata, content light metadata and chroma location. 
+- Fixed an issue on older Intel CPUs causing the CLI to fail to initialize (#3924)
+- Updated video engine to preserve chroma sample location information
+- Updated Intel Quick Sync to use the Intel oneAPI Video Processing Library (oneVPL)
 
-### Windows
-- Minor UI / UX layout and typography changes throughout the UI.
-- Presets
-  - Changed the toolbar preset dropdown to an overlay panel that utilises a treeview which saves state.
-- Queue
-  - Improvements to the queue statistics tab including new statistics: Average encoding speed and content information. 
-  - Added "Move to top" and "Move to bottom" to the queue context menu.
-- Updated Translations
-  - Corsican
-  - German
-  - Italian
-  - Japanese
-  - Chinese  (Including a fix for access keys in menu's)
-- Miscellaneous bug fixes and improvements
+#### Audio
 
-## HandBrake 1.4.3
+- Fixed MP2 audio sources not utilizing the fallback encoder when pass through is disabled (#3863)
+- Fixed FFmpeg AAC audio encoder quality mode scale range (#1295)
 
-### All platforms
+#### Subtitles
 
-### Mac
-- Fixed an issue with auto-naming.
+- Fixed an issue with captions pass through durations (#3764)
 
-### Windows
-- Fixed an issue where the static preview would not update when switching from automatic <-> custom cropping. (#3911)
+#### Build system
+
+- Fixed multiple potential race conditions in Flatpak build process
+- Updated mac-toolchain-build script with newer tool versions
+
+#### Third-party libraries
+
+- Updated libraries
+  - FFmpeg 4.4.1 (decoding and filters)
+  - FreeType 2.11.1 (subtitles)
+  - Fribidi 1.0.11 (subtitles)
+  - HarfBuzz 3.1.2 (subtitles)
+  - Jansson 2.14 (JSON architecture)
+  - libass 0.15.2 (subtitles)
+  - libdav1d 0.9.2 (AV1 decoding)
+  - libjpeg-turbo 2.1.2 (preview image compression)
+  - libogg 1.3.5 (Xiph codecs support)
+  - libvpx 1.11.0 (VP8/VP9 video encoding)
+  - zimg 3.0.3 (color conversion)
 
 ### Linux
-- Fix an issue with the filter settings that resulted in incorrect filters being added to jobs. (#3910)
+
+- Fixed a filter settings issue that resulted in incorrect filters being added to jobs (#3910)
+- Updated Intel QSV Flatpak plugin to use Intel MediaSDK 21.3.5
+- Updated Flatpak dependencies
+  - Freedesktop Platform 21.08
+  - GNOME 41
+- Added Corsican (Corsu) translation
+- Updated translations
+  - Simplified Chinese (简体中文)
+  - Dutch (Nederlands)
+  - French (Français)
+  - Korean (한국어)
+  - Spanish (Español)
+  - Swedish (Svenska)
+- Miscellaneous bug fixes and improvements
+
+### Mac
+
+- Requires macOS 10.13 High Sierra or later
+- Fixed potential issues where encoding process could get stuck on efficiency cores in some cases
+- Fixed an issue with automatic naming not applying correctly
+- Fixed main window not being shown upon editing a job in the queue
+- Updated queue statistics tab to include average encoding speed and percent of original file size
+- Added "Move to top" and "Move to bottom" to the queue context menu
+- Added a stop breakpoint to the queue, set when stop after job is selected and may be reordered (#2572)
+- Added native support for the VideoToolbox API, enabling advanced features such as frame multi-pass, mastering display and content light metadata, and chroma location; the previous implementation via FFmpeg's libavcodec has been removed
+- Added Corsican (Corsu) translation
+- Updated translations
+  - Simplified Chinese (简体中文)
+  - French (Français)
+  - German (Deutsch)
+  - Italian (Italiano)
+  - Portuguese (Português)
+- Miscellaneous bug fixes and improvements
+
+### Windows
+
+- Requires Windows 10 or later and Microsoft .NET Desktop Runtime 6.0.0 or later
+- Fixed a potential crash when encoding using Intel QSV in 2-pass mode (#4026)
+- Fixed potential issues where encoding process could get stuck on efficiency cores in some cases
+- Fixed an issue with static preview not updating when switching between automatic and custom cropping modes (#3911)
+- Updated the toolbar preset dropdown to an overlay panel that utilizes a tree view which saves state
+- Updated UI with various improvements to layout, typography, and cosmetics
+- Updated queue statistics tab to include average encoding speed and content information
+- Updated automatic naming file format placeholders to be live options
+- Updated Send File To preference to set HB_SOURCE, HB_DESTINATION, and HB_EXIT_CODE environment variables, which can be used instead of arguments
+- Added new exit_code parameter to Send File To preference
+- Added "Move to top" and "Move to bottom" to the queue context menu
+- Added a stop breakpoint to the queue, set when stop after job is selected and may be reordered (#2572)
+- Added support for Windows 10/11 notifications, enable in Preferences > When Done
+- Added support for Right to Left UI rendering for languages that require it. This can be set in preferences
+- Added Traditional Chinese (正體中文) translation
+- Updated translations
+  - Simplified Chinese (简体中文) - includes fix for access keys in menus
+  - Corsican (Corsu)
+  - German (Deutsch)
+  - Italian (Italiano)
+  - Japanese (日本語)
+- Miscellaneous bug fixes and improvements
 
 
 ## HandBrake 1.4.2

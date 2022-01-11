@@ -1,6 +1,6 @@
 /* encvt.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -60,6 +60,8 @@ struct hb_work_private_s
     struct hb_vt_param
     {
         CMVideoCodecType codec;
+        uint64_t registryID;
+
         OSType pixelFormat;
         int32_t timescale;
 
@@ -435,7 +437,7 @@ static int hb_vt_settings_xlat(hb_work_private_t *pv, hb_job_t *job)
     // set the preset
     if (job->encoder_preset != NULL && *job->encoder_preset != '\0')
     {
-        if (!strcasecmp(job->encoder_profile, "fast"))
+        if (!strcasecmp(job->encoder_profile, "speed"))
         {
             pv->settings.prioritizeEncodingSpeedOverQuality = kCFBooleanTrue;
         }
@@ -626,7 +628,7 @@ static int hb_vt_parse_options(hb_work_private_t *pv, hb_job_t *job)
         }
         else if (!strcmp(key, "vbv-bufsize"))
         {
-            int bufsize = hb_value_get_bool(value);
+            int bufsize = hb_value_get_int(value);
             if (bufsize > 0)
             {
                 pv->settings.vbv.bufsize = bufsize;
@@ -634,7 +636,7 @@ static int hb_vt_parse_options(hb_work_private_t *pv, hb_job_t *job)
         }
         else if (!strcmp(key, "vbv-maxrate"))
         {
-            int maxrate = hb_value_get_bool(value);
+            int maxrate = hb_value_get_int(value);
             if (maxrate > 0)
             {
                 pv->settings.vbv.maxrate = maxrate;
@@ -656,6 +658,15 @@ static int hb_vt_parse_options(hb_work_private_t *pv, hb_job_t *job)
                 pv->settings.maxFrameDelayCount = maxdelay;
             }
         }
+        else if (!strcmp(key, "gpu-registryid"))
+        {
+            uint64_t registryID = hb_value_get_int(value);
+            if (registryID > 0)
+            {
+                pv->settings.registryID = registryID;
+            }
+        }
+
     }
     hb_dict_free(&opts);
 
@@ -760,14 +771,26 @@ void hb_vt_compression_output_callback(
 static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_private_t *pv, int cookieOnly)
 {
     OSStatus err = noErr;
+    CFNumberRef cfValue = NULL;
 
     CFMutableDictionaryRef encoderSpecifications = CFDictionaryCreateMutable(
                                                                              kCFAllocatorDefault,
-                                                                             1,
+                                                                             2,
                                                                              &kCFTypeDictionaryKeyCallBacks,
                                                                              &kCFTypeDictionaryValueCallBacks);
 
     CFDictionaryAddValue(encoderSpecifications, kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder, kCFBooleanTrue);
+
+    if (pv->settings.registryID > 0)
+    {
+        cfValue = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongLongType,
+                                 &pv->settings.registryID);
+        if (__builtin_available(macOS 10.14, *))
+        {
+            CFDictionaryAddValue(encoderSpecifications, kVTVideoEncoderSpecification_RequiredEncoderGPURegistryID, cfValue);
+        }
+        CFRelease(cfValue);
+    }
 
     CMSimpleQueueCreate(kCFAllocatorDefault, 200, &pv->queue);
 
@@ -790,6 +813,32 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
         return err;
     }
 
+    // Print the actual encoderID
+    if (cookieOnly == 0)
+    {
+        CFStringRef encoderID;
+        err = VTSessionCopyProperty(pv->session,
+                                    kVTCompressionPropertyKey_EncoderID,
+                                    kCFAllocatorDefault,
+                                    &encoderID);
+
+        if (err == noErr)
+        {
+            static const int VAL_BUF_LEN = 256;
+            char valBuf[VAL_BUF_LEN];
+
+            Boolean haveStr = CFStringGetCString(encoderID,
+                                                 valBuf,
+                                                 VAL_BUF_LEN,
+                                                 kCFStringEncodingUTF8);
+            if (haveStr)
+            {
+                hb_log("encvt_Init: %s", valBuf);
+            }
+            CFRelease(encoderID);
+        }
+    }
+
     CFDictionaryRef supportedProps = NULL;
     err = VTCopySupportedPropertyDictionaryForEncoder(pv->settings.width,
                                                       pv->settings.height,
@@ -807,7 +856,14 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
 
     CFRelease(encoderSpecifications);
 
-    CFNumberRef cfValue = NULL;
+    // Offline encoders (such as Handbrake) should set RealTime property to False, as it disconnects the relationship
+    // between encoder speed and target video frame rate, explicitly setting RealTime to false encourages VideoToolbox
+    // to use the fastest mode, while adhering to the required output quality/bitrate and favorQualityOverSpeed settings
+    err = VTSessionSetProperty(pv->session, kVTCompressionPropertyKey_RealTime , kCFBooleanFalse);
+    if (err != noErr)
+    {
+        hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_RealTime failed");
+    }
 
     err = VTSessionSetProperty(pv->session,
                                kVTCompressionPropertyKey_AllowFrameReordering,
@@ -1307,6 +1363,7 @@ static OSStatus create_cookie(hb_work_object_t *w, hb_job_t *job, hb_work_privat
     }
 
 fail:
+    CVPixelBufferRelease(pix_buf);
     VTCompressionSessionInvalidate(pv->session);
     CFRelease(pv->session);
     CFRelease(pv->queue);
@@ -1554,10 +1611,8 @@ static hb_buffer_t * extract_buf(CMSampleBufferRef sampleBuffer, hb_work_object_
             }
         }
 
-        CMTime presentationTimeStamp = CMTimeConvertScale(CMSampleBufferGetPresentationTimeStamp(sampleBuffer),
-                                                          pv->settings.timescale, kCMTimeRoundingMethod_Default);
-        CMTime duration = CMTimeConvertScale(CMSampleBufferGetDuration(sampleBuffer),
-                                             pv->settings.timescale, kCMTimeRoundingMethod_Default);
+        CMTime presentationTimeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
+        CMTime duration = CMSampleBufferGetDuration(sampleBuffer);
 
         buf->s.start = presentationTimeStamp.value;
         buf->s.stop  = presentationTimeStamp.value + buf->s.duration;

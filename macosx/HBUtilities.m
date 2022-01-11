@@ -35,14 +35,14 @@ static BOOL hb_resolveBookmarks = YES;
     return appSupportURL;
 }
 
-+ (NSURL *)defaultDestinationURL
++ (NSURL *)defaultDestinationFolderURL
 {
     return [[NSFileManager.defaultManager URLsForDirectory:NSMoviesDirectory inDomains:NSUserDomainMask] firstObject];
 }
 
 + (NSURL *)documentationURL
 {
-    return [NSURL URLWithString:@"https://handbrake.fr/docs/en/latest/"];
+    return [NSURL URLWithString:@"https://handbrake.fr/docs/"];
 }
 
 + (void)writeToActivityLog:(const char *)format, ...

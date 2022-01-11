@@ -41,13 +41,14 @@
 static void *HBControllerScanCoreContext = &HBControllerScanCoreContext;
 static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 
-@interface HBController () <HBPresetsViewControllerDelegate, HBTitleSelectionDelegate, NSMenuItemValidation, NSDraggingDestination, NSPopoverDelegate>
+@interface HBController () <HBPresetsViewControllerDelegate, HBTitleSelectionDelegate, NSMenuItemValidation, NSDraggingDestination, NSPopoverDelegate, NSPathControlDelegate>
 
 @property (nonatomic, readonly, strong) HBCore *core;
 @property (nonatomic, readonly, strong) HBAppDelegate *delegate;
 
 @property (nonatomic, weak) IBOutlet NSTextField *sourceLabel;
 @property (nonatomic, weak) IBOutlet NSPopUpButton *titlePopUp;
+@property (nonatomic, weak) IBOutlet NSPathControl *destinationPathControl;
 
 @property (nonatomic, strong) IBOutlet NSLayoutConstraint *bottomConstrain;
 @property (nonatomic, readwrite) NSColor *labelColor;
@@ -104,7 +105,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 
 #pragma mark - Job
 
-@property (nonatomic, strong) NSURL *destinationURL;
+@property (nonatomic, strong) NSURL *destinationFolderURL;
 
 @property (nonatomic, nullable) HBJob *job;
 @property (nonatomic, nullable) HBAutoNamer *autoNamer;
@@ -166,18 +167,18 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         NSData *bookmark = [NSUserDefaults.standardUserDefaults objectForKey:HBLastDestinationDirectoryBookmark];
         if (bookmark)
         {
-            _destinationURL = [HBUtilities URLFromBookmark:bookmark];
+            _destinationFolderURL = [HBUtilities URLFromBookmark:bookmark];
         }
 #else
-        _destinationURL = [NSUserDefaults.standardUserDefaults URLForKey:HBLastDestinationDirectoryURL];
+        _destinationFolderURL = [NSUserDefaults.standardUserDefaults URLForKey:HBLastDestinationDirectoryURL];
 #endif
-        if (!_destinationURL || [NSFileManager.defaultManager fileExistsAtPath:_destinationURL.path isDirectory:nil] == NO)
+        if (!_destinationFolderURL || [NSFileManager.defaultManager fileExistsAtPath:_destinationFolderURL.path isDirectory:nil] == NO)
         {
-            _destinationURL = HBUtilities.defaultDestinationURL;
+            _destinationFolderURL = HBUtilities.defaultDestinationFolderURL;
         }
 
 #ifdef __SANDBOX_ENABLED__
-        [_destinationURL startAccessingSecurityScopedResource];
+        [_destinationFolderURL startAccessingSecurityScopedResource];
 #endif
     }
 
@@ -503,7 +504,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         }
     }
 
-    self.statusField.stringValue = [NSString stringWithFormat:NSLocalizedString(@"Encoding Job: %@", @""), firstWorkingItem.outputFileName];
+    self.statusField.stringValue = [NSString stringWithFormat:NSLocalizedString(@"Encoding Job: %@", @""), firstWorkingItem.destinationFileName];
 }
 
 - (void)removeQueueObservers
@@ -732,7 +733,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
              self.scanIndicator.indeterminate = NO;
              self.scanIndicator.doubleValue = 0.0;
 
-             if (result == HBCoreResultDone)
+             if (result.code == HBCoreResultCodeDone)
              {
                  for (HBTitle *title in self.core.titles)
                  {
@@ -875,17 +876,17 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
     HBJob *job = [[HBJob alloc] initWithTitle:title preset:self.currentPreset];
     if (job)
     {
-        job.outputURL = self.destinationURL;
+        job.destinationFolderURL = self.destinationFolderURL;
 
         // If the source is not a stream, and autonaming is disabled,
         // keep the existing file name.
-        if (self.job.outputFileName.length == 0 || title.isStream || [NSUserDefaults.standardUserDefaults boolForKey:HBDefaultAutoNaming])
+        if (self.job.destinationFileName.length == 0 || title.isStream || [NSUserDefaults.standardUserDefaults boolForKey:HBDefaultAutoNaming])
         {
-            job.outputFileName = job.defaultName;
+            job.destinationFileName = job.defaultName;
         }
         else
         {
-            job.outputFileName = self.job.outputFileName;
+            job.destinationFileName = self.job.destinationFileName;
         }
 
         job.undo = self.window.undoManager;
@@ -1022,6 +1023,20 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 
 #pragma mark - GUI Controls Changed Methods
 
+- (void)setDestinationFolderURL:(NSURL *)destinationFolderURL
+{
+    self.job.destinationFolderURL = destinationFolderURL;
+    _destinationFolderURL = destinationFolderURL;
+
+    // Save this path to the prefs so that on next browse destination window it opens there
+    [NSUserDefaults.standardUserDefaults setObject:[HBUtilities bookmarkFromURL:destinationFolderURL]
+                                              forKey:HBLastDestinationDirectoryBookmark];
+    [NSUserDefaults.standardUserDefaults setURL:destinationFolderURL
+                                         forKey:HBLastDestinationDirectoryURL];
+
+
+}
+
 - (IBAction)browseDestination:(id)sender
 {
     // Open a panel to let the user choose and update the text field
@@ -1031,26 +1046,61 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
     panel.canCreateDirectories = YES;
     panel.prompt = NSLocalizedString(@"Choose", @"Main Window -> Destination open panel");
 
-    if (self.job.outputURL)
+    if (self.job.destinationFolderURL)
     {
-        panel.directoryURL = self.job.outputURL;
+        panel.directoryURL = self.job.destinationFolderURL;
     }
 
     [panel beginSheetModalForWindow:self.window completionHandler:^(NSInteger result)
      {
          if (result == NSModalResponseOK)
          {
-             self.job.outputURL = panel.URL;
-             self.destinationURL = panel.URL;
-
-             // Save this path to the prefs so that on next browse destination window it opens there
-             [NSUserDefaults.standardUserDefaults setObject:[HBUtilities bookmarkFromURL:panel.URL]
-                                                       forKey:HBLastDestinationDirectoryBookmark];
-             [NSUserDefaults.standardUserDefaults setURL:panel.URL
-                                                  forKey:HBLastDestinationDirectoryURL];
-
+             self.destinationFolderURL = panel.URL;
          }
      }];
+}
+
+- (NSDragOperation)pathControl:(NSPathControl *)pathControl validateDrop:(id <NSDraggingInfo>)info
+{
+    NSPasteboard *pboard = info.draggingPasteboard;
+
+    if ([pboard availableTypeFromArray:@[NSPasteboardTypeFileURL]])
+    {
+        NSURL *URL = [[pboard readObjectsForClasses:@[[NSURL class]] options:nil] firstObject];
+        if (URL.hasDirectoryPath)
+        {
+            return NSDragOperationGeneric;
+        }
+    }
+
+    return NSDragOperationNone;
+}
+
+- (BOOL)pathControl:(NSPathControl *)pathControl acceptDrop:(id <NSDraggingInfo>)info
+{
+    NSPasteboard *pboard = info.draggingPasteboard;
+
+    if ([pboard availableTypeFromArray:@[NSPasteboardTypeFileURL]])
+    {
+        NSURL *URL = [[pboard readObjectsForClasses:@[[NSURL class]] options:nil] firstObject];
+        if (URL.hasDirectoryPath)
+        {
+            self.destinationFolderURL = URL;
+        }
+        return YES;
+    }
+
+    return NO;
+}
+
+- (IBAction)revealPathItemInFinder:(id)sender
+{
+    NSURL *URL = self.destinationPathControl.clickedPathItem.URL;
+    if (URL == nil)
+    {
+        URL = self.destinationFolderURL;
+    }
+    [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:@[URL]];
 }
 
 - (IBAction)titlePopUpChanged:(NSPopUpButton *)sender
@@ -1126,7 +1176,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
  */
 - (void)runDestinationAlerts:(HBJob *)job completionHandler:(void (^ __nullable)(NSModalResponse returnCode))handler
 {
-    if ([NSFileManager.defaultManager fileExistsAtPath:job.outputURL.path] == NO)
+    if ([NSFileManager.defaultManager fileExistsAtPath:job.destinationFolderURL.path] == NO)
     {
         NSAlert *alert = [[NSAlert alloc] init];
         [alert setMessageText:NSLocalizedString(@"Warning!", @"Invalid destination alert -> message")];
@@ -1134,8 +1184,8 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         [alert setAlertStyle:NSAlertStyleCritical];
         [alert beginSheetModalForWindow:self.window completionHandler:handler];
     }
-    else if ([job.fileURL isEqual:job.completeOutputURL]||
-             [job.fileURL.absoluteString.lowercaseString isEqualToString:job.completeOutputURL.absoluteString.lowercaseString])
+    else if ([job.fileURL isEqual:job.destinationURL]||
+             [job.fileURL.absoluteString.lowercaseString isEqualToString:job.destinationURL.absoluteString.lowercaseString])
     {
         NSAlert *alert = [[NSAlert alloc] init];
         [alert setMessageText:NSLocalizedString(@"A file already exists at the selected destination.", @"Destination same as source alert -> message")];
@@ -1143,11 +1193,11 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         [alert setAlertStyle:NSAlertStyleCritical];
         [alert beginSheetModalForWindow:self.window completionHandler:handler];
     }
-    else if ([NSFileManager.defaultManager fileExistsAtPath:job.completeOutputURL.path])
+    else if ([NSFileManager.defaultManager fileExistsAtPath:job.destinationURL.path])
     {
         NSAlert *alert = [[NSAlert alloc] init];
         [alert setMessageText:NSLocalizedString(@"A file already exists at the selected destination.", @"File already exists alert -> message")];
-        [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @"File already exists alert -> informative text"), job.completeOutputURL.path]];
+        [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @"File already exists alert -> informative text"), job.destinationURL.path]];
         [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"File already exists alert -> first button")];
         [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"File already exists alert -> second button")];
         if (@available(macOS 11, *))
@@ -1157,11 +1207,11 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         [alert setAlertStyle:NSAlertStyleCritical];
         [alert beginSheetModalForWindow:self.window completionHandler:handler];
     }
-    else if ([_queue itemExistAtURL:job.completeOutputURL])
+    else if ([_queue itemExistAtURL:job.destinationURL])
     {
         NSAlert *alert = [[NSAlert alloc] init];
         [alert setMessageText:NSLocalizedString(@"There is already a queue item for this destination.", @"File already exists in queue alert -> message")];
-        [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @"File already exists in queue alert -> informative text"), job.completeOutputURL.path]];
+        [alert setInformativeText:[NSString stringWithFormat:NSLocalizedString(@"Do you want to overwrite %@?", @"File already exists in queue alert -> informative text"), job.destinationURL.path]];
         [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"File already exists in queue alert -> first button")];
         [alert addButtonWithTitle:NSLocalizedString(@"Overwrite", @"File already exists in queue alert -> second button")];
         if (@available(macOS 11, *))
@@ -1276,8 +1326,8 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
     for (HBTitle *title in titles)
     {
         HBJob *job = [[HBJob alloc] initWithTitle:title preset:preset];
-        job.outputURL = self.destinationURL;
-        job.outputFileName = job.defaultName;
+        job.destinationFolderURL = self.destinationFolderURL;
+        job.destinationFileName = job.defaultName;
         job.title = nil;
         if (job)
         {
@@ -1288,17 +1338,17 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
     NSMutableSet<NSURL *> *destinations = [[NSMutableSet alloc] init];
     for (HBJob *job in jobs)
     {
-        if ([destinations containsObject:job.completeOutputURL])
+        if ([destinations containsObject:job.destinationURL])
         {
             fileExists = YES;
             break;
         }
         else
         {
-            [destinations addObject:job.completeOutputURL];
+            [destinations addObject:job.destinationURL];
         }
 
-        if ([[NSFileManager defaultManager] fileExistsAtPath:job.completeOutputURL.path] || [_queue itemExistAtURL:job.completeOutputURL])
+        if ([[NSFileManager defaultManager] fileExistsAtPath:job.destinationURL.path] || [_queue itemExistAtURL:job.destinationURL])
         {
             fileExists = YES;
             break;
@@ -1307,7 +1357,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 
     for (HBJob *job in jobs)
     {
-        if ([job.fileURL isEqual:job.completeOutputURL]) {
+        if ([job.fileURL isEqual:job.destinationURL]) {
             fileOverwritesSource = YES;
             break;
         }
@@ -1455,25 +1505,28 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 {
     BOOL success = NO;
 
-    // Remove the job observer so we don't update the file name
-    // too many times while the preset is being applied
-    [self removeJobObservers];
-
-    NSError *error = nil;
-    success = [self.job applyPreset:preset error:&error];
-
-    [self addJobObservers];
-
-    if (success == NO)
+    if (self.job)
     {
-        [self presentError:error];
-    }
-    else
-    {
-        self.currentPreset = preset;
-        [self.autoNamer updateFileExtension];
-        // If Auto Naming is on, update the destination
-        [self.autoNamer updateFileName];
+        // Remove the job observer so we don't update the file name
+        // too many times while the preset is being applied
+        [self removeJobObservers];
+
+        NSError *error = nil;
+        success = [self.job applyPreset:preset error:&error];
+
+        [self addJobObservers];
+
+        if (success == NO)
+        {
+            [self presentError:error];
+        }
+        else
+        {
+            self.currentPreset = preset;
+            [self.autoNamer updateFileExtension];
+            // If Auto Naming is on, update the destination
+            [self.autoNamer updateFileName];
+        }
     }
 
     return success;

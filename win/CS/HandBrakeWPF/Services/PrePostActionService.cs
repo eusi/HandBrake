@@ -18,6 +18,7 @@ namespace HandBrakeWPF.Services
 
     using HandBrakeWPF.EventArgs;
     using HandBrakeWPF.Model.Options;
+    using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Queue.Interfaces;
     using HandBrakeWPF.Services.Scan.Interfaces;
@@ -33,13 +34,15 @@ namespace HandBrakeWPF.Services
     public class PrePostActionService : IPrePostActionService
     {
         private readonly ILog log;
+        private readonly INotificationService notificationService;
         private readonly IUserSettingService userSettingService;
         private readonly IWindowManager windowManager;
         private readonly IScan scanService;
 
-        public PrePostActionService(IQueueService queueProcessor, IUserSettingService userSettingService, IWindowManager windowManager, IScan scanService, ILog logService)
+        public PrePostActionService(IQueueService queueProcessor, IUserSettingService userSettingService, IWindowManager windowManager, IScan scanService, ILog logService, INotificationService notificationService)
         {
             this.log = logService;
+            this.notificationService = notificationService;
             this.userSettingService = userSettingService;
             this.windowManager = windowManager;
             this.scanService = scanService;
@@ -93,12 +96,18 @@ namespace HandBrakeWPF.Services
             // Send the file to the users requested application
             if (e.Successful)
             {
-                this.SendToApplication(e.SourceFileName, e.FileName);
+                this.SendToApplication(e.SourceFileName, e.FileName, e.ErrorCode);
             }
 
             if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.PlaySoundWhenDone))
             {
                 this.PlayWhenDoneSound();
+            }
+
+            if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.NotifyOnEncodeDone))
+            {
+                string filename = Path.GetFileName(e.FileName);
+                this.notificationService.SendNotification(Resources.Notifications_EncodeDone, filename);
             }
         }
 
@@ -122,6 +131,22 @@ namespace HandBrakeWPF.Services
             {
                 this.PlayWhenDoneSound();
             }
+
+            if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.NotifyOnQueueDone))
+            {
+                this.notificationService.SendNotification(Resources.Notifications_QueueDone, null);
+            }
+
+            // Allow the system to sleep again.
+            Execute.OnUIThread(() =>
+            {
+                if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.PreventSleep))
+                {
+                    Win32.AllowSleep();
+                }
+            });
+
+            // ---------------------------------------------------------
 
             if (this.userSettingService.GetUserSetting<int>(UserSettingConstants.WhenCompleteAction) == (int)WhenDone.DoNothing)
             {
@@ -173,18 +198,9 @@ namespace HandBrakeWPF.Services
                         break;
                 }
             }
-
-            // Allow the system to sleep again.
-            Execute.OnUIThread(() =>
-            {
-                if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.PreventSleep))
-                {
-                    Win32.AllowSleep();
-                }
-            });
         }
 
-        private void SendToApplication(string source, string destination)
+        private void SendToApplication(string source, string destination, int exitCode)
         {
             if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.SendFile) &&
                 !string.IsNullOrEmpty(this.userSettingService.GetUserSetting<string>(UserSettingConstants.SendFileTo)))
@@ -193,12 +209,23 @@ namespace HandBrakeWPF.Services
 
                 arguments = arguments.Replace("{source}", string.Format("\"{0}\"", source));
                 arguments = arguments.Replace("{destination}", string.Format("\"{0}\"", destination));
+                arguments = arguments.Replace("{exit_code}", string.Format("{0}", exitCode));
 
                 var process = new ProcessStartInfo(this.userSettingService.GetUserSetting<string>(UserSettingConstants.SendFileTo), arguments);
+                process.EnvironmentVariables.Add("HB_SOURCE", source);
+                process.EnvironmentVariables.Add("HB_DESTINATION", destination);
+                process.EnvironmentVariables.Add("HB_EXIT_CODE", exitCode.ToString());
 
-                this.ServiceLogMessage(string.Format("Sending output file to: {0}, with arguments: {1} ", destination, arguments));
+                this.ServiceLogMessage(string.Format("Sending output file to: {0}, with arguments: {1} ", process.FileName, arguments));
 
-                Process.Start(process);
+                try
+                {
+                    Process.Start(process);
+                }
+                catch (Exception ex)
+                {
+                    this.ServiceLogMessage(string.Format("Send file to failed to execute: {0}", ex));
+                }
             }
         }
 

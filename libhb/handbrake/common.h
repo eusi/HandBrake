@@ -1,6 +1,6 @@
 /* common.h
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -408,6 +408,8 @@ void        hb_video_quality_get_limits(uint32_t codec, float *low, float *high,
 const char* hb_video_quality_get_name(uint32_t codec);
 int         hb_video_quality_is_supported(uint32_t codec);
 
+int         hb_video_twopass_is_supported(uint32_t codec);
+
 int                hb_video_encoder_is_supported(int encoder);
 int                hb_video_encoder_pix_fmt_is_supported(int encoder, int pix_fmt);
 int                hb_video_encoder_get_depth   (int encoder);
@@ -563,9 +565,10 @@ struct hb_job_s
 #define HB_VCODEC_FFMPEG_VCE_H265 0x00080000
 #define HB_VCODEC_FFMPEG_NVENC_H264 0x00100000
 #define HB_VCODEC_FFMPEG_NVENC_H265 0x00200000
-#define HB_VCODEC_VT_H264 0x00400000
-#define HB_VCODEC_VT_H265 0x00800000
+#define HB_VCODEC_VT_H264       0x00400000
+#define HB_VCODEC_VT_H265       0x00800000
 #define HB_VCODEC_VT_H265_10BIT 0x01000000
+#define HB_VCODEC_VT_MASK       0x1C00000
 #define HB_VCODEC_FFMPEG_MF_H264 0x02000000
 #define HB_VCODEC_FFMPEG_MF_H265 0x04000000
 #define HB_VCODEC_FFMPEG_MASK  (0x00000F0|HB_VCODEC_FFMPEG_VCE_H264|HB_VCODEC_FFMPEG_VCE_H265|HB_VCODEC_FFMPEG_NVENC_H264|HB_VCODEC_FFMPEG_NVENC_H265|HB_VCODEC_FFMPEG_MF_H264|HB_VCODEC_FFMPEG_MF_H265)
@@ -801,7 +804,7 @@ struct hb_job_s
 /* Audio Codecs: Update win/CS/HandBrake.Interop/HandBrakeInterop/HbLib/NativeConstants.cs when changing these consts */
 #define HB_ACODEC_INVALID   0x00000000
 #define HB_ACODEC_NONE      0x00000001
-#define HB_ACODEC_MASK      0x07FFFF01
+#define HB_ACODEC_MASK      0x0FFFFF01
 #define HB_ACODEC_LAME      0x00000200
 #define HB_ACODEC_VORBIS    0x00000400
 #define HB_ACODEC_AC3       0x00000800
@@ -812,7 +815,7 @@ struct hb_job_s
 #define HB_ACODEC_FFAAC     0x00010000
 #define HB_ACODEC_FFMPEG    0x00020000
 #define HB_ACODEC_DCA_HD    0x00040000
-#define HB_ACODEC_MP2       0x06000000
+#define HB_ACODEC_MP2       0x08000000
 #define HB_ACODEC_MP3       0x00080000
 #define HB_ACODEC_FFFLAC    0x00100000
 #define HB_ACODEC_FFFLAC24  0x00200000
@@ -821,7 +824,7 @@ struct hb_job_s
 #define HB_ACODEC_FFEAC3    0x01000000
 #define HB_ACODEC_FFTRUEHD  0x02000000
 #define HB_ACODEC_OPUS      0x04000000
-#define HB_ACODEC_FF_MASK   0x07FF2800
+#define HB_ACODEC_FF_MASK   0x0FFF2800
 #define HB_ACODEC_PASS_FLAG 0x40000000
 #define HB_ACODEC_PASS_MASK   (HB_ACODEC_AC3 | HB_ACODEC_DCA | HB_ACODEC_DCA_HD | HB_ACODEC_FFAAC | HB_ACODEC_FFEAC3 | HB_ACODEC_FFFLAC | HB_ACODEC_MP2 | HB_ACODEC_MP3 | HB_ACODEC_FFTRUEHD)
 #define HB_ACODEC_AUTO_PASS   (HB_ACODEC_PASS_FLAG | HB_ACODEC_PASS_MASK)

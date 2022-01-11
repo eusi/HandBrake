@@ -1,6 +1,6 @@
 /* common.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -315,11 +315,9 @@ static int hb_video_encoder_is_enabled(int encoder, int disable_hardware)
 
 #ifdef __APPLE__
             case HB_VCODEC_VT_H264:
-                return hb_vt_h264_is_available();
             case HB_VCODEC_VT_H265:
-                return hb_vt_h265_is_available();
             case HB_VCODEC_VT_H265_10BIT:
-                return hb_vt_h265_10bit_is_available();
+                return hb_vt_is_encoder_available(encoder);
 #endif
 
 #if HB_PROJECT_FEATURE_MF
@@ -1492,11 +1490,37 @@ int hb_video_quality_is_supported(uint32_t codec)
     {
 #ifdef __APPLE__
         case HB_VCODEC_VT_H264:
-            return hb_vt_h264_is_constant_quality_available();
         case HB_VCODEC_VT_H265:
         case HB_VCODEC_VT_H265_10BIT:
-            return hb_vt_h265_is_constant_quality_available();
+            return hb_vt_is_constant_quality_available(codec);
 #endif
+
+        default:
+            return 1;
+    }
+}
+
+int hb_video_twopass_is_supported(uint32_t codec)
+{
+    switch (codec)
+    {
+#ifdef __APPLE__
+        case HB_VCODEC_VT_H264:
+        case HB_VCODEC_VT_H265:
+        case HB_VCODEC_VT_H265_10BIT:
+            return hb_vt_is_two_pass_available(codec);
+#endif
+
+        case HB_VCODEC_FFMPEG_MF_H264:
+        case HB_VCODEC_FFMPEG_MF_H265:
+        case HB_VCODEC_FFMPEG_VCE_H264:
+        case HB_VCODEC_FFMPEG_VCE_H265:
+        case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H265:
+        case HB_VCODEC_QSV_H264:
+        case HB_VCODEC_QSV_H265:
+        case HB_VCODEC_QSV_H265_10BIT:
+            return 0;
 
         default:
             return 1;
@@ -1766,7 +1790,7 @@ void hb_audio_quality_get_limits(uint32_t codec, float *low, float *high,
             *direction   = 0;
             *granularity = 1.;
             *low         = 1.;
-            *high        = 10.;
+            *high        = 5.;
             break;
 
         case HB_ACODEC_FDK_HAAC:
@@ -1823,7 +1847,7 @@ float hb_audio_quality_get_default(uint32_t codec)
     switch (codec)
     {
         case HB_ACODEC_FFAAC:
-            return 5.;
+            return 3.;
 
         case HB_ACODEC_FDK_HAAC:
         case HB_ACODEC_FDK_AAC:

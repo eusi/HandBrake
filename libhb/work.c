@@ -1,6 +1,6 @@
 /* work.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -1885,7 +1885,9 @@ cleanup:
     }
     hb_buffer_pool_free();
 #if HB_PROJECT_FEATURE_QSV
-    if (!job->indepth_scan && hb_qsv_is_enabled(job))
+    if (!job->indepth_scan &&
+        (job->pass_id != HB_PASS_ENCODE_1ST) &&
+        hb_qsv_is_enabled(job))
     {
         hb_qsv_context_uninit(job);
     }

@@ -1,6 +1,6 @@
 /* muxavformat.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -160,7 +160,6 @@ static int avformatInit( hb_mux_object_t * m )
     m->pkt = av_packet_alloc();
     m->empty_pkt = av_packet_alloc();
 
-    m->pkt = av_packet_alloc();
     if (m->pkt == NULL || m->empty_pkt == NULL)
     {
         hb_error("muxavformat: av_packet_alloc failed");

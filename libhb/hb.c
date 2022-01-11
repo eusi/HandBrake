@@ -1,6 +1,6 @@
 /* hb.c
 
-   Copyright (c) 2003-2021 HandBrake Team
+   Copyright (c) 2003-2022 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -2178,15 +2178,7 @@ int hb_global_init()
     }
 
 #if HB_PROJECT_FEATURE_QSV
-    if (!disable_hardware)
-    {
-        if (hb_qsv_available() < 0)
-        {
-            hb_error("hb_qsv_available failed!");
-            return -1;
-        }
-        hb_param_configure_qsv();
-    }
+    hb_param_configure_qsv();
 #endif
 
     /* libavcodec */
