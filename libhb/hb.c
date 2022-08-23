@@ -80,7 +80,7 @@ void hb_avcodec_init()
 {
 }
 
-int hb_avcodec_open(AVCodecContext *avctx, AVCodec *codec,
+int hb_avcodec_open(AVCodecContext *avctx, const AVCodec *codec,
                     AVDictionary **av_opts, int thread_count)
 {
     int ret;
@@ -354,6 +354,13 @@ void hb_remove_previews( hb_handle_t * h )
     closedir( dir );
 }
 
+// We can remove this after we update all the UI's
+void hb_scan( hb_handle_t * h, const char * path, int title_index,
+              int preview_count, int store_previews, uint64_t min_duration )
+{
+    hb_scan2(h, path, title_index, preview_count, store_previews, min_duration, 0, 0);
+}
+
 /**
  * Initializes a scan of the by calling hb_scan_init
  * @param h Handle to hb_handle_t
@@ -361,9 +368,13 @@ void hb_remove_previews( hb_handle_t * h )
  * @param title_index Desired title to scan.  0 for all titles.
  * @param preview_count Number of preview images to generate.
  * @param store_previews Whether or not to write previews to disk.
+ * @param min_duration Ignore titles below a given threshold
+ * @param crop_threshold_frames The number of frames to trigger smart crop
+ * @param crop_threshold_pixels The variance in pixels detected that are allowed for.
  */
-void hb_scan( hb_handle_t * h, const char * path, int title_index,
-              int preview_count, int store_previews, uint64_t min_duration )
+void hb_scan2( hb_handle_t * h, const char * path, int title_index,
+              int preview_count, int store_previews, uint64_t min_duration,
+              int crop_threshold_frames, int crop_threshold_pixels)
 {
     hb_title_t * title;
 
@@ -435,7 +446,8 @@ void hb_scan( hb_handle_t * h, const char * path, int title_index,
     hb_log( "hb_scan: path=%s, title_index=%d", path, title_index );
     h->scan_thread = hb_scan_init( h, &h->scan_die, path, title_index,
                                    &h->title_set, preview_count,
-                                   store_previews, min_duration );
+                                   store_previews, min_duration,
+                                   crop_threshold_frames, crop_threshold_pixels);
 }
 
 void hb_force_rescan( hb_handle_t * h )
@@ -911,7 +923,7 @@ hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
             case HB_FILTER_COLORSPACE:
             case HB_FILTER_DECOMB:
             case HB_FILTER_DETELECINE:
-            case HB_FILTER_DEINTERLACE:
+            case HB_FILTER_YADIF:
             case HB_FILTER_GRAYSCALE:
                 break;
 
@@ -925,6 +937,7 @@ hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
             case HB_FILTER_DEBLOCK:
             case HB_FILTER_COMB_DETECT:
             case HB_FILTER_HQDN3D:
+            case HB_FILTER_BWDIF:
                 // Not implemented, N/A, or requires multiple frame input
                 hb_list_rem(list_filter, filter);
                 hb_filter_close(&filter);

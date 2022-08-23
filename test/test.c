@@ -50,7 +50,8 @@
 #define UNSHARP_DEFAULT_PRESET       "medium"
 #define CHROMA_SMOOTH_DEFAULT_PRESET "medium"
 #define NLMEANS_DEFAULT_PRESET       "medium"
-#define DEINTERLACE_DEFAULT_PRESET   "default"
+#define YADIF_DEFAULT_PRESET         "default"
+#define BWDIF_DEFAULT_PRESET         "default"
 #define DECOMB_DEFAULT_PRESET        "default"
 #define DETELECINE_DEFAULT_PRESET    "default"
 #define COMB_DETECT_DEFAULT_PRESET   "default"
@@ -79,9 +80,12 @@ static char *  pad                 = NULL;
 static int     colorspace_disable  = 0;
 static int     colorspace_custom   = 0;
 static char *  colorspace          = NULL;
-static int     deinterlace_disable = 0;
-static int     deinterlace_custom  = 0;
-static char *  deinterlace         = NULL;
+static int     yadif_disable       = 0;
+static int     yadif_custom        = 0;
+static char *  yadif               = NULL;
+static int     bwdif_disable       = 0;
+static int     bwdif_custom        = 0;
+static char *  bwdif               = NULL;
 static int     deblock_disable     = 0;
 static int     deblock_custom      = 0;
 static char *  deblock             = NULL;
@@ -155,7 +159,9 @@ static int     ssaburn                   = -1;
 static int      width                    = 0;
 static int      height                   = 0;
 static int      crop[4]                  = { -1,-1,-1,-1 };
-static int      loose_crop               = -1;
+static char *   crop_mode                = NULL;
+static int      crop_threshold_pixels    = 0;
+static int      crop_threshold_frames    = 0;
 static char *   vrate                    = NULL;
 static float    vquality                 = HB_INVALID_VIDEO_QUALITY;
 static int      vbitrate                 = 0;
@@ -587,8 +593,8 @@ int main( int argc, char ** argv )
 
         hb_system_sleep_prevent(h);
 
-        hb_scan(h, input, titleindex, preview_count, store_previews,
-                min_title_duration * 90000LL);
+        hb_scan2(h, input, titleindex, preview_count, store_previews,
+                min_title_duration * 90000LL, crop_threshold_frames, crop_threshold_pixels);
 
         EventLoop(h, preset_dict);
         hb_value_free(&preset_dict);
@@ -627,7 +633,8 @@ cleanup:
     free(deblock);
     free(deblock_tune);
     free(detelecine);
-    free(deinterlace);
+    free(yadif);
+    free(bwdif);
     free(decomb);
     free(hqdn3d);
     free(nlmeans);
@@ -1209,8 +1216,11 @@ static void showFilterDefault(FILE* const out, int filter_id)
         case HB_FILTER_NLMEANS:
             preset = NLMEANS_DEFAULT_PRESET;
             break;
-        case HB_FILTER_DEINTERLACE:
-            preset = DEINTERLACE_DEFAULT_PRESET;
+        case HB_FILTER_YADIF:
+            preset = YADIF_DEFAULT_PRESET;
+            break;
+        case HB_FILTER_BWDIF:
+            preset = BWDIF_DEFAULT_PRESET;
             break;
         case HB_FILTER_DECOMB:
             preset = DECOMB_DEFAULT_PRESET;
@@ -1232,7 +1242,8 @@ static void showFilterDefault(FILE* const out, int filter_id)
     }
     switch (filter_id)
     {
-        case HB_FILTER_DEINTERLACE:
+        case HB_FILTER_YADIF:
+        case HB_FILTER_BWDIF:
         case HB_FILTER_NLMEANS:
         case HB_FILTER_CHROMA_SMOOTH:
         case HB_FILTER_COLORSPACE:
@@ -1633,11 +1644,20 @@ static void ShowHelp()
 "\n"
 "   -w, --width  <number>   Set storage width in pixels\n"
 "   -l, --height <number>   Set storage height in pixels\n"
+"       --crop-mode <string> auto|conservative|none|custom\n"
+"                            Choose which crop mode to operate in.\n"
+"                            Default: auto unless --crop is set in which case custom \n"
 "       --crop   <top:bottom:left:right>\n"
 "                           Set picture cropping in pixels\n"
 "                           (default: automatically remove black bars)\n"
-"       --loose-crop        Always crop to a multiple of the modulus\n"
-"       --no-loose-crop     Disable preset 'loose-crop'\n"
+"       --crop-threshold-pixels <number>\n"
+"                           Number of pixels difference before we consider the frame\n"
+"                           to be a different aspect ratio\n" 
+"                           (default: 9)\n"
+"       --crop-threshold-frames <number>\n"
+"                           Number of frames that must be different to trigger\n"
+"                           smart crop \n"
+"                           (default: 4, 6 or 8 scaling with preview count)\n"
 "   -Y, --maxHeight <number>\n"
 "                           Set maximum height in pixels\n"
 "   -X, --maxWidth  <number>\n"
@@ -1695,11 +1715,17 @@ static void ShowHelp()
 "   --no-comb-detect        Disable preset comb-detect filter\n"
 "   -d, --deinterlace[=string]\n"
 "                           Deinterlace video using FFmpeg yadif.\n");
-    showFilterPresets(out, HB_FILTER_DEINTERLACE);
-    showFilterKeys(out, HB_FILTER_DEINTERLACE);
-    showFilterDefault(out, HB_FILTER_DEINTERLACE);
+    showFilterPresets(out, HB_FILTER_YADIF);
+    showFilterKeys(out, HB_FILTER_YADIF);
+    showFilterDefault(out, HB_FILTER_YADIF);
     fprintf( out,
 "       --no-deinterlace    Disable preset deinterlace filter\n"
+"   --bwdif[=string]    Deinterlace video using FFmpeg bwdif.\n");
+    showFilterPresets(out, HB_FILTER_BWDIF);
+    showFilterKeys(out, HB_FILTER_BWDIF);
+    showFilterDefault(out, HB_FILTER_BWDIF);
+    fprintf( out,
+"   --no-bwdif              Disable preset bwdif deinterlace filter\n"
 "   -5, --decomb[=string]   Deinterlace video using a combination of yadif,\n"
 "                           blend, cubic, or EEDI2 interpolation.\n");
     showFilterPresets(out, HB_FILTER_DECOMB);
@@ -2141,7 +2167,6 @@ static int ParseOptions( int argc, char ** argv )
     #define AUDIO_GAIN           280
     #define ALLOWED_AUDIO_COPY   281
     #define AUDIO_FALLBACK       282
-    #define LOOSE_CROP           283
     #define ENCODER_PRESET       284
     #define ENCODER_PRESET_LIST  285
     #define ENCODER_TUNE         286
@@ -2180,10 +2205,16 @@ static int ParseOptions( int argc, char ** argv )
     #define SSA_LANG             320
     #define SSA_DEFAULT          321
     #define SSA_BURN             322
-    #define FILTER_CHROMA_SMOOTH      323
-    #define FILTER_CHROMA_SMOOTH_TUNE 324
-    #define FILTER_DEBLOCK_TUNE  325
-    #define FILTER_COLORSPACE    326
+
+    #define FILTER_CHROMA_SMOOTH          323
+    #define FILTER_CHROMA_SMOOTH_TUNE     324
+    #define FILTER_DEBLOCK_TUNE           325
+    #define FILTER_COLORSPACE             326
+    #define FILTER_BWDIF                  327
+    #define CROP_THRESHOLD_PIXELS         328
+    #define CROP_THRESHOLD_FRAMES         329
+    #define CROP_MODE                     330
+    
     for( ;; )
     {
         static struct option long_options[] =
@@ -2257,7 +2288,9 @@ static int ParseOptions( int argc, char ** argv )
             { "two-pass",    no_argument,       NULL,    '2' },
             { "no-two-pass", no_argument,       &twoPass, 0 },
             { "deinterlace", optional_argument, NULL,    'd' },
-            { "no-deinterlace", no_argument,    &deinterlace_disable, 1 },
+            { "no-deinterlace", no_argument,    &yadif_disable,       1 },
+            { "bwdif",       optional_argument, NULL,    FILTER_BWDIF },
+            { "no-bwdif",    no_argument,       &bwdif_disable,       1 },
             { "deblock",     optional_argument, NULL,    '7' },
             { "no-deblock",  no_argument,       &deblock_disable,     1 },
             { "deblock-tune",required_argument, NULL,    FILTER_DEBLOCK_TUNE },
@@ -2299,8 +2332,10 @@ static int ParseOptions( int argc, char ** argv )
             { "width",       required_argument, NULL,    'w' },
             { "height",      required_argument, NULL,    'l' },
             { "crop",        required_argument, NULL,    'n' },
-            { "loose-crop",  optional_argument, NULL, LOOSE_CROP },
-            { "no-loose-crop", no_argument,     &loose_crop, 0 },
+            { "crop-mode",   required_argument, NULL,     CROP_MODE },
+            { "crop-threshold-pixels",  required_argument,  NULL, CROP_THRESHOLD_PIXELS },
+            { "crop-threshold-frames",  required_argument,  NULL, CROP_THRESHOLD_FRAMES },
+            
             { "pad",         required_argument, NULL,            PAD },
             { "no-pad",      no_argument,       &pad_disable,    1 },
             { "colorspace",    required_argument, NULL,    FILTER_COLORSPACE},
@@ -2465,14 +2500,15 @@ static int ParseOptions( int argc, char ** argv )
                     if( device_is_dvd( devName ))
                     {
                         free( input );
-                        input = malloc( strlen( "/dev/" ) + strlen( devName ) + 1 );
+                        size_t size = strlen( "/dev/" ) + strlen( devName ) + 1;
+                        input = malloc( size );
                         if( input == NULL )
                         {
                             fprintf( stderr, "ERROR: malloc() failed while attempting to set device path.\n" );
                             free( devName );
                             return -1;
                         }
-                        sprintf( input, "/dev/%s", devName );
+                        snprintf( input, size, "/dev/%s", devName );
                     }
                     free( devName );
                 }
@@ -2704,14 +2740,14 @@ static int ParseOptions( int argc, char ** argv )
                 twoPass = 1;
                 break;
             case 'd':
-                free(deinterlace);
+                free(yadif);
                 if (optarg != NULL)
                 {
-                    deinterlace = strdup(optarg);
+                    yadif = strdup(optarg);
                 }
                 else
                 {
-                    deinterlace = strdup(DEINTERLACE_DEFAULT_PRESET);
+                    yadif = strdup(YADIF_DEFAULT_PRESET);
                 }
                 break;
             case '7':
@@ -2919,12 +2955,21 @@ static int ParseOptions( int argc, char ** argv )
                 }
                 break;
             }
-            case LOOSE_CROP:
-                if (optarg != NULL)
-                    loose_crop = atoi(optarg);
-                else
-                    loose_crop = 1;
+            case CROP_MODE:
+            {
+                crop_mode  = strdup( optarg );
                 break;
+            }
+            case CROP_THRESHOLD_PIXELS:
+            {
+                crop_threshold_pixels  = atoi( optarg );
+                break;
+            }
+            case CROP_THRESHOLD_FRAMES:
+            {
+                crop_threshold_frames = atoi( optarg );
+                break;
+            }
             case PAD:
             {
                 free(pad);
@@ -3110,6 +3155,17 @@ static int ParseOptions( int argc, char ** argv )
             case MIN_DURATION:
                 min_title_duration = strtol( optarg, NULL, 0 );
                 break;
+            case FILTER_BWDIF:
+                free(bwdif);
+                if (optarg != NULL)
+                {
+                    bwdif = strdup(optarg);
+                }
+                else
+                {
+                    bwdif = strdup(BWDIF_DEFAULT_PRESET);
+                } 
+                break;
 #if HB_PROJECT_FEATURE_QSV
             case QSV_BASELINE:
                 hb_qsv_force_workarounds();
@@ -3229,28 +3285,54 @@ static int ParseOptions( int argc, char ** argv )
         }
     }
 
-    if (deinterlace != NULL)
+    if (yadif != NULL)
     {
-        if (deinterlace_disable)
+        if (yadif_disable)
         {
             fprintf(stderr,
                     "Incompatible options --deinterlace and --no-deinterlace\n");
             return -1;
         }
-        if (!hb_validate_filter_preset(HB_FILTER_DEINTERLACE,
-                                       deinterlace, NULL, NULL))
+        if (!hb_validate_filter_preset(HB_FILTER_YADIF,
+                                       yadif, NULL, NULL))
         {
             // Nothing to do, but must validate preset before
             // attempting to validate custom settings to prevent potential
             // false positive
         }
-        else if (!hb_validate_filter_string(HB_FILTER_DEINTERLACE, deinterlace))
+        else if (!hb_validate_filter_string(HB_FILTER_YADIF, yadif))
         {
-            deinterlace_custom = 1;
+            yadif_custom = 1;
         }
         else
         {
-            fprintf(stderr, "Invalid deinterlace option %s\n", deinterlace);
+            fprintf(stderr, "Invalid deinterlace option %s\n", yadif);
+            return -1;
+        }
+    }
+
+    if (bwdif != NULL)
+    {
+        if (bwdif_disable)
+        {
+            fprintf(stderr,
+                    "Incompatible options --bwdif and --no-bwdif\n");
+            return -1;
+        }
+        if (!hb_validate_filter_preset(HB_FILTER_BWDIF,
+                                       bwdif, NULL, NULL))
+        {
+            // Nothing to do, but must validate preset before
+            // attempting to validate custom settings to prevent potential
+            // false positive
+        }
+        else if (!hb_validate_filter_string(HB_FILTER_BWDIF, bwdif))
+        {
+            bwdif_custom = 1;
+        }
+        else
+        {
+            fprintf(stderr, "Invalid bwdif option %s\n", bwdif);
             return -1;
         }
     }
@@ -4254,30 +4336,46 @@ static hb_dict_t * PreparePreset(const char *preset_name)
         hb_dict_set(preset, "PictureUseMaximumSize", hb_value_bool(0));
         hb_dict_set(preset, "PictureAllowUpscaling", hb_value_bool(1));
     }
+    
+    // --crop is treated as custom.
+    // otherwise use --crop-mode to set mode.
     if (crop[0] >= 0 || crop[1] >= 0 || crop[2] >= 0 || crop[3] >= 0)
     {
         hb_dict_set(preset, "PictureAutoCrop", hb_value_bool(0));
-    }
-    if (crop[0] >= 0)
+        hb_dict_set(preset, "PictureCropMode", hb_value_int(3));
+        
+        if (crop[0] >= 0)
+        {
+            hb_dict_set(preset, "PictureTopCrop", hb_value_int(crop[0]));
+        }
+        if (crop[1] >= 0)
+        {
+            hb_dict_set(preset, "PictureBottomCrop", hb_value_int(crop[1]));
+        }
+        if (crop[2] >= 0)
+        {
+            hb_dict_set(preset, "PictureLeftCrop", hb_value_int(crop[2]));
+        }
+        if (crop[3] >= 0)
+        {
+            hb_dict_set(preset, "PictureRightCrop", hb_value_int(crop[3]));
+        }
+    } 
+    else if (crop_mode != NULL && !strcmp(crop_mode, "auto")) 
     {
-        hb_dict_set(preset, "PictureTopCrop", hb_value_int(crop[0]));
-    }
-    if (crop[1] >= 0)
+        hb_dict_set(preset, "PictureCropMode",  hb_value_int(0)); 
+    } 
+    else if (crop_mode != NULL && !strcmp(crop_mode, "conservative")) 
     {
-        hb_dict_set(preset, "PictureBottomCrop", hb_value_int(crop[1]));
+        hb_dict_set(preset, "PictureCropMode",  hb_value_int(1)); 
     }
-    if (crop[2] >= 0)
+    else if (crop_mode != NULL && !strcmp(crop_mode, "none")) 
     {
-        hb_dict_set(preset, "PictureLeftCrop", hb_value_int(crop[2]));
+        hb_dict_set(preset, "PictureCropMode",  hb_value_int(2));
+    } else {
+        hb_dict_set(preset, "PictureCropMode",  hb_value_int(0)); // Automatic
     }
-    if (crop[3] >= 0)
-    {
-        hb_dict_set(preset, "PictureRightCrop", hb_value_int(crop[3]));
-    }
-    if (loose_crop != -1)
-    {
-        hb_dict_set(preset, "PictureLooseCrop", hb_value_bool(loose_crop));
-    }
+
     if (display_width > 0)
     {
         keep_display_aspect = 0;
@@ -4312,7 +4410,7 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     {
         hb_dict_set(preset, "VideoGrayScale", hb_value_bool(grayscale));
     }
-    if (decomb_disable || deinterlace_disable)
+    if (decomb_disable || yadif_disable || bwdif_disable)
     {
         hb_dict_set(preset, "PictureDeinterlaceFilter", hb_value_string("off"));
     }
@@ -4335,21 +4433,21 @@ static hb_dict_t * PreparePreset(const char *preset_name)
                         hb_value_string(comb_detect));
         }
     }
-    if (deinterlace != NULL)
+    if (yadif != NULL)
     {
         hb_dict_set(preset, "PictureDeinterlaceFilter",
                     hb_value_string("deinterlace"));
-        if (!deinterlace_custom)
+        if (!yadif_custom)
         {
             hb_dict_set(preset, "PictureDeinterlacePreset",
-                        hb_value_string(deinterlace));
+                        hb_value_string(yadif));
         }
         else
         {
             hb_dict_set(preset, "PictureDeinterlacePreset",
                         hb_value_string("custom"));
             hb_dict_set(preset, "PictureDeinterlaceCustom",
-                        hb_value_string(deinterlace));
+                        hb_value_string(yadif));
         }
     }
     if (decomb != NULL)
@@ -4367,6 +4465,23 @@ static hb_dict_t * PreparePreset(const char *preset_name)
                         hb_value_string("custom"));
             hb_dict_set(preset, "PictureDeinterlaceCustom",
                         hb_value_string(decomb));
+        }
+    }
+    if (bwdif != NULL)
+    {
+        hb_dict_set(preset, "PictureDeinterlaceFilter",
+                    hb_value_string("bwdif"));
+        if (!bwdif_custom)
+        {
+            hb_dict_set(preset, "PictureDeinterlacePreset",
+                        hb_value_string(bwdif));
+        }
+        else
+        {
+            hb_dict_set(preset, "PictureDeinterlacePreset",
+                        hb_value_string("custom"));
+            hb_dict_set(preset, "PictureDeinterlaceCustom",
+                        hb_value_string(bwdif));
         }
     }
     if (detelecine_disable)

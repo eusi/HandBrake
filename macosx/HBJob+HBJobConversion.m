@@ -356,6 +356,10 @@
     {
         job->acodec_copy_mask |= HB_ACODEC_MP3_PASS;
     }
+    if (audioDefaults.allowOpusPassthru)
+    {
+        job->acodec_copy_mask |= HB_ACODEC_OPUS_PASS;
+    }
     if (audioDefaults.allowTrueHDPassthru)
     {
         job->acodec_copy_mask |= HB_ACODEC_TRUEHD_PASS;
@@ -458,7 +462,11 @@
         int filter_id = HB_FILTER_DECOMB;
         if ([self.filters.deinterlace isEqualToString:@"deinterlace"])
         {
-            filter_id = HB_FILTER_DEINTERLACE;
+            filter_id = HB_FILTER_YADIF;
+        }
+        else if ([self.filters.deinterlace isEqualToString:@"bwdif"])
+        {
+            filter_id = HB_FILTER_BWDIF;
         }
 
         hb_dict_t *filter_dict = hb_generate_filter_settings(filter_id,

@@ -1,5 +1,5 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="MainViewModel.cs" company="HandBrake Project (http://handbrake.fr)">
+// <copyright file="MainViewModel.cs" company="HandBrake Project (https://handbrake.fr)">
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
 // <summary>
@@ -18,20 +18,18 @@ namespace HandBrakeWPF.ViewModels
     using System.Linq;
     using System.Text.Json;
     using System.Threading;
-    using System.Threading.Tasks;
     using System.Windows;
-    using System.Windows.Controls;
     using System.Windows.Input;
 
-    using Caliburn.Micro;
-
+    using HandBrake.App.Core.Model;
+    using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
     using HandBrake.Interop.Utilities;
 
     using HandBrakeWPF.Commands;
+    using HandBrakeWPF.Commands.DebugTools;
     using HandBrakeWPF.Commands.Menu;
     using HandBrakeWPF.EventArgs;
-    using HandBrakeWPF.Factories;
     using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Model;
     using HandBrakeWPF.Model.Audio;
@@ -59,7 +57,6 @@ namespace HandBrakeWPF.ViewModels
     using Application = System.Windows.Application;
     using DataFormats = System.Windows.DataFormats;
     using DragEventArgs = System.Windows.DragEventArgs;
-    using Execute = Caliburn.Micro.Execute;
     using ILog = Services.Logging.Interfaces.ILog;
     using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
     using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
@@ -136,7 +133,7 @@ namespace HandBrakeWPF.ViewModels
             this.notificationService = notificationService;
             this.QueueViewModel = queueViewModel;
             this.userSettingService = userSettingService;
-            this.queueProcessor = IoC.Get<IQueueService>();
+            this.queueProcessor = IoCHelper.Get<IQueueService>();
 
             this.SummaryViewModel = summaryViewModel;
             this.PictureSettingsViewModel = pictureSettingsViewModel;
@@ -170,33 +167,43 @@ namespace HandBrakeWPF.ViewModels
             this.PresetsCategories = new BindingList<IPresetObject>();
             this.Drives = new BindingList<SourceMenuItem>();
 
-            // Set Process Priority
-            switch ((ProcessPriority)this.userSettingService.GetUserSetting<int>(UserSettingConstants.ProcessPriorityInt))
+            // Set Process Priority. Only when using in-process encoding. 
+            // When process isolation is enabled, we'll stick to "Normal".
+            if (!this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ProcessIsolationEnabled))
             {
-                case ProcessPriority.High:
-                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
-                    break;
-                case ProcessPriority.AboveNormal:
-                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
-                    break;
-                case ProcessPriority.Normal:
-                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
-                    break;
-                case ProcessPriority.Low:
-                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Idle;
-                    break;
-                default:
-                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal;
-                    break;
+                switch ((ProcessPriority)this.userSettingService.GetUserSetting<int>(UserSettingConstants.ProcessPriorityInt))
+                {
+                    case ProcessPriority.High:
+                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+                        break;
+                    case ProcessPriority.AboveNormal:
+                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
+                        break;
+                    case ProcessPriority.Normal:
+                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
+                        break;
+                    case ProcessPriority.Low:
+                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Idle;
+                        break;
+                    default:
+                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal;
+                        break;
+                }
             }
+
 
             // Setup Commands
             this.QueueCommand = new QueueCommands(this.QueueViewModel);
+            this.ProcessDriveCommand = new SimpleRelayCommand<object>(this.ProcessDrive);
+            this.WhenDoneCommand = new SimpleRelayCommand<int>(this.WhenDone);
 
             // Monitor the system.
             systemService.Start();
+
+            this.Load();
         }
 
+        public SimpleRelayCommand<int> WhenDoneCommand { get; set; }
 
         /* View Model Properties */
 
@@ -224,6 +231,9 @@ namespace HandBrakeWPF.ViewModels
 
         public int SelectedTab { get; set; }
 
+        /* Commands */
+        public ICommand AddToQueueQualitySweepCommand => new AddToQueueQualitySweepCommand(this, this.VideoViewModel, this.userSettingService, this.errorService);
+        public SimpleRelayCommand<object> ProcessDriveCommand { get; set; }
 
         /* Properties */
 
@@ -311,7 +321,7 @@ namespace HandBrakeWPF.ViewModels
                 }
 
                 this.isModifiedPreset = value;
-                this.NotifyOfPropertyChange();
+                this.NotifyOfPropertyChange(() => this.IsModifiedPreset);
             }
         }
 
@@ -885,7 +895,7 @@ namespace HandBrakeWPF.ViewModels
             }
 
             // Preset Selection
-            this.SetDefaultPreset();
+            this.SelectDefaultPreset();
 
             // Reset WhenDone if necessary.
             if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ResetWhenDoneAction))
@@ -959,35 +969,12 @@ namespace HandBrakeWPF.ViewModels
 
         public void OpenLogWindow()
         {
-            Window window = Application.Current.Windows.Cast<Window>().FirstOrDefault(x => x.GetType() == typeof(LogView));
-
-            if (window != null)
-            {
-                window.Activate();
-            }
-            else
-            {
-                ILogViewModel logvm = IoC.Get<ILogViewModel>();
-                this.windowManager.ShowWindowAsync(logvm);
-            }
+            WindowHelper.ShowWindow<ILogViewModel, LogView>(this.windowManager);
         }
 
         public void OpenQueueWindow()
         {
-            Window window = Application.Current.Windows.Cast<Window>().FirstOrDefault(x => x.GetType() == typeof(QueueView));
-            if (window != null)
-            {
-                if (window.WindowState == WindowState.Minimized)
-                {
-                    window.WindowState = WindowState.Normal;
-                }
-
-                window.Activate();
-            }
-            else
-            {
-                this.windowManager.ShowWindowAsync(IoC.Get<IQueueViewModel>());
-            }
+            WindowHelper.ShowWindow<IQueueViewModel, QueueView>(this.windowManager);
         }
 
         public void OpenPreviewWindow()
@@ -996,12 +983,11 @@ namespace HandBrakeWPF.ViewModels
             {
                 this.StaticPreviewViewModel.IsOpen = true;
                 this.StaticPreviewViewModel.UpdatePreviewFrame(this.CurrentTask, this.ScannedSource);
-                this.windowManager.ShowWindowAsync(this.StaticPreviewViewModel);
+                this.windowManager.ShowWindow<StaticPreviewView>(this.StaticPreviewViewModel);
             }
             else if (this.StaticPreviewViewModel.IsOpen)
             {
-                Window window = Application.Current.Windows.Cast<Window>().FirstOrDefault(x => x.GetType() == typeof(StaticPreviewView));
-                window?.Focus();
+                WindowHelper.ShowWindow<IPresetManagerViewModel, StaticPreviewView>(this.windowManager);
             }
         }
 
@@ -1010,14 +996,25 @@ namespace HandBrakeWPF.ViewModels
             if (!this.PresetManagerViewModel.IsOpen)
             {
                 this.PresetManagerViewModel.IsOpen = true;
-                this.PresetManagerViewModel.SetupWindow(() => this.NotifyOfPropertyChange(() => this.PresetsCategories));
-                this.windowManager.ShowWindowAsync(this.PresetManagerViewModel);
+                this.PresetManagerViewModel.SetupWindow(this.HandleManagePresetChanges);
+                this.windowManager.ShowWindow<PresetManagerView>(this.PresetManagerViewModel);
             }
             else if (this.PresetManagerViewModel.IsOpen)
             {
-                Window window = Application.Current.Windows.Cast<Window>().FirstOrDefault(x => x.GetType() == typeof(PresetManagerView));
-                window?.Focus();
+                WindowHelper.ShowWindow<IPresetManagerViewModel, PresetManagerView>(this.windowManager);
             }
+        }
+
+        private void HandleManagePresetChanges(Preset preset)
+        {
+            this.PresetsCategories = null;
+            this.NotifyOfPropertyChange(() => this.PresetsCategories);
+
+            this.PresetsCategories = this.presetService.Presets;
+            this.NotifyOfPropertyChange(() => this.PresetsCategories);
+
+            this.selectedPreset = preset; // Reselect the preset      
+            this.NotifyOfPropertyChange(() => this.SelectedPreset);
         }
         
         public void LaunchHelp()
@@ -1080,7 +1077,7 @@ namespace HandBrakeWPF.ViewModels
                 }
             }
 
-            if (!DirectoryUtilities.IsWritable(Path.GetDirectoryName(this.CurrentTask.Destination), false, this.errorService))
+            if (!DirectoryUtilities.IsWritable(Path.GetDirectoryName(this.CurrentTask.Destination), true))
             {
                 return new AddQueueError(Resources.Main_NoPermissionsOrMissingDirectory, Resources.Error, MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -1109,7 +1106,7 @@ namespace HandBrakeWPF.ViewModels
                 return new AddQueueError(Resources.Subtitles_WebmSubtitleIncompatibilityHeader, Resources.Main_PleaseFixSubtitleSettings, MessageBoxButton.OK, MessageBoxImage.Error);
             }
 
-            QueueTask task = new QueueTask(new EncodeTask(this.CurrentTask), HBConfigurationFactory.Create(), this.ScannedSource.ScanPath, this.SelectedPreset, this.IsModifiedPreset, this.selectedTitle);
+            QueueTask task = new QueueTask(new EncodeTask(this.CurrentTask), this.ScannedSource.ScanPath, this.SelectedPreset, this.IsModifiedPreset, this.selectedTitle);
 
             if (!this.queueProcessor.CheckForDestinationPathDuplicates(task.Task.Destination))
             {
@@ -1214,7 +1211,7 @@ namespace HandBrakeWPF.ViewModels
             }
 
             Window window = Application.Current.Windows.Cast<Window>().FirstOrDefault(x => x.GetType() == typeof(QueueSelectionViewModel));
-            IQueueSelectionViewModel viewModel = IoC.Get<IQueueSelectionViewModel>();
+            IQueueSelectionViewModel viewModel = IoCHelper.Get<IQueueSelectionViewModel>();
 
             viewModel.Setup(
                 this.ScannedSource,
@@ -1243,7 +1240,7 @@ namespace HandBrakeWPF.ViewModels
             }
             else
             {
-                this.windowManager.ShowWindowAsync(viewModel);
+                this.windowManager.ShowWindow<QueueSelectionView>(viewModel);
             }
         }
 
@@ -1457,6 +1454,34 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => IsPresetPaneDisplayed);
         }
 
+        public void NextTitle()
+        {
+            if (this.ScannedSource == null || this.SelectedTitle == null)
+            {
+                return;
+            }
+
+            int index = this.ScannedSource.Titles.IndexOf(this.selectedTitle);
+            if (this.ScannedSource.Titles.Count >= (index + 2))
+            {
+                this.SelectedTitle = this.ScannedSource.Titles[index + 1];
+            }
+        }
+
+        public void PreviousTitle()
+        {
+            if (this.ScannedSource == null || this.SelectedTitle == null)
+            {
+                return;
+            }
+
+            int index = this.ScannedSource.Titles.IndexOf(this.selectedTitle);
+            if (index >= 1)
+            {
+                this.SelectedTitle = this.ScannedSource.Titles[index -1];
+            }
+        }
+
         /* Main Window Public Methods*/
 
         public void FilesDroppedOnWindow(DragEventArgs e)
@@ -1605,11 +1630,11 @@ namespace HandBrakeWPF.ViewModels
 
         public void PresetAdd()
         {
-            IAddPresetViewModel presetViewModel = IoC.Get<IAddPresetViewModel>();
+            IAddPresetViewModel presetViewModel = IoCHelper.Get<IAddPresetViewModel>();
             presetViewModel.Setup(this.CurrentTask, this.SelectedTitle, this.AudioViewModel.AudioBehaviours, this.SubtitleViewModel.SubtitleBehaviours);
-            Task<bool?> result = this.windowManager.ShowDialogAsync(presetViewModel);
+            bool? result = this.windowManager.ShowDialog<AddPresetView>(presetViewModel);
 
-            if (result.Result.HasValue && result.Result.Value)
+            if (result.HasValue && result.Value)
             {
                 this.NotifyOfPropertyChange(() => this.PresetsCategories);
                 this.SelectedPreset = this.presetService.GetPreset(presetViewModel.PresetName);
@@ -1636,7 +1661,7 @@ namespace HandBrakeWPF.ViewModels
             if (this.errorService.ShowMessageBox(Resources.Main_PresetUpdateConfirmation, Resources.AreYouSure, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 this.selectedPreset.Update(new EncodeTask(this.CurrentTask), new AudioBehaviours(this.AudioViewModel.AudioBehaviours), new SubtitleBehaviours(this.SubtitleViewModel.SubtitleBehaviours));
-                this.presetService.Update(this.selectedPreset);
+                this.presetService.Update(this.selectedPreset.Name, this.selectedPreset);
                 this.IsModifiedPreset = false;
 
                 this.errorService.ShowMessageBox(
@@ -1654,9 +1679,9 @@ namespace HandBrakeWPF.ViewModels
                 return;
             }
 
-            IManagePresetViewModel presetViewModel = IoC.Get<IManagePresetViewModel>();
+            IManagePresetViewModel presetViewModel = IoCHelper.Get<IManagePresetViewModel>();
             presetViewModel.Setup(this.selectedPreset);
-            this.windowManager.ShowDialogAsync(presetViewModel);
+            this.windowManager.ShowDialog<ManagePresetView>(presetViewModel);
             Preset preset = presetViewModel.Preset;
 
             this.NotifyOfPropertyChange(() => this.PresetsCategories);
@@ -1697,9 +1722,9 @@ namespace HandBrakeWPF.ViewModels
                     return;
                 }
 
-                this.presetService.Remove(preset);
+                this.presetService.Remove(preset.Name);
                 this.NotifyOfPropertyChange(() => this.PresetsCategories);
-                this.SelectedPreset = this.presetService.DefaultPreset;
+                this.SelectedPreset = this.presetService.GetDefaultPreset();
             }
             else
             {
@@ -1711,7 +1736,7 @@ namespace HandBrakeWPF.ViewModels
         {
             if (this.selectedPreset != null)
             {
-                this.presetService.SetDefault(this.selectedPreset);
+                this.presetService.SetDefault(this.selectedPreset.Name);
                 this.errorService.ShowMessageBox(string.Format(Resources.Main_NewDefaultPreset, this.selectedPreset.Name), Resources.Main_Presets, MessageBoxButton.OK, MessageBoxImage.Information);
             }
             else
@@ -1750,7 +1775,7 @@ namespace HandBrakeWPF.ViewModels
 
                 if (!string.IsNullOrEmpty(filename))
                 {
-                    this.presetService.Export(savefiledialog.FileName, this.selectedPreset, HBConfigurationFactory.Create());
+                    this.presetService.Export(savefiledialog.FileName, this.selectedPreset.Name);
                 }
             }
             else
@@ -1762,45 +1787,23 @@ namespace HandBrakeWPF.ViewModels
         public void PresetReset()
         {
             this.presetService.UpdateBuiltInPresets();
-
             this.NotifyOfPropertyChange(() => this.PresetsCategories);
-
-            this.SetDefaultPreset();
-
+            this.SelectDefaultPreset();
             this.errorService.ShowMessageBox(Resources.Presets_ResetComplete, Resources.Presets_ResetHeader, MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         public void PresetDeleteBuildIn()
         {
-            List<Preset> allPresets = this.presetService.FlatPresetList;
-            bool foundDefault = false;
-            foreach (Preset preset in allPresets)
-            {
-                if (preset.IsBuildIn)
-                {
-                    if (preset.IsDefault)
-                    {
-                        foundDefault = true;
-                    }
-
-                    this.presetService.Remove(preset);
-                }
-            }
-
-            if (foundDefault)
-            {
-                Preset preset = this.presetService.FlatPresetList.FirstOrDefault();
-                if (preset != null)
-                {
-                    this.presetService.SetDefault(preset);
-                    this.SelectedPreset = preset;
-                }
-            }
-
+            this.presetService.DeleteBuiltInPresets();
             this.NotifyOfPropertyChange(() => this.PresetsCategories);
+
+            if (this.presetService.GetDefaultPreset() != null)
+            {
+                this.SelectedPreset = this.presetService.GetDefaultPreset();
+            }
         }
 
-        public void PresetSelect()
+        public void PresetReSelect()
         {
             this.PresetSelect(this.SelectedPreset);
         }
@@ -1818,7 +1821,7 @@ namespace HandBrakeWPF.ViewModels
                 this.selectedPreset = preset;
                 this.NotifyOfPropertyChange(() => this.SelectedPreset);
 
-                this.presetService.SetSelected(this.selectedPreset);
+                this.presetService.SetSelected(this.selectedPreset.Name);
 
                 if (this.selectedPreset != null)
                 {
@@ -1891,7 +1894,7 @@ namespace HandBrakeWPF.ViewModels
             bool value = !this.ShowAddAllToQueue;
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowAddAllToQueue, value);
 
-            var optionsViewModel = IoC.Get<IOptionsViewModel>();
+            var optionsViewModel = IoCHelper.Get<IOptionsViewModel>();
             optionsViewModel.UpdateSettings();
         }
 
@@ -1900,7 +1903,7 @@ namespace HandBrakeWPF.ViewModels
             bool value = !this.ShowAddSelectionToQueue;
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowAddSelectionToQueue, value);
 
-            var optionsViewModel = IoC.Get<IOptionsViewModel>();
+            var optionsViewModel = IoCHelper.Get<IOptionsViewModel>();
             optionsViewModel.UpdateSettings();
         }
 
@@ -1917,7 +1920,7 @@ namespace HandBrakeWPF.ViewModels
         private void QueueEditAction(bool successful, Source scannedSource)
         {
             /* TODO Fix this. */
-            Execute.OnUIThread(() =>
+            ThreadHelper.OnUIThread(() =>
             {
                 if (this.queueEditTask != null && !string.IsNullOrEmpty(this.queueEditTask.SelectedPresetKey) && this.selectedPreset.Name != this.queueEditTask.SelectedPresetKey)
                 {
@@ -2115,16 +2118,11 @@ namespace HandBrakeWPF.ViewModels
             this.AlertWindowText = message;
         }
 
-        private void SetDefaultPreset()
+        private void SelectDefaultPreset()
         {
-            // Preset Selection
-            if (this.presetService.DefaultPreset != null)
+            if (this.presetService.GetDefaultPreset() != null)
             {
-                PresetDisplayCategory category =
-                    (PresetDisplayCategory)this.PresetsCategories.FirstOrDefault(
-                        p => p.Category == this.presetService.DefaultPreset.Category);
-
-                this.SelectedPreset = this.presetService.DefaultPreset;
+                this.SelectedPreset = this.presetService.GetDefaultPreset();
             }
         }
 
@@ -2149,7 +2147,7 @@ namespace HandBrakeWPF.ViewModels
                 this.ScannedSource = null;
             }
 
-            Execute.OnUIThread(() =>
+            ThreadHelper.OnUIThread(() =>
             {
                 if (e.Successful && this.ScannedSource != null)
                 {
@@ -2183,7 +2181,7 @@ namespace HandBrakeWPF.ViewModels
 
         private void ScanStared(object sender, EventArgs e)
         {
-            Execute.OnUIThread(
+            ThreadHelper.OnUIThread(
                 () =>
                 {
                     this.StatusLabel = Resources.Main_ScanningPleaseWait;
@@ -2193,7 +2191,7 @@ namespace HandBrakeWPF.ViewModels
 
         private void QueueProcessorJobProcessingStarted(object sender, QueueProgressEventArgs e)
         {
-            Execute.OnUIThread(
+            ThreadHelper.OnUIThread(
                () =>
                {
                    this.ProgramStatusLabel = Resources.Main_PreparingToEncode;
@@ -2206,7 +2204,7 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => this.IsEncoding);
             this.NotifyOfPropertyChange(() => this.StartLabel);
 
-            Execute.OnUIThread(
+            ThreadHelper.OnUIThread(
                 () =>
                 {
                     string errorDesc = string.Empty;
@@ -2218,13 +2216,13 @@ namespace HandBrakeWPF.ViewModels
                     this.ProgramStatusLabel = Resources.Main_QueueFinished + errorDesc;
                     this.WindowTitle = Resources.HandBrake_Title;
                     this.notifyIconService.SetTooltip(this.WindowTitle);
-                    this.windowsTaskbar.SetTaskBarProgressToNoProgress();
+                    this.windowsTaskbar.SetNoProgress();
                 });
         }
 
         private void QueueChanged(object sender, EventArgs e)
         {
-            Execute.OnUIThread(
+            ThreadHelper.OnUIThread(
               () =>
               {
                   if (!this.queueProcessor.IsEncoding)
@@ -2247,7 +2245,7 @@ namespace HandBrakeWPF.ViewModels
 
         private void QueueProcessor_QueuePaused(object sender, EventArgs e)
         {
-            Execute.OnUIThread(
+            ThreadHelper.OnUIThread(
                 () =>
                 {
                     this.ProgramStatusLabel = Resources.Main_QueuePaused;
@@ -2255,6 +2253,8 @@ namespace HandBrakeWPF.ViewModels
                     this.NotifyOfPropertyChange(() => this.QueueCount);
                     this.NotifyOfPropertyChange(() => this.StartLabel);
                     this.NotifyOfPropertyChange(() => this.IsEncoding);
+
+                    this.windowsTaskbar.SetPaused();
                 });
         }
         
@@ -2268,7 +2268,7 @@ namespace HandBrakeWPF.ViewModels
                 return;
             }
 
-            Execute.OnUIThread(
+            ThreadHelper.OnUIThread(
                 () =>
                 {
                     if (queueJobStatuses.Count == 1)
@@ -2299,7 +2299,7 @@ namespace HandBrakeWPF.ViewModels
                     }
                     else if (queueJobStatuses.Count > 1)
                     {
-                        this.windowsTaskbar.SetTaskBarProgressToNoProgress();
+                        this.windowsTaskbar.SetNoProgress();
                         this.ProgramStatusLabel = string.Format(Resources.Main_QueueMultiJobStatus, this.queueProcessor.CompletedCount, Environment.NewLine, queueJobStatuses.Count, this.queueProcessor.Count);
                         this.IsMultiProcess = true;
                         this.NotifyOfPropertyChange(() => this.IsMultiProcess);
@@ -2313,7 +2313,7 @@ namespace HandBrakeWPF.ViewModels
 
                         this.IsMultiProcess = false;
                         this.NotifyOfPropertyChange(() => this.IsMultiProcess);
-                        this.windowsTaskbar.SetTaskBarProgressToNoProgress();
+                        this.windowsTaskbar.SetNoProgress();
                     }
                 });
         }

@@ -15,15 +15,12 @@ namespace HandBrakeWPF.ViewModels
     using System.Globalization;
     using System.IO;
     using System.Linq;
-    using System.Threading;
-    using System.Threading.Tasks;
     using System.Windows;
     using System.Windows.Media;
 
-    using Caliburn.Micro;
-
+    using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
-
+    using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Model;
     using HandBrakeWPF.Model.Options;
     using HandBrakeWPF.Model.Video;
@@ -38,7 +35,6 @@ namespace HandBrakeWPF.ViewModels
 
     using Ookii.Dialogs.Wpf;
 
-    using Execute = Caliburn.Micro.Execute;
     using ILog = HandBrakeWPF.Services.Logging.Interfaces.ILog;
 
     public class OptionsViewModel : ViewModelBase, IOptionsViewModel
@@ -119,6 +115,7 @@ namespace HandBrakeWPF.ViewModels
         private bool remoteServiceEnabled;
         private bool enableQuickSyncLowPower;
         private int simultaneousEncodes;
+        private bool enableQuickSyncHyperEncode;
 
         public OptionsViewModel(
             IUserSettingService userSettingService,
@@ -676,30 +673,39 @@ namespace HandBrakeWPF.ViewModels
             set
             {
                 this.selectedPriority = value;
-                this.NotifyOfPropertyChange();
+                this.NotifyOfPropertyChange(() => this.SelectedPriority);
+                this.SetProcessPriority(value);
+            }
+        }
 
-                // Set the Process Priority
-                switch (value)
-                {
-                    case ProcessPriority.High:
-                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
-                        break;
-                    case ProcessPriority.AboveNormal:
-                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
-                        break;
-                    case ProcessPriority.Normal:
-                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
-                        break;
-                    case ProcessPriority.BelowNormal:
-                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal;
-                        break;
-                    case ProcessPriority.Low:
-                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Idle;
-                        break;
-                    default:
-                        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal;
-                        break;
-                }
+        private void SetProcessPriority(ProcessPriority value)
+        {
+            if (this.RemoteServiceEnabled)
+            {
+                return; // We run as "Normal" in Remote mode.
+            }
+
+            // Set the Process Priority
+            switch (value)
+            {
+                case ProcessPriority.High:
+                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+                    break;
+                case ProcessPriority.AboveNormal:
+                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
+                    break;
+                case ProcessPriority.Normal:
+                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
+                    break;
+                case ProcessPriority.BelowNormal:
+                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal;
+                    break;
+                case ProcessPriority.Low:
+                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Idle;
+                    break;
+                default:
+                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal;
+                    break;
             }
         }
 
@@ -873,7 +879,7 @@ namespace HandBrakeWPF.ViewModels
 
         public bool EnableQuickSyncDecoding
         {
-            get => this.enableQuickSyncDecoding;
+            get => this.enableQuickSyncDecoding && IsQuickSyncAvailable;
 
             set
             {
@@ -902,9 +908,26 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
+        public bool EnableQuickSyncHyperEncode
+        {
+            get => this.enableQuickSyncHyperEncode;
+            set
+            {
+                if (value == this.enableQuickSyncHyperEncode)
+                {
+                    return;
+                }
+
+                this.enableQuickSyncHyperEncode = value;
+                this.NotifyOfPropertyChange(() => this.EnableQuickSyncHyperEncode);
+            }
+        }
+
         public VideoScaler SelectedScalingMode { get; set; }
 
         public bool IsQuickSyncAvailable { get; } = HandBrakeHardwareEncoderHelper.IsQsvAvailable;
+
+        public bool IsMultiIntelGPU { get; } = HandBrakeEncoderHelpers.GetQsvAdaptorList().Count > 1;
 
         public bool IsVceAvailable { get; } = HandBrakeHardwareEncoderHelper.IsVceH264Available;
 
@@ -935,7 +958,8 @@ namespace HandBrakeWPF.ViewModels
 
         public bool IsHardwareOptionsVisible => !IsSafeMode && !IsHardwareFallbackMode;
 
-
+        public bool IsAutomaticSafeMode { get; private set; }
+        
         /* About HandBrake */
 
         public string Version { get; } = string.Format("{0}", HandBrakeVersionHelper.GetVersion());
@@ -1046,7 +1070,7 @@ namespace HandBrakeWPF.ViewModels
         {
             this.Save();
 
-            IShellViewModel shellViewModel = IoC.Get<IShellViewModel>();
+            IShellViewModel shellViewModel = IoCHelper.Get<IShellViewModel>();
             shellViewModel.DisplayWindow(ShellWindow.MainWindow);
         }
 
@@ -1161,6 +1185,19 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
+        public void ResetAutomaticSafeMode()
+        {
+            userSettingService.SetUserSetting(UserSettingConstants.ForceDisableHardwareSupport, false);
+            this.errorService.ShowMessageBox(
+                Resources.OptionsView_ResetSafeModeMessage,
+                Resources.Notice,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            this.IsAutomaticSafeMode = false;
+            this.NotifyOfPropertyChange(() => this.IsAutomaticSafeMode);
+        }
+
         #endregion
 
         public override void OnLoad()
@@ -1264,14 +1301,24 @@ namespace HandBrakeWPF.ViewModels
             this.SelectedScalingMode = this.userSettingService.GetUserSetting<VideoScaler>(UserSettingConstants.ScalingMode);
             this.UseQSVDecodeForNonQSVEnc = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.UseQSVDecodeForNonQSVEnc);
             this.EnableQuickSyncLowPower = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncLowPower);
+            this.EnableQuickSyncHyperEncode = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncHyperEncode);
 
             this.EnableQuickSyncEncoding = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncEncoding);
             this.EnableVceEncoder = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableVceEncoder);
             this.EnableNvencEncoder = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvencEncoder);
 
             // #############################
-            // CLI
+            // Process
             // #############################
+
+            this.RemoteServiceEnabled = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ProcessIsolationEnabled);
+            this.RemoteServicePort = userSettingService.GetUserSetting<int>(UserSettingConstants.ProcessIsolationPort);
+            this.SimultaneousEncodes = userSettingService.GetUserSetting<int>(UserSettingConstants.SimultaneousEncodes);
+            if (this.SimultaneousEncodes > 8)
+            {
+                this.SimultaneousEncodes = 8;
+            }
+
             this.SelectedPriority = (ProcessPriority)userSettingService.GetUserSetting<int>(UserSettingConstants.ProcessPriorityInt);
 
             this.PreventSleep = userSettingService.GetUserSetting<bool>(UserSettingConstants.PreventSleep);
@@ -1334,15 +1381,10 @@ namespace HandBrakeWPF.ViewModels
             this.LowBatteryLevel = userSettingService.GetUserSetting<int>(UserSettingConstants.LowBatteryLevel);
 
             // #############################
-            // Experimental
+            // Safe Mode
             // #############################
-            this.RemoteServiceEnabled = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ProcessIsolationEnabled);
-            this.RemoteServicePort = userSettingService.GetUserSetting<int>(UserSettingConstants.ProcessIsolationPort);
-            this.SimultaneousEncodes = userSettingService.GetUserSetting<int>(UserSettingConstants.SimultaneousEncodes);
-            if (this.SimultaneousEncodes > 8)
-            {
-                this.SimultaneousEncodes = 8;
-            }
+            this.IsAutomaticSafeMode = userSettingService.GetUserSetting<bool>(UserSettingConstants.ForceDisableHardwareSupport);
+            this.NotifyOfPropertyChange(() => this.IsAutomaticSafeMode);
         }
 
         public void UpdateSettings()
@@ -1400,12 +1442,6 @@ namespace HandBrakeWPF.ViewModels
             this.errorService.ShowMessageBox(Resources.OptionsView_UninstallMessageBoxText, Resources.OptionsView_UninstallMessageBoxHeader, MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        protected override Task OnActivateAsync(CancellationToken cancellationToken)
-        {
-            this.OnLoad();
-            return base.OnActivateAsync(cancellationToken);
-        }
-
         private void Save()
         {
             /* General */
@@ -1454,7 +1490,7 @@ namespace HandBrakeWPF.ViewModels
             this.userSettingService.SetUserSetting(UserSettingConstants.EnableQuickSyncDecoding, this.EnableQuickSyncDecoding);
             this.userSettingService.SetUserSetting(UserSettingConstants.ScalingMode, this.SelectedScalingMode);
             this.userSettingService.SetUserSetting(UserSettingConstants.UseQSVDecodeForNonQSVEnc, this.UseQSVDecodeForNonQSVEnc);
-
+            this.userSettingService.SetUserSetting(UserSettingConstants.EnableQuickSyncHyperEncode, this.EnableQuickSyncHyperEncode);
             this.userSettingService.SetUserSetting(UserSettingConstants.EnableQuickSyncEncoding, this.EnableQuickSyncEncoding);
             this.userSettingService.SetUserSetting(UserSettingConstants.EnableVceEncoder, this.EnableVceEncoder);
             this.userSettingService.SetUserSetting(UserSettingConstants.EnableNvencEncoder, this.EnableNvencEncoder);
@@ -1553,7 +1589,7 @@ namespace HandBrakeWPF.ViewModels
                                 };
 
                     installer.Start();
-                    Execute.OnUIThread(() => Application.Current.Shutdown());
+                    ThreadHelper.OnUIThread(() => Application.Current.Shutdown());
                 }
                 catch (Exception exc)
                 {

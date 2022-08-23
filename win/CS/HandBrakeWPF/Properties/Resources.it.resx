@@ -201,7 +201,10 @@ Boston, MA 02110-1301, USA.</value>
     <value>HandBrake sta già convertendo.</value>
   </data>
   <data name="Main_DuplicateDestinationOnQueue" xml:space="preserve">
-    <value>Ci sono già processi in coda con lo stesso percorso di destinazione. Si prega di scegliere un percorso diverso per questo processo.</value>
+    <value>Ci sono già processi in coda con lo stesso percorso di destinazione. Si prega di scegliere un percorso diverso per questo processo.
+
+Puoi modificare le opzioni per creare il nome dei file in automatico su "Strumenti -&gt; Preferenze -&gt; File di Output"
+</value>
   </data>
   <data name="Main_JobsPending_addon" xml:space="preserve">
     <value>Processi in corso {0}</value>
@@ -371,6 +374,7 @@ Altrimenti, i sottotitoli non in sovraimpressione andranno perduti.</value>
 
 - La durata di ciascun titolo della sorgente potrebbe essere al di sotto della soglia di "Durata Minima del Titolo" indicata nella relativa opzione in 'Preferenze &gt; Avanzate'.
 - Il file sorgente non è un file video valido oppure non è in un formato supportato da HandBrake.
+-È possibile che non si abbiano i permessi di lettura del file oppure che un'altra applicazione lo stia usando in questo momento.
 - La sorgente potrebbe essere protetta da copia oppure contenere DRM. Si ricorda che HandBrake non supporta la rimozione di sistemi di protezione copia.
 
 Il Registro delle Attività potrebbe fornire ulteriori informazioni.</value>
@@ -560,7 +564,7 @@ Sei sicuro di voler chiudere HandBrake?</value>
 Il vecchio file delle preimpostazioni è stato salvato in:</value>
   </data>
   <data name="Main_QueueFinishedErrors" xml:space="preserve">
-    <value>con {0} errori o annullamenti rilevati.</value>
+    <value>con {0} errori rilevati. Controlla la finestra della Coda per ulteriori dettagli.</value>
   </data>
   <data name="MainViewModel_LowDiskSpace" xml:space="preserve">
     <value>Spazio insufficiente</value>
@@ -1245,13 +1249,13 @@ Vuoi sovrascriverlo?</value>
     <value>Num. di immagini di anteprima da scansione:</value>
   </data>
   <data name="Options_PriorityLevel" xml:space="preserve">
-    <value>Livello priorità:</value>
+    <value>Livello di Priorità del Lavoro:</value>
   </data>
   <data name="Options_QsvDecode" xml:space="preserve">
-    <value>Preferisci l'uso di Intel QuickSync per la decodifica video, se disponibile.</value>
+    <value>Preferisci l'uso di Intel QuickSync per la decodifica video se è in uso la codifica QuickSync e l'hardware è disponibile.</value>
   </data>
   <data name="Options_QsvDecodeForNonFullPath" xml:space="preserve">
-    <value>Usa la Decodifica QSV se non è in uso il Codificatore QuickSync (es. x265)</value>
+    <value>Usa la decodifica QuickSync se non è in uso il Codificatore QuickSync (es. x265)</value>
   </data>
   <data name="Options_RemovePunctuation" xml:space="preserve">
     <value>Rimuovi la punteggiatura comune </value>
@@ -1669,7 +1673,7 @@ Sono supportati VLC e MPC-HC. Altri riproduttori multimediali potrebbero funzion
     <value>Opzioni avanzate:</value>
   </data>
   <data name="VideoView_FastDecode" xml:space="preserve">
-    <value>Codifica Veloce</value>
+    <value>Decodifica Veloce</value>
   </data>
   <data name="VideoView_Framerate" xml:space="preserve">
     <value>Frequenza Fotogrammi (FPS):</value>
@@ -1858,20 +1862,13 @@ Tempo rimanente: {5}, Trascorso: {6} {7}</value>
     <value>Elimina selezionati</value>
   </data>
   <data name="Portable_TmpNotWritable" xml:space="preserve">
-    <value>Modalità Portatile: Impossibile creare la cartella TMP. Controllare che il percorso sia corretto e si abbiano i permessi di scrittura.
-
-{0}</value>
+    <value>Modalità Portatile: Impossibile creare la cartella TMP. Controllare che il percorso sia corretto e si abbiano i permessi di scrittura.</value>
   </data>
   <data name="Portable_StorageNotWritable" xml:space="preserve">
-    <value>Modalità Portatile: Impossibile creare la cartella di Archiviazione. Controllare che il percorso sia corretto e si abbiano i permessi di scrittura.
-
-{0}</value>
+    <value>Modalità Portatile: Impossibile creare la cartella di Archiviazione. Controllare che il percorso sia corretto e si abbiano i permessi di scrittura.</value>
   </data>
   <data name="Portable_IniFileError" xml:space="preserve">
     <value>Modalità Portatile: Impossibile leggere il file portable.ini. Potrebbe esserci un errore in questo file. Riprova usando portable.ini.template come riferimento.</value>
-  </data>
-  <data name="Startup_InitFailed" xml:space="preserve">
-    <value>Inizializzazione motore di HandBrake fallita. Ciò è spesso causato da driver GPU obsoleti.\n Si prega di aggiornare i driver di ogni GPU integrata o dedicata del sistema</value>
   </data>
   <data name="OptionsView_FormatOptions" xml:space="preserve">
     <value>Segnaposto da Sostituire: {source} {title} {chapters} {creation-date} {creation-time} {date} {time} {quality_bitrate}</value>
@@ -2147,7 +2144,7 @@ Se supportata, ogni preimpostazione dell'utente verrà importata.</value>
     <comment>Note: {source}, {destination} and {exit_code} are not translatable. </comment>
   </data>
   <data name="SourceSelection_UpdateAvailable" xml:space="preserve">
-    <value>È disponibile una nuova versione di HandBrake!</value>
+    <value>È disponibile una nuova versione!</value>
   </data>
   <data name="About_Copyright" xml:space="preserve">
     <value>Copyright (C) 2003-2022 The HandBrake Team</value>
@@ -2244,9 +2241,6 @@ Scegliere una preimpostazione differente.</value>
   <data name="PictureSettingsView_RotateAndCrop" xml:space="preserve">
     <value>Orientamento e Ritaglio:</value>
   </data>
-  <data name="OptionsView_Win10Only" xml:space="preserve">
-    <value>( Solo per Windows 10! )</value>
-  </data>
   <data name="QueueView_FilterSettings" xml:space="preserve">
     <value>Filtri:</value>
   </data>
@@ -2317,7 +2311,7 @@ Scegliere una preimpostazione differente.</value>
     <value>Ferma</value>
   </data>
   <data name="String1" xml:space="preserve">
-    <value/>
+    <value />
   </data>
   <data name="PresetService_CategoryAlreadyExists" xml:space="preserve">
     <value>Il nome della categoria è gia esistente. Inserirne uno diverso.</value>
@@ -2338,7 +2332,7 @@ Scegliere una preimpostazione differente.</value>
     <value>Livello al quale viene mostrato l'avviso di spazio su disco in esaurimento:</value>
   </data>
   <data name="OptionsView_SimultaneousHardwareLimitNotice" xml:space="preserve">
-    <value>Nota: questo è il numero massimo di processi simultanei. Limitazioni hardware potrebbero ridurre il numero effettivo di processi simultanei durante la codifica.</value>
+    <value>Nota: questo è il numero massimo di processi simultanei. Limitazioni hardware potrebbero ridurre il numero effettivo di processi simultanei durante la codifica. L'impostazione sarà applicata solo dalla prossima coda o al riavvio del programma.</value>
   </data>
   <data name="Preset_NotAvailable" xml:space="preserve">
     <value>(Non Disponibile)</value>
@@ -2614,5 +2608,65 @@ Sono supportati solo file della coda della versione corrente.</value>
   </data>
   <data name="RightToLeft_WholeInterface" xml:space="preserve">
     <value>Interfaccia Utente Completa</value>
+  </data>
+  <data name="SourceSelection_NightlyUpdate" xml:space="preserve">
+    <value>La versione in Sviluppo in uso è piuttosto vecchia. Potresti voler aggiornare ad una nuova versione!</value>
+  </data>
+  <data name="SourceSelection_NightlyUpdateUrl" xml:space="preserve">
+    <value>Scarica da Github</value>
+  </data>
+  <data name="MainView_NightlyBuildsUpdate" xml:space="preserve">
+    <value>Scarica Versioni Ancora in Sviluppo (HTTPS)</value>
+  </data>
+  <data name="OptionsView_EnableQuicksyncHyperEncode" xml:space="preserve">
+    <value>Abilita Codifica QuickSync Deep Link</value>
+  </data>
+  <data name="OptionsView_HyperEncodeDescription" xml:space="preserve">
+    <value>Usa molteplici sistemi di codifica per velocizzare una codifica singola, se supportato. Disabilitarlo permette di bilanciare il carico in parallelo tra vari sistemi di codifica.</value>
+  </data>
+  <data name="MainView_OpenHandBrake" xml:space="preserve">
+    <value>Avvia HandBrake</value>
+  </data>
+  <data name="Startup_UnableToStartInfo" xml:space="preserve">
+    <value>Il supporto alla codifica via hardware è stato disabilitato in quanto causa comune di problemi all'avvio.
+- Prova a riavviare HandBrake.
+- Se il problema persiste, la causa potrebbe essere dovuta ad un driver della scheda grafica (sia integrata che discreta) obsoleto.
+
+La codifica via hardware può essere riabilitata nelle Preferenze.</value>
+  </data>
+  <data name="Startup_UnableToStart" xml:space="preserve">
+    <value>Impossibile avviare HandBrake.</value>
+  </data>
+  <data name="OptionsView_ResetSafeMode" xml:space="preserve">
+    <value>Reimposta Modalità Sicura</value>
+  </data>
+  <data name="OptionsView_ResetSafeModeMessage" xml:space="preserve">
+    <value>Si prega di riavviare HandBrake.</value>
+  </data>
+  <data name="Debug_QueueDataExport" xml:space="preserve">
+    <value>Esporta Statistiche della Coda (csv)</value>
+  </data>
+  <data name="Debug_QueueExportDataDone" xml:space="preserve">
+    <value>Esportazione Completata!</value>
+  </data>
+  <data name="Debug_QueueSweep_NotSetup" xml:space="preserve">
+    <value>É necessario scansionare prima una sorgente avendo già impostato un percorso di destinazione</value>
+  </data>
+  <data name="OptionsView_FileCollisionNotice" xml:space="preserve">
+    <value>Solo se il file esiste già sul disco.</value>
+  </data>
+  <data name="Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="SubtitleView_NoSubtitlesAdded" xml:space="preserve">
+    <value>Non sono state aggiunte tracce dei sottotitoli.
+
+La causa potrebbe essere dovuta al tipo di file contenitore selezionato. Consigliamo di leggere la nostra documentazione riguardo ai sottotitoli (in inglese) per ulteriori informazioni.</value>
+  </data>
+  <data name="DarkTheme_None" xml:space="preserve">
+    <value>Nessuna</value>
+  </data>
+  <data name="SourceSelection_UpdateNow" xml:space="preserve">
+    <value>Aggiorna Ora!</value>
   </data>
 </root>

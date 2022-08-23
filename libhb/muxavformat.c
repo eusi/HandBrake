@@ -379,6 +379,60 @@ static int avformatInit( hb_mux_object_t * m )
             priv_size                  = 0;
             break;
 
+        case HB_VCODEC_FFMPEG_SVT_AV1:
+        case HB_VCODEC_FFMPEG_SVT_AV1_10BIT:
+            track->st->codecpar->codec_id = AV_CODEC_ID_AV1;
+
+            if (job->config.extradata.length > 0)
+            {
+                priv_size = job->config.extradata.length;
+                priv_data = av_malloc(priv_size + AV_INPUT_BUFFER_PADDING_SIZE);
+                if (priv_data == NULL)
+                {
+                    hb_error("AV1 extradata: malloc failure");
+                    goto error;
+                }
+                memcpy(priv_data,
+                       job->config.extradata.bytes,
+                       job->config.extradata.length);
+            }
+            break;
+
+        case HB_VCODEC_QSV_AV1_10BIT:
+        case HB_VCODEC_QSV_AV1:
+        {
+            const AVBitStreamFilter  *bsf;
+            AVBSFContext             *ctx;
+            int                       ret;
+
+            track->st->codecpar->codec_id = AV_CODEC_ID_AV1;
+            priv_data                  = NULL;
+            priv_size                  = 0;
+
+            bsf = av_bsf_get_by_name("extract_extradata");
+            ret = av_bsf_alloc(bsf, &ctx);
+            if (ret < 0)
+            {
+                hb_error("AV1 bitstream filter: alloc failure");
+                goto error;
+            }
+
+            track->bitstream_context = ctx;
+            track->st->codecpar->extradata = priv_data;
+            track->st->codecpar->extradata_size = priv_size;
+            if (track->bitstream_context != NULL)
+            {
+                avcodec_parameters_copy(track->bitstream_context->par_in,
+                                       track->st->codecpar);
+                ret = av_bsf_init(track->bitstream_context);
+                if (ret < 0)
+                {
+                    hb_error("AV1 bitstream filter: init failure");
+                    goto error;
+                }
+            }
+        } break;
+
         case HB_VCODEC_THEORA:
         {
             track->st->codecpar->codec_id = AV_CODEC_ID_THEORA;
@@ -444,6 +498,7 @@ static int avformatInit( hb_mux_object_t * m )
 
         case HB_VCODEC_FFMPEG_VCE_H265:
         case HB_VCODEC_FFMPEG_NVENC_H265:
+        case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
         case HB_VCODEC_FFMPEG_MF_H265:
             track->st->codecpar->codec_id  = AV_CODEC_ID_HEVC;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
@@ -747,19 +802,21 @@ static int avformatInit( hb_mux_object_t * m )
         track->st->codecpar->sample_rate = audio->config.out.samplerate;
         if (audio->config.out.codec & HB_ACODEC_PASS_FLAG)
         {
-            track->st->codecpar->channels = av_get_channel_layout_nb_channels(audio->config.in.channel_layout);
-            track->st->codecpar->channel_layout = audio->config.in.channel_layout;
+            AVChannelLayout ch_layout = {0};
+            av_channel_layout_from_mask(&ch_layout, audio->config.in.channel_layout);
+            track->st->codecpar->ch_layout = ch_layout;
         }
         else
         {
-            track->st->codecpar->channels = hb_mixdown_get_discrete_channel_count(audio->config.out.mixdown);
-            track->st->codecpar->channel_layout = hb_ff_mixdown_xlat(audio->config.out.mixdown, NULL);
+            AVChannelLayout ch_layout = {0};
+            av_channel_layout_from_mask(&ch_layout, hb_ff_mixdown_xlat(audio->config.out.mixdown, NULL));
+            track->st->codecpar->ch_layout = ch_layout;
         }
 
         const char *name;
         if (audio->config.out.name == NULL)
         {
-            switch (track->st->codecpar->channels)
+            switch (track->st->codecpar->ch_layout.nb_channels)
             {
                 case 1:
                     name = "Mono";

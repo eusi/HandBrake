@@ -11,10 +11,12 @@ namespace HandBrakeWPF.ViewModels.Interfaces
 {
     using System;
 
-    public interface IPresetManagerViewModel
+    using HandBrakeWPF.Services.Presets.Model;
+
+    public interface IPresetManagerViewModel : IViewModelBase
     {
         bool IsOpen { get; set; }
 
-        void SetupWindow(Action callback);
+        void SetupWindow(Action<Preset> callback);
     }
 }

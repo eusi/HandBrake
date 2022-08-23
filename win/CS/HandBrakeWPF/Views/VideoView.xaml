@@ -6,14 +6,11 @@
              xmlns:Converters="clr-namespace:HandBrakeWPF.Converters"
              xmlns:Video="clr-namespace:HandBrakeWPF.Converters.Video"
              xmlns:Properties="clr-namespace:HandBrakeWPF.Properties"
-             xmlns:cal="http://www.caliburnproject.org"
              mc:Ignorable="d" >
 
     <UserControl.Resources>
         <Converters:BooleanConverter x:Key="boolConverter" />
         <Converters:BooleanToVisibilityConverter x:Key="boolToVisConverter" />
-        <Converters:EnumComboConverter x:Key="enumComboConverter" />
-        <Converters:InverseBooleanConverter x:Key="inverseConverter" />
         <Video:VideoEncoderConverter x:Key="videoEncoderConverter" />
     </UserControl.Resources>
 
@@ -42,7 +39,7 @@
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10" >
                     <TextBlock Text="{x:Static Properties:Resources.VideoView_Codec}" Width="100" />
 
-                    <ComboBox Width="120" ToolTip="{x:Static Properties:ResourcesTooltips.Video_Encoders}" AutomationProperties.Name="{x:Static Properties:Resources.VideoView_Codec}" >
+                    <ComboBox Width="120" DisplayMemberPath="DisplayName" ToolTip="{x:Static Properties:ResourcesTooltips.Video_Encoders}" AutomationProperties.Name="{x:Static Properties:Resources.VideoView_Codec}" >
                         <ComboBox.SelectedItem>
                             <MultiBinding Converter="{StaticResource videoEncoderConverter}">
                                 <Binding Path="SelectedVideoEncoder" />
@@ -63,7 +60,7 @@
                     <TextBlock Text="{x:Static Properties:Resources.VideoView_Framerate}" VerticalAlignment="Top" Margin="0,5,0,0" Width="100"/>
                     <StackPanel Orientation="Vertical">
                         <ComboBox Width="120" ItemsSource="{Binding Framerates}" SelectedItem="{Binding SelectedFramerate}" ToolTip="{x:Static Properties:ResourcesTooltips.Video_Framerate}"
-                                  AutomationProperties.Name="{x:Static Properties:Resources.VideoView_Framerate}" />
+                                  AutomationProperties.Name="{x:Static Properties:Resources.VideoView_Framerate}" HorizontalAlignment="Left" />
 
                         <StackPanel Orientation="Vertical" >
                             <RadioButton Content="{x:Static Properties:Resources.VideoView_ConstantFramerate}" IsChecked="{Binding IsConstantFramerate}" Margin="0,5,0,0"
@@ -182,7 +179,7 @@
                              Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="4" Margin="5,5,5,2" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" VerticalContentAlignment="Stretch" >
                         <TextBox.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Header="Copy Full Query" cal:Message.Attach="[Event Click] = [Action CopyQuery]"  />
+                                <MenuItem Header="Copy Full Query" Command="{Binding RelayCommand}" CommandParameter="CopyQuery"  />
                                 <Separator />
                                 <MenuItem Command="ApplicationCommands.Cut" />
                                 <MenuItem Command="ApplicationCommands.Copy" />

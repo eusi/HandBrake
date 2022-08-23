@@ -20,10 +20,10 @@ namespace HandBrakeWPF
     using System.Windows.Interop;
     using System.Windows.Media;
 
-    using Caliburn.Micro;
-
+    using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
 
+    using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Instance;
     using HandBrakeWPF.Model;
     using HandBrakeWPF.Services.Interfaces;
@@ -31,8 +31,10 @@ namespace HandBrakeWPF
     using HandBrakeWPF.Utilities;
     using HandBrakeWPF.ViewModels;
     using HandBrakeWPF.ViewModels.Interfaces;
+    using HandBrakeWPF.Views;
 
-    using GeneralApplicationException = Exceptions.GeneralApplicationException;
+    using GeneralApplicationException = HandBrake.App.Core.Exceptions.GeneralApplicationException;
+    using IWindowManager = Services.Interfaces.IWindowManager;
 
     /// <summary>
     /// Interaction logic for App.xaml
@@ -100,15 +102,42 @@ namespace HandBrakeWPF
             // Portable Mode
             if (Portable.IsPortable())
             {
-                if (!Portable.Initialise())
+                int portableInit = Portable.Initialise();
+                if (portableInit != 0)
                 {
+                    switch (portableInit)
+                    {
+                        case -1:
+                            MessageBox.Show(
+                                HandBrakeWPF.Properties.Resources.Portable_IniFileError,
+                                HandBrakeWPF.Properties.Resources.Error,
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
+                            break;
+
+                        case -2:
+                            MessageBox.Show(
+                                HandBrakeWPF.Properties.Resources.Portable_TmpNotWritable,
+                                HandBrakeWPF.Properties.Resources.Error,
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
+                            break;
+                        case -3:
+                            MessageBox.Show(
+                                HandBrakeWPF.Properties.Resources.Portable_StorageNotWritable,
+                                HandBrakeWPF.Properties.Resources.Error,
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
+                            break;
+                    }
+                    
                     Application.Current.Shutdown();
                     return;
                 }
             }
 
             // Setup the UI Language
-            IUserSettingService userSettingService = IoC.Get<IUserSettingService>();
+            IUserSettingService userSettingService = IoCHelper.Get<IUserSettingService>();
             string culture = userSettingService.GetUserSetting<string>(UserSettingConstants.UiLanguage);
             if (!string.IsNullOrEmpty(culture))
             {
@@ -142,60 +171,62 @@ namespace HandBrakeWPF
             ResourceDictionary dark = new ResourceDictionary { Source = new Uri("pack://application:,,,/MahApps.Metro;component/Styles/Themes/Dark.Blue.xaml") };
             ResourceDictionary light = new ResourceDictionary { Source = new Uri("pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Blue.xaml") };
 
-            ResourceDictionary theme = new ResourceDictionary();
+            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Generic.xaml", UriKind.Relative) });
+            bool themed = false;
+            if (SystemParameters.HighContrast || !Portable.IsThemeEnabled())
+            {
+                Application.Current.Resources["Ui.Light"] = new SolidColorBrush(SystemColors.HighlightTextColor);
+                Application.Current.Resources["Ui.ContrastLight"] = new SolidColorBrush(SystemColors.ActiveBorderBrush.Color);
+                useDarkTheme = DarkThemeMode.None;
+            }
+            
             switch (useDarkTheme)
             {
                 case DarkThemeMode.System:
                     if (SystemInfo.IsAppsUsingDarkTheme())
                     {
-                        theme.Source = new Uri("Themes/Dark.xaml", UriKind.Relative);
-                        Application.Current.Resources.MergedDictionaries.Add(theme);
                         Application.Current.Resources.MergedDictionaries.Add(dark);
+                        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Dark.xaml", UriKind.Relative) });
                     }
-                    else if (!SystemParameters.HighContrast)
+                    else
                     {
-                        theme.Source = new Uri("Themes/Light.xaml", UriKind.Relative);
-                        Application.Current.Resources.MergedDictionaries.Add(theme);
                         Application.Current.Resources.MergedDictionaries.Add(light);
-                    }
-                    break;
-                case DarkThemeMode.Dark:
-                    theme.Source = new Uri("Themes/Dark.xaml", UriKind.Relative);
-                    Application.Current.Resources.MergedDictionaries.Add(theme);
-                    Application.Current.Resources.MergedDictionaries.Add(dark);
-                    break;
-                case DarkThemeMode.Light:
-                    if (!SystemParameters.HighContrast)
-                    {
-                        theme.Source = new Uri("Themes/Light.xaml", UriKind.Relative);
-                        Application.Current.Resources.MergedDictionaries.Add(theme);
-                        Application.Current.Resources.MergedDictionaries.Add(light);
+                        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Light.xaml", UriKind.Relative) });
                     }
 
+                    themed = true;
+                    break;
+                case DarkThemeMode.Dark:
+                    Application.Current.Resources.MergedDictionaries.Add(dark);
+                    Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Dark.xaml", UriKind.Relative) });
+                    themed = true;                    
+                    break;
+                case DarkThemeMode.Light:
+                    Application.Current.Resources.MergedDictionaries.Add(light);
+                    Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Themes/Light.xaml", UriKind.Relative) });
+                    themed = true;
+                    break;
+
+                case DarkThemeMode.None:
+                    Application.Current.Resources["Ui.Light"] = new SolidColorBrush(SystemColors.HighlightTextColor);
+                    Application.Current.Resources["Ui.ContrastLight"] = new SolidColorBrush(SystemColors.ActiveBorderBrush.Color);
+                    themed = false;
                     break;
             }
 
             Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Views/Styles/Styles.xaml", UriKind.Relative) });
 
+            if (themed)
+            {
+                Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("Views/Styles/ThemedStyles.xaml", UriKind.Relative) });
+            }
+
             // NO-Hardware Mode
             bool noHardware = e.Args.Any(f => f.Equals("--no-hardware")) || (Portable.IsPortable() && !Portable.IsHardwareEnabled());
 
             // Initialise the Engine
-            HandBrakeWPF.Helpers.LogManager.Init();
-
-            try
-            {
-                HandBrakeInstanceManager.Init(noHardware);
-            }
-            catch (Exception)
-            {
-                if (!noHardware)
-                {
-                    MessageBox.Show(HandBrakeWPF.Properties.Resources.Startup_InitFailed, HandBrakeWPF.Properties.Resources.Error, MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-
-                throw;
-            }
+            Services.Logging.GlobalLoggingManager.Init();
+            HandBrakeInstanceManager.Init(noHardware, userSettingService);
 
             // Initialise the GUI
             base.OnStartup(e);
@@ -204,7 +235,7 @@ namespace HandBrakeWPF
             string[] args = e.Args;
             if (args.Any() && (File.Exists(args[0]) || Directory.Exists(args[0])))
             {
-                IMainViewModel mvm = IoC.Get<IMainViewModel>();
+                IMainViewModel mvm = IoCHelper.Get<IMainViewModel>();
                 mvm.StartScan(args[0], 0);
             }
         }
@@ -237,14 +268,14 @@ namespace HandBrakeWPF
         /// </param>
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            Execute.BeginOnUIThread(
+            ThreadHelper.OnUIThread(
                 () => 
             {
                 if (e.ExceptionObject.GetType() == typeof(FileNotFoundException))
                 {
                     GeneralApplicationException exception = new GeneralApplicationException(
                         "A file appears to be missing.",
-                        "Try re-installing Microsoft .NET 5 Desktop Runtime",
+                        "Try re-installing Microsoft .NET 6 Desktop Runtime",
                         (Exception)e.ExceptionObject);
                     this.ShowError(exception);
                 }
@@ -269,7 +300,7 @@ namespace HandBrakeWPF
         {
             if (e.Exception.GetType() == typeof(FileNotFoundException))
             {
-                GeneralApplicationException exception = new GeneralApplicationException("A file appears to be missing.", "Try re-installing Microsoft .NET 5 Desktop Runtime", e.Exception);
+                GeneralApplicationException exception = new GeneralApplicationException("A file appears to be missing.", "Try re-installing Microsoft .NET 6 Desktop Runtime", e.Exception);
                 this.ShowError(exception);
             }
             else if (e.Exception.GetType() == typeof(GeneralApplicationException))
@@ -298,8 +329,8 @@ namespace HandBrakeWPF
         {
             try
             {
-                IWindowManager windowManager = IoC.Get<IWindowManager>();
-                IErrorService errorService = IoC.Get<IErrorService>();
+                IWindowManager windowManager = IoCHelper.Get<IWindowManager>();
+                IErrorService errorService = IoCHelper.Get<IErrorService>();
                 if (windowManager != null)
                 {
                     ErrorViewModel errorView = new ErrorViewModel(errorService);
@@ -329,7 +360,7 @@ namespace HandBrakeWPF
 
                     try
                     {
-                        windowManager.ShowDialogAsync(errorView);
+                        windowManager.ShowDialog<ErrorView>(errorView);
                     }
                     catch (Exception)
                     {

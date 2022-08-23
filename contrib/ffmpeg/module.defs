@@ -1,4 +1,4 @@
-__deps__ := BZIP2 ZLIB FDKAAC LIBDAV1D LIBVPX LAME LIBOPUS LIBSPEEX XZ ZIMG
+__deps__ := BZIP2 ZLIB FDKAAC LIBDAV1D SVT-AV1 LIBVPX LAME LIBOPUS LIBSPEEX XZ ZIMG
 ifeq (1,$(FEATURE.qsv))
 __deps__ += LIBVPL
 endif
@@ -12,9 +12,9 @@ endif
 $(eval $(call import.MODULE.defs,FFMPEG,ffmpeg,$(__deps__)))
 $(eval $(call import.CONTRIB.defs,FFMPEG))
 
-FFMPEG.FETCH.url    = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/ffmpeg-4.4.1.tar.bz2
-FFMPEG.FETCH.url   += https://ffmpeg.org/releases/ffmpeg-4.4.1.tar.bz2
-FFMPEG.FETCH.sha256 = 8fc9f20ac5ed95115a9e285647add0eedd5cc1a98a039ada14c132452f98ac42
+FFMPEG.FETCH.url    = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/ffmpeg-5.1.tar.bz2
+FFMPEG.FETCH.url   += https://ffmpeg.org/releases/ffmpeg-5.1.tar.bz2
+FFMPEG.FETCH.sha256 = 32b56fb01ce90d452958ae25e91c9564abf49ed5453c127bec23c63e530aa8fa
 
 FFMPEG.CONFIGURE.deps  =
 FFMPEG.CONFIGURE.host  =
@@ -55,7 +55,12 @@ FFMPEG.CONFIGURE.extra = \
     --disable-decoder=libvpx_* \
     --enable-encoder=libvpx_vp8 \
     --enable-encoder=libvpx_vp9 \
+    --enable-libsvtav1 \
+    --enable-encoder=libsvtav1 \
     --disable-decoder=*_crystalhd \
+    --enable-demuxer=av1 \
+    --enable-demuxer=obu \
+    --enable-decoder=av1 \
     --enable-libdav1d \
     --enable-decoder=libdav1d \
     --cc="$(FFMPEG.GCC.gcc)" \

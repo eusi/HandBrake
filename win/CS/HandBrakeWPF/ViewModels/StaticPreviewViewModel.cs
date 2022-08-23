@@ -15,17 +15,12 @@ namespace HandBrakeWPF.ViewModels
     using System.Diagnostics;
     using System.Globalization;
     using System.IO;
-    using System.Runtime.ExceptionServices;
     using System.Threading;
     using System.Windows;
     using System.Windows.Media.Imaging;
+   
+    using HandBrakeWPF.Helpers;
 
-    using Caliburn.Micro;
-
-    using HandBrake.Interop.Interop.Interfaces.Model.Picture;
-
-    using HandBrakeWPF.Exceptions;
-    using HandBrakeWPF.Factories;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Encode.Model.Models;
     using HandBrakeWPF.Services.Interfaces;
@@ -33,7 +28,6 @@ namespace HandBrakeWPF.ViewModels
     using HandBrakeWPF.Services.Queue.Model;
     using HandBrakeWPF.Services.Scan.Interfaces;
     using HandBrakeWPF.Services.Scan.Model;
-    using HandBrakeWPF.Utilities;
     using HandBrakeWPF.ViewModels.Interfaces;
 
     using EncodeCompletedEventArgs = Services.Encode.EventArgs.EncodeCompletedEventArgs;
@@ -298,8 +292,7 @@ namespace HandBrakeWPF.ViewModels
         {
             this.Task = task;
             this.UpdatePreviewFrame();
-            this.DisplayName = Resources.StaticPreviewViewModel_Title;
-            this.Title = Resources.Preview;
+            this.Title = Resources.StaticPreviewViewModel_Title;
             this.ScannedSource = scannedSource;
         }
 
@@ -324,7 +317,6 @@ namespace HandBrakeWPF.ViewModels
             this.SelectedPreviewImage = this.SelectedPreviewImage - 1;
         }
 
-        [HandleProcessCorruptedStateExceptions]
         public void UpdatePreviewFrame()
         {
             if (this.Task.Width < 32 || this.Task.Height < 32)
@@ -375,18 +367,15 @@ namespace HandBrakeWPF.ViewModels
             return height;
         }
 
-        public void Close()
+        public override void Deactivate()
         {
             this.IsOpen = false;
+            base.Deactivate();
         }
 
         public void SetPictureSettingsInstance(IPictureSettingsViewModel pictureSettingsViewModel)
         {
             this.PictureSettingsViewModel = pictureSettingsViewModel;
-        }
-
-        public override void OnLoad()
-        {
         }
 
         public void Play()
@@ -472,7 +461,7 @@ namespace HandBrakeWPF.ViewModels
                 encodeTask.SubtitleTracks.Remove(scanTrack);
             }
 
-            QueueTask task = new QueueTask(encodeTask, HBConfigurationFactory.Create(), this.ScannedSource.ScanPath, null, false, null);
+            QueueTask task = new QueueTask(encodeTask, this.ScannedSource.ScanPath, null, false, null);
             ThreadPool.QueueUserWorkItem(this.CreatePreview, task);
         }
 
@@ -504,7 +493,7 @@ namespace HandBrakeWPF.ViewModels
                         }
                         catch (Win32Exception exc)
                         {
-                            Execute.OnUIThread(
+                            ThreadHelper.OnUIThread(
                                 () => this.errorService.ShowError(
                                     exc.Message,
                                     Resources.QueueViewModel_PlayFileErrorSolution,
@@ -550,7 +539,7 @@ namespace HandBrakeWPF.ViewModels
             this.encodeService.EncodeCompleted += this.encodeService_EncodeCompleted;
             this.encodeService.EncodeStatusChanged += this.encodeService_EncodeStatusChanged;
 
-            this.encodeService.Start(((QueueTask)state).Task, ((QueueTask)state).Configuration, null);
+            this.encodeService.Start(((QueueTask)state).Task, null);
             this.userSettingService.SetUserSetting(UserSettingConstants.LastPreviewDuration, this.Duration);
         }
 

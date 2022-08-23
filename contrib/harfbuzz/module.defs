@@ -3,9 +3,9 @@ __deps__ := FREETYPE
 $(eval $(call import.MODULE.defs,HARFBUZZ,harfbuzz,$(__deps__)))
 $(eval $(call import.CONTRIB.defs,HARFBUZZ))
 
-HARFBUZZ.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/harfbuzz-3.1.2.tar.xz
-HARFBUZZ.FETCH.url    += https://github.com/harfbuzz/harfbuzz/releases/download/3.1.2/harfbuzz-3.1.2.tar.xz
-HARFBUZZ.FETCH.sha256  = 4056b1541dd8bbd8ec29207fe30e568805c0705515632d7fec53a94399bc7945
+HARFBUZZ.FETCH.url     = https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/harfbuzz-4.4.1.tar.xz
+HARFBUZZ.FETCH.url    += https://github.com/harfbuzz/harfbuzz/releases/download/4.4.1/harfbuzz-4.4.1.tar.xz
+HARFBUZZ.FETCH.sha256  = c5bc33ac099b2e52f01d27cde21cee4281b9d5bfec7684135e268512478bc9ee
 
 HARFBUZZ.build_dir             = build
 HARFBUZZ.CONFIGURE.exe         = cmake
@@ -48,7 +48,7 @@ else
 endif
 
 ifeq ($(HOST.system),darwin)
-    HARFBUZZ.CONFIGURE.extra += -DHB_HAVE_CORETEXT=OFF -DHB_HAVE_GLIB=OFF
+    HARFBUZZ.CONFIGURE.extra += -DHB_HAVE_CORETEXT=OFF -DHB_HAVE_GLIB=OFF -DCMAKE_OSX_ARCHITECTURES=$(HOST.machine)
 endif
 
 ## find CMakeLists.txt

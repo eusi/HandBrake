@@ -65,7 +65,7 @@ namespace HandBrakeWPF.Views
 
                 foreach (QueueTask task in this.queueJobs.SelectedItems)
                 {
-                    if (task.Status == QueueItemStatus.Error || task.Status == QueueItemStatus.Completed)
+                    if (task.Status == QueueItemStatus.Error || task.Status == QueueItemStatus.Cancelled || task.Status == QueueItemStatus.Completed)
                     {
                         this.ResetMenuItem.IsEnabled = true;
                         break;
@@ -75,7 +75,7 @@ namespace HandBrakeWPF.Views
             else
             {
                 var activeQueueTask = this.mouseActiveQueueTask;
-                if (activeQueueTask != null && (activeQueueTask.Status == QueueItemStatus.Error || activeQueueTask.Status == QueueItemStatus.Completed))
+                if (activeQueueTask != null && (activeQueueTask.Status == QueueItemStatus.Error || activeQueueTask.Status == QueueItemStatus.Cancelled || activeQueueTask.Status == QueueItemStatus.Completed))
                 {
                     this.ResetMenuItem.IsEnabled = true;
                 }
@@ -86,7 +86,7 @@ namespace HandBrakeWPF.Views
             }
 
             this.DeleteMenuItem.Header = this.queueJobs.SelectedItems.Count > 1 ? Properties.Resources.QueueView_DeleteSelected : Properties.Resources.QueueView_Delete;
-            this.DeleteMenuItem.IsEnabled = this.mouseActiveQueueTask != null || this.queueJobs.SelectedItems.Count >= 1;
+            this.DeleteMenuItem.IsEnabled = (this.mouseActiveQueueTask != null || this.queueJobs.SelectedItems.Count >= 1) && (!this.mouseActiveQueueTask?.IsBreakpointTask ?? true);
             this.EditMenuItem.IsEnabled = this.mouseActiveQueueTask != null && this.queueJobs.SelectedItems.Count == 1;
             this.openSourceDir.IsEnabled = this.mouseActiveQueueTask != null && this.queueJobs.SelectedItems.Count == 1;
             this.openDestDir.IsEnabled = this.mouseActiveQueueTask != null && this.queueJobs.SelectedItems.Count == 1;
@@ -169,6 +169,11 @@ namespace HandBrakeWPF.Views
             {
                 ((QueueViewModel)this.DataContext).RemoveJob(task);
             }
+        }
+
+        private void DeleteItem_OnClick(object sender, ExecutedRoutedEventArgs e)
+        {
+            ((QueueViewModel)this.DataContext).RemoveSelectedJobs();
         }
     }
 }

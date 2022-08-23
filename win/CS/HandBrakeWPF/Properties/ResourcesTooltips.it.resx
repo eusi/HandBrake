@@ -362,16 +362,16 @@ Riduzione del Rumore specifiche per determinati scenari.
   <data name="FilterView_Deinterlace" xml:space="preserve">
     <value>Il Deinterlacciamento rimuove gli artefatti a "righe" dall'immagine.
 
-Yadif è un deinterlacciatore rapido molto usato.
+Bwdif e Yadif sono deinterlacciatori rapidi molto usati.
 
 Decomb sfrutta vari algoritmi di interpolazione per ottenere velocità e qualità.</value>
   </data>
   <data name="FilterView_DeinterlaceCustom" xml:space="preserve">
     <value>Parametri Deinterlacciamento personalizzati.
  
- Sintassi Yadif: mode=m:parity=p
+ Sintassi Bwdif e Yadif: mode=m:parity=p
  
- Predefinito Yadif: mode=3
+ Predefinito Bwdif e Yadif: mode=3
  
  Sintassi Decomb: mode=m:magnitude-thresh=m:variance-thresh=v:laplacian-thresh=l:dilation-thresh=d:erosion-thresh=e:noise-thresh=n:search-distance=s:postproc=p:parity=p
  
@@ -516,5 +516,11 @@ Nota Bene: i codici di errore sono supposizioni e potrebbero quindi non essere c
     <value>Per le lingue che si leggono da destra a sinistra, è possibile abilitare una di queste due modalità:  "Solo Testo" scriverà esclusivamente i testi da destra a sinistra,  "Interfaccia Utente Completa" mostrerà così anche gli altri elementi grafici.
 
 Usando una di queste modalità, potrebbero esserci dei problemi nella visualizzazione dell'interfaccia. A secoda della lingua, potrebbe essere necessario provare quale delle due funziona meglio.</value>
+  </data>
+  <data name="AudioView_Quality" xml:space="preserve">
+    <value>Imposta un livello di qualità specifico per l'audio.
+1 è la qualità più bassa mentre 5 è quella più alta.
+
+Il Bitrate cambierà da sorgente a sorgente.</value>
   </data>
 </root>

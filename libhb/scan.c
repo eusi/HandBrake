@@ -28,6 +28,9 @@ typedef struct
     int            store_previews;
 
     uint64_t       min_title_duration;
+    
+    int            crop_threshold_frames;
+    int            crop_threshold_pixels;
 } hb_scan_t;
 
 #define PREVIEW_READ_THRESH (200)
@@ -40,6 +43,10 @@ static void UpdateState1(hb_scan_t *scan, int title);
 static void UpdateState2(hb_scan_t *scan, int title);
 static void UpdateState3(hb_scan_t *scan, int preview);
 
+static int get_color_prim(int color_primaries, hb_geometry_t geometry, hb_rational_t rate);
+static int get_color_transfer(int color_trc);
+static int get_color_matrix(int colorspace, hb_geometry_t geometry);
+
 static const char *aspect_to_string(hb_rational_t *dar)
 {
     double aspect = (double)dar->num / dar->den;
@@ -50,16 +57,139 @@ static const char *aspect_to_string(hb_rational_t *dar)
     }
     static char arstr[32];
     if (aspect >= 1)
-        sprintf(arstr, "%.2f:1", aspect);
+        snprintf(arstr, sizeof(arstr), "%.2f:1", aspect);
     else
-        sprintf(arstr, "1:%.2f", 1. / aspect );
+        snprintf(arstr, sizeof(arstr), "1:%.2f", 1. / aspect );
     return arstr;
 }
+
+static int get_color_prim(int color_primaries, hb_geometry_t geometry, hb_rational_t rate)
+{
+    switch (color_primaries)
+    {
+        case AVCOL_PRI_BT709:
+            return HB_COLR_PRI_BT709;
+        case AVCOL_PRI_BT470M:
+            return HB_COLR_PRI_BT470M;
+        case AVCOL_PRI_BT470BG:
+            return HB_COLR_PRI_EBUTECH;
+        case AVCOL_PRI_SMPTE170M:
+        case AVCOL_PRI_SMPTE240M:
+            return HB_COLR_PRI_SMPTEC;
+        case AVCOL_PRI_FILM:
+            return HB_COLR_PRI_FILM;
+        case AVCOL_PRI_SMPTE428:
+            return HB_COLR_PRI_SMPTE428;
+        case AVCOL_PRI_SMPTE431:
+            return HB_COLR_PRI_SMPTE431;
+        case AVCOL_PRI_SMPTE432:
+            return HB_COLR_PRI_SMPTE432;
+        case AVCOL_PRI_JEDEC_P22:
+            return HB_COLR_PRI_JEDEC_P22;
+        case AVCOL_PRI_BT2020:
+            return HB_COLR_PRI_BT2020;
+        default:
+        {
+            if ((geometry.width >= 1280 || geometry.height >= 720)||
+                (geometry.width >   720 && geometry.height >  576 ))
+                // ITU BT.709 HD content
+                return HB_COLR_PRI_BT709;
+            else if (rate.den == 1080000)
+                // ITU BT.601 DVD or SD TV content (PAL)
+                return HB_COLR_PRI_EBUTECH;
+            else
+                // ITU BT.601 DVD or SD TV content (NTSC)
+                return HB_COLR_PRI_SMPTEC;
+        }
+    }
+}
+
+static int get_color_transfer(int color_trc)
+{
+    switch (color_trc)
+    {
+        case AVCOL_TRC_GAMMA22:
+            return HB_COLR_TRA_GAMMA22;
+        case AVCOL_TRC_GAMMA28:
+            return HB_COLR_TRA_GAMMA28;
+        case AVCOL_TRC_SMPTE170M:
+            return HB_COLR_TRA_SMPTE170M;
+        case AVCOL_TRC_LINEAR:
+            return HB_COLR_TRA_LINEAR;
+        case AVCOL_TRC_LOG:
+            return HB_COLR_TRA_LOG;
+        case AVCOL_TRC_LOG_SQRT:
+            return HB_COLR_TRA_LOG_SQRT;
+        case AVCOL_TRC_IEC61966_2_4:
+            return HB_COLR_TRA_IEC61966_2_4;
+        case AVCOL_TRC_BT1361_ECG:
+            return HB_COLR_TRA_BT1361_ECG;
+        case AVCOL_TRC_IEC61966_2_1:
+            return HB_COLR_TRA_IEC61966_2_1;
+        case AVCOL_TRC_SMPTE240M:
+            return HB_COLR_TRA_SMPTE240M;
+        case AVCOL_TRC_SMPTEST2084:
+            return HB_COLR_TRA_SMPTEST2084;
+        case AVCOL_TRC_ARIB_STD_B67:
+            return HB_COLR_TRA_ARIB_STD_B67;
+        case AVCOL_TRC_BT2020_10:
+            return HB_COLR_TRA_BT2020_10;
+        case AVCOL_TRC_BT2020_12:
+            return HB_COLR_TRA_BT2020_12;
+        default:
+            // ITU BT.601, BT.709, anything else
+            return HB_COLR_TRA_BT709;
+    }
+}
+
+static int get_color_matrix(int colorspace, hb_geometry_t geometry)
+{
+    switch (colorspace)
+    {
+        case AVCOL_SPC_RGB:
+            return HB_COLR_MAT_RGB;
+        case AVCOL_SPC_BT709:
+            return HB_COLR_MAT_BT709;
+        case AVCOL_SPC_FCC:
+            return HB_COLR_MAT_FCC;
+        case AVCOL_SPC_BT470BG:
+            return HB_COLR_MAT_BT470BG;
+        case AVCOL_SPC_SMPTE170M:
+            return HB_COLR_MAT_SMPTE170M;
+        case AVCOL_SPC_SMPTE240M:
+            return HB_COLR_MAT_SMPTE240M;
+        case AVCOL_SPC_YCGCO:
+            return HB_COLR_MAT_YCGCO;
+        case AVCOL_SPC_BT2020_NCL:
+            return HB_COLR_MAT_BT2020_NCL;
+        case AVCOL_SPC_BT2020_CL:
+            return HB_COLR_MAT_BT2020_CL;
+        case AVCOL_SPC_CHROMA_DERIVED_NCL:
+            return HB_COLR_MAT_CD_NCL;
+        case AVCOL_SPC_CHROMA_DERIVED_CL:
+            return HB_COLR_MAT_CD_CL;
+        case AVCOL_SPC_ICTCP:
+            return HB_COLR_MAT_ICTCP;
+        default:
+        {
+            if ((geometry.width >= 1280 || geometry.height >= 720)||
+                (geometry.width >   720 && geometry.height >  576 ))
+                // ITU BT.709 HD content
+                return HB_COLR_MAT_BT709;
+            else
+                // ITU BT.601 DVD or SD TV content (PAL)
+                // ITU BT.601 DVD or SD TV content (NTSC)
+                return HB_COLR_MAT_SMPTE170M;
+        }
+    }
+}
+
 
 hb_thread_t * hb_scan_init( hb_handle_t * handle, volatile int * die,
                             const char * path, int title_index,
                             hb_title_set_t * title_set, int preview_count,
-                            int store_previews, uint64_t min_duration )
+                            int store_previews, uint64_t min_duration,
+                            int crop_threshold_frames, int crop_threshold_pixels)
 {
     hb_scan_t * data = calloc( sizeof( hb_scan_t ), 1 );
 
@@ -72,7 +202,10 @@ hb_thread_t * hb_scan_init( hb_handle_t * handle, volatile int * die,
     data->preview_count  = preview_count;
     data->store_previews = store_previews;
     data->min_title_duration = min_duration;
-
+    
+    data->crop_threshold_frames = crop_threshold_frames;
+    data->crop_threshold_pixels = crop_threshold_pixels;
+    
     // Initialize scan state
     hb_state_t state;
     hb_get_state2(handle, &state);
@@ -1033,9 +1166,25 @@ skip_preview:
             title->geometry.par.num = title->geometry.par.den = 1;
         }
         title->pix_fmt = vid_info.pix_fmt;
-        title->color_prim = vid_info.color_prim;
-        title->color_transfer = vid_info.color_transfer;
-        title->color_matrix = vid_info.color_matrix;
+
+        if ((title->color_prim     != HB_COLR_PRI_UNDEF &&
+             title->color_prim     != -1) ||
+            (title->color_transfer != HB_COLR_TRA_UNDEF &&
+             title->color_transfer != -1) ||
+            (title->color_matrix   != HB_COLR_MAT_UNDEF &&
+             title->color_matrix != -1))
+        {
+            title->color_prim     = get_color_prim(title->color_prim, vid_info.geometry, vid_info.rate);
+            title->color_transfer = get_color_transfer(title->color_transfer);
+            title->color_matrix   = get_color_matrix(title->color_matrix, vid_info.geometry);
+        }
+        else
+        {
+            title->color_prim     = get_color_prim(vid_info.color_prim, vid_info.geometry, vid_info.rate);
+            title->color_transfer = get_color_transfer(vid_info.color_transfer);
+            title->color_matrix   = get_color_matrix(vid_info.color_matrix, vid_info.geometry);
+        }
+
         title->color_range = vid_info.color_range;
         title->chroma_location = vid_info.chroma_location;
 
@@ -1071,17 +1220,81 @@ skip_preview:
         if ( crops->n > 2 )
         {
             sort_crops( crops );
-            // The next line selects median cropping - at least
+
+            // Available crop modes:
+            // - Median: Selects median cropping - at least
             // 50% of the frames will have their borders removed.
-            // Other possible choices are loose cropping (i = 0) where
+            // - Loose cropping (i = 0) where
             // no non-black pixels will be cropped from any frame and a
-            // tight cropping (i = crops->n - (crops->n >> 2)) where at
+            // - Tight cropping (i = crops->n - (crops->n >> 2)) where at
             // least 75% of the frames will have their borders removed.
-            i = crops->n >> 1;
+            // - Smart: A blend between Median and Loose depending on whether 
+            // mixed AR content is found.
+            
+            i = crops->n >> 1; // Median
+
+            int crop_switch_frame_count = data->crop_threshold_frames;
+            int less_than_median_crop_threshold = data->crop_threshold_pixels;
+            
+            if (crop_switch_frame_count == 0) 
+            {
+                // Values seem like sensible defaults.
+                // Have observed that the optimal value does not always linearly increase with preview count.
+                 crop_switch_frame_count = 4;
+                
+                if (data->preview_count >= 30){
+                    crop_switch_frame_count = 6;
+                }
+                
+                if (data->preview_count > 40){
+                    crop_switch_frame_count = 8;
+                }
+            }
+            
+            if (less_than_median_crop_threshold == 0) 
+            {
+                // It's not uncommon to see 2~12 px variance in cropping.
+                // Defaulting to 9 to account for that variance before switching to loose.
+                // This accounts for variance that is unlikely to be caused by mixed AR. 
+                less_than_median_crop_threshold = 9;
+            }
+
+            // Count the number of frames "substantially" less than the median.
+            int less_than_median_frame_count = 0;
+            for (int x = 0; x < crops->n; x++)
+            {
+                
+                if (crops->t[x] < (crops->t[i] - less_than_median_crop_threshold) ||
+                    crops->b[x] < (crops->b[i] - less_than_median_crop_threshold) ||
+                    crops->l[x] < (crops->l[i] - less_than_median_crop_threshold) ||
+                    crops->r[x] < (crops->r[i] - less_than_median_crop_threshold)){
+                    less_than_median_frame_count = less_than_median_frame_count +1;
+                }
+                               
+                 hb_deep_log(2, "crop: [%d] %d/%d/%d/%d", x, crops->t[x], crops->b[x],  crops->l[x], crops->r[x]);
+            }
+            
+            hb_deep_log(2, "crop: less_than_median_frame_count: %d,", less_than_median_frame_count);
+             
+            // If we have a reasonable number of samples and it appears we have mixed aspect ratio, switch to loose crop.
+            if (less_than_median_frame_count >= crop_switch_frame_count) 
+            {
+                hb_deep_log(2, "crop: switching to loose crop for this source. May be mixed aspect ratio. (%d)", crop_switch_frame_count);
+                i = 0;
+            }
+            
+            // Automatic "Smart" Crop.
             title->crop[0] = EVEN( crops->t[i] );
             title->crop[1] = EVEN( crops->b[i] );
             title->crop[2] = EVEN( crops->l[i] );
             title->crop[3] = EVEN( crops->r[i] );
+            
+            // Loose / Conservative  (i = 0)
+            i = 0;
+            title->loose_crop[0] = EVEN( crops->t[i] );
+            title->loose_crop[1] = EVEN( crops->b[i] );
+            title->loose_crop[2] = EVEN( crops->l[i] );
+            title->loose_crop[3] = EVEN( crops->r[i] );
         }
 
         hb_log( "scan: %d previews, %dx%d, %.3f fps, autocrop = %d/%d/%d/%d, "
@@ -1242,7 +1455,7 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
     const char *profile_name = NULL;
     if (audio->config.in.codec & HB_ACODEC_FF_MASK)
     {
-        AVCodec *codec = avcodec_find_decoder(audio->config.in.codec_param);
+        const AVCodec *codec = avcodec_find_decoder(audio->config.in.codec_param);
         if (codec != NULL)
         {
             if (info.profile != FF_PROFILE_UNKNOWN)
@@ -1397,10 +1610,11 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
     {
         int lfes     = (!!(audio->config.in.channel_layout & AV_CH_LOW_FREQUENCY) +
                         !!(audio->config.in.channel_layout & AV_CH_LOW_FREQUENCY_2));
-        int channels = av_get_channel_layout_nb_channels(audio->config.in.channel_layout);
+        int channels = hb_layout_get_discrete_channel_count(audio->config.in.channel_layout);
         char *desc   = audio->config.lang.description +
                         strlen(audio->config.lang.description);
-        sprintf(desc, " (%d.%d ch)", channels - lfes, lfes);
+        size_t size = sizeof(audio->config.lang.description) - strlen(audio->config.lang.description);
+        snprintf(desc, size, " (%d.%d ch)", channels - lfes, lfes);
 
         // describe the matrix encoding mode, if any
         switch (audio->config.in.matrix_encoding)

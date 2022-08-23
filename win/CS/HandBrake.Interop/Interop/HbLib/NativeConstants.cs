@@ -21,9 +21,10 @@ namespace HandBrake.Interop.Interop.HbLib
         public const uint HB_ACODEC_FFFLAC = 0x00100000;
         public const uint HB_ACODEC_FFEAC3 = 0x01000000;
         public const uint HB_ACODEC_FFTRUEHD = 0x02000000;
-        public const uint HB_ACODEC_PASS_FLAG = 0x40000000;
+        public const uint HB_ACODEC_OPUS = 0x04000000;
         public const uint HB_ACODEC_MP2 = 0x08000000;
-        public const uint HB_ACODEC_PASS_MASK = (HB_ACODEC_AC3 | HB_ACODEC_DCA | HB_ACODEC_DCA_HD | HB_ACODEC_FFAAC | HB_ACODEC_FFEAC3 | HB_ACODEC_FFFLAC | HB_ACODEC_MP2 | HB_ACODEC_MP3 | HB_ACODEC_FFTRUEHD);
+        public const uint HB_ACODEC_PASS_FLAG = 0x40000000;
+        public const uint HB_ACODEC_PASS_MASK = (HB_ACODEC_AC3 | HB_ACODEC_DCA | HB_ACODEC_DCA_HD | HB_ACODEC_FFAAC | HB_ACODEC_FFEAC3 | HB_ACODEC_FFFLAC | HB_ACODEC_MP2 | HB_ACODEC_MP3 | HB_ACODEC_FFTRUEHD | HB_ACODEC_OPUS);
 
         public const uint HB_ACODEC_MASK = 0x0FFFFF01;
         public const uint HB_ACODEC_AUTO_PASS = (HB_ACODEC_PASS_FLAG | HB_ACODEC_PASS_MASK);
@@ -37,10 +38,23 @@ namespace HandBrake.Interop.Interop.HbLib
         public const uint HB_ACODEC_MP3_PASS = (HB_ACODEC_PASS_FLAG | HB_ACODEC_MP3);
         public const uint HB_ACODEC_TRUEHD_PASS = (HB_ACODEC_PASS_FLAG | HB_ACODEC_FFTRUEHD);
         public const uint HB_ACODEC_MP2_PASS = (HB_ACODEC_PASS_FLAG | HB_ACODEC_MP2);
+        public const uint HB_ACODEC_OPUS_PASS = (HB_ACODEC_PASS_FLAG | HB_ACODEC_OPUS);
 
         // VideoEncoders
         public const uint HB_VCODEC_QSV_H264 = 0x0000100;
         public const uint HB_VCODEC_QSV_H265 = 0x0000200;
         public const uint HB_VCODEC_QSV_H265_10BIT = 0x0000400;
-	}
+
+        public const uint HB_VCODEC_QSV_AV1 = 0x0000800;
+        public const uint HB_VCODEC_QSV_AV1_10BIT = 0x0000900;
+
+        // Muxers
+        public const uint HB_MUX_MASK_MP4 = 0x030000;
+        public const uint HB_MUX_MASK_MKV = 0x300000;
+        public const uint HB_MUX_MASK_WEBM = 0x400000;
+
+        public const uint HB_MUX_AV_MP4 = 0x020000;
+        public const uint HB_MUX_AV_MKV = 0x200000;
+        public const uint HB_MUX_AV_WEBM = 0x400000;
+    }
 }

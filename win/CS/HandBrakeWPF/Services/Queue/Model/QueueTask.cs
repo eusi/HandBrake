@@ -12,13 +12,10 @@ namespace HandBrakeWPF.Services.Queue.Model
     using System;
     using System.Text.Json.Serialization;
 
-    using Caliburn.Micro;
-
-    using HandBrake.Interop.Interop.Interfaces.Model;
-
     using HandBrakeWPF.Services.Presets.Model;
     using HandBrakeWPF.Services.Scan.Model;
     using HandBrakeWPF.Utilities;
+    using HandBrakeWPF.ViewModels;
 
     using EncodeTask = Encode.Model.EncodeTask;
 
@@ -45,11 +42,10 @@ namespace HandBrakeWPF.Services.Queue.Model
             this.NotifyOfPropertyChange(() => this.IsBreakpointTask);
         }
 
-        public QueueTask(EncodeTask task, HBConfiguration configuration, string scannedSourcePath, Preset currentPreset, bool isPresetModified, Title selectedTitle)
+        public QueueTask(EncodeTask task, string scannedSourcePath, Preset currentPreset, bool isPresetModified, Title selectedTitle)
         {
             this.SourceTitleInfo = selectedTitle;
             this.Task = task;
-            this.Configuration = configuration;
             this.Status = QueueItemStatus.Waiting;
             this.ScannedSourcePath = scannedSourcePath;
             if (currentPreset != null)
@@ -104,8 +100,6 @@ namespace HandBrakeWPF.Services.Queue.Model
         }
 
         public EncodeTask Task { get; set; }
-
-        public HBConfiguration Configuration { get; set; }
 
         public QueueStats Statistics { get; set; }
 

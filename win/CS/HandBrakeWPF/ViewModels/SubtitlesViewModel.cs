@@ -15,10 +15,9 @@ namespace HandBrakeWPF.ViewModels
     using System.Linq;
     using System.Windows;
 
-    using Caliburn.Micro;
-
     using HandBrake.Interop.Utilities;
 
+    using HandBrakeWPF.Commands;
     using HandBrakeWPF.EventArgs;
     using HandBrakeWPF.Model.Subtitles;
     using HandBrakeWPF.Properties;
@@ -41,15 +40,9 @@ namespace HandBrakeWPF.ViewModels
     {
         private readonly IErrorService errorService;
 
-        #region Constants and Fields
-
         private readonly Subtitle foreignAudioSearchTrack;
         private IList<Subtitle> sourceTracks;
-
-        #endregion
-
-        #region Constructors and Destructors
-
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="HandBrakeWPF.ViewModels.SubtitlesViewModel"/> class.
         /// </summary>
@@ -71,18 +64,25 @@ namespace HandBrakeWPF.ViewModels
 
             this.foreignAudioSearchTrack = new Subtitle { IsFakeForeignAudioScanTrack = true, Language = Resources.SubtitleViewModel_ForeignAudioSearch };
             this.SourceTracks = new List<Subtitle> { this.foreignAudioSearchTrack };
+
+
+            this.SetBurnedToFalseForAllExceptCommand = new SimpleRelayCommand<SubtitleTrack>(this.SetBurnedToFalseForAllExcept);
+            this.SelectDefaultTrackCommand = new SimpleRelayCommand<SubtitleTrack>(this.SelectDefaultTrack);
+            this.RemoveTrackCommand = new SimpleRelayCommand<SubtitleTrack>(this.Remove);
         }
 
-        #endregion
+        public SimpleRelayCommand<SubtitleTrack> SetBurnedToFalseForAllExceptCommand { get; }
+        public SimpleRelayCommand<SubtitleTrack> SelectDefaultTrackCommand { get; }
+        public SimpleRelayCommand<SubtitleTrack> RemoveTrackCommand { get; }
 
         public event EventHandler<TabStatusEventArgs> TabStatusChanged;
-
-        #region Properties
 
         /// <summary>
         /// Gets or sets the audio defaults view model.
         /// </summary>
         public ISubtitlesDefaultsViewModel SubtitleDefaultsViewModel { get; set; }
+
+        public ListboxDeleteCommand DeleteCommand => new ListboxDeleteCommand();
 
         /// <summary>
         /// Gets or sets CharacterCodes.
@@ -120,18 +120,44 @@ namespace HandBrakeWPF.ViewModels
         /// Gets the default audio behaviours. 
         /// </summary>
         public SubtitleBehaviours SubtitleBehaviours { get; private set; }
+        
+        public bool IsBurnableOnly => this.Task.OutputFormat == OutputFormat.WebM;
 
-        public bool IsBurnableOnly
+        public void AddUser()
         {
-            get
-            {
-                return this.Task.OutputFormat == OutputFormat.WebM;
-            }
+            int count = this.Task.SubtitleTracks.Count;
+            this.Add();
+            this.CheckAddState(count);
         }
 
-        #endregion
+        public void AddAllRemainingUser()
+        {
+            int count = this.Task.SubtitleTracks.Count;
+            this.AddAllRemaining();
+            this.CheckAddState(count);
+        }
 
-        #region Public Methods
+        public void AddAllClosedCaptionsUser()
+        {
+            int count = this.Task.SubtitleTracks.Count;
+            this.AddAllClosedCaptions();
+            this.CheckAddState(count);
+        }
+
+        public void AddAllRemainingForSelectedLanguagesUser()
+        {
+            int count = this.Task.SubtitleTracks.Count;
+            this.AddAllRemainingForSelectedLanguages();
+            this.CheckAddState(count);
+        }
+
+        public void AddFirstForSelectedLanguagesUser()
+        {
+            int count = this.Task.SubtitleTracks.Count;
+            this.AddFirstForSelectedLanguages();
+            this.CheckAddState(count);
+        }
+
 
         /// <summary>
         /// Add a new Track
@@ -220,7 +246,7 @@ namespace HandBrakeWPF.ViewModels
         /// <summary>
         /// Import an SRT File.
         /// </summary>
-        public void Import()
+        public void ImportSubtitle()
         {
             OpenFileDialog dialog = new OpenFileDialog
             {
@@ -467,11 +493,7 @@ namespace HandBrakeWPF.ViewModels
                 }
             }
         }
-
-        #endregion
-
-        #region Implemented Interfaces
-
+        
         /// <summary>
         /// Setup this tab for the specified preset.
         /// </summary>
@@ -606,10 +628,6 @@ namespace HandBrakeWPF.ViewModels
 
             return true;
         }
-
-        #endregion
-
-        #region Methods
 
         protected virtual void OnTabStatusChanged(TabStatusEventArgs e)
         {
@@ -775,6 +793,16 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        #endregion
+        private void CheckAddState(int before)
+        {
+            if (this.Task.SubtitleTracks.Count == before)
+            {
+                this.errorService.ShowMessageBox(
+                    Resources.SubtitleView_NoSubtitlesAdded,
+                    Resources.Info,
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        }
     }
 }

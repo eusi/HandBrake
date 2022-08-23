@@ -18,13 +18,12 @@ namespace HandBrakeWPF.Services.Queue
     using System.Timers;
     using System.Windows;
 
+    using HandBrake.App.Core.Extensions;
+    using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
-    using HandBrake.Interop.Interop.Interfaces.Model;
     using HandBrake.Interop.Interop.Json.Queue;
     using HandBrake.Interop.Utilities;
 
-    using HandBrakeWPF.Extensions;
-    using HandBrakeWPF.Factories;
     using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Properties;
     using HandBrakeWPF.Services.Encode;
@@ -37,10 +36,9 @@ namespace HandBrakeWPF.Services.Queue
     using HandBrakeWPF.Services.Queue.JobEventArgs;
     using HandBrakeWPF.Services.Queue.Model;
     using HandBrakeWPF.Utilities;
-    
+
     using EncodeCompletedEventArgs = Encode.EventArgs.EncodeCompletedEventArgs;
-    using Execute = Caliburn.Micro.Execute;
-    using GeneralApplicationException = Exceptions.GeneralApplicationException;
+    using GeneralApplicationException = HandBrake.App.Core.Exceptions.GeneralApplicationException;
     using ILog = Logging.Interfaces.ILog;
     using QueueCompletedEventArgs = EventArgs.QueueCompletedEventArgs;
     using QueueProgressEventArgs = EventArgs.QueueProgressEventArgs;
@@ -108,7 +106,7 @@ namespace HandBrakeWPF.Services.Queue
         {
             get
             {
-                return this.queue.Count(item => item.Status == QueueItemStatus.Waiting);
+                return this.queue.Count(item => item.Status == QueueItemStatus.Waiting && item.TaskType != QueueTaskType.Breakpoint);
             }
         }
 
@@ -194,9 +192,8 @@ namespace HandBrakeWPF.Services.Queue
         {
             List<QueueTask> jobs = this.queue.Where(item => item.Status != QueueItemStatus.Completed).ToList();
             List<EncodeTask> workUnits = jobs.Select(job => job.Task).ToList();
-            HBConfiguration config = HBConfigurationFactory.Create(); // Default to current settings for now. These will hopefully go away in the future.
 
-            string json = this.GetQueueJson(workUnits, config);
+            string json = this.GetQueueJson(workUnits);
 
             using (var strm = new StreamWriter(exportPath, false))
             {
@@ -330,7 +327,7 @@ namespace HandBrakeWPF.Services.Queue
 
         public void ClearCompleted()
         {
-            Execute.OnUIThread(
+            ThreadHelper.OnUIThread(
                 () =>
                 {
                     List<QueueTask> deleteList =
@@ -411,17 +408,6 @@ namespace HandBrakeWPF.Services.Queue
                 this.queue.Remove(job);
                 this.InvokeQueueChanged(EventArgs.Empty);
             }
-        }
-
-        public void ResetJobStatusToWaiting(QueueTask job)
-        {
-            if (job.Status != QueueItemStatus.Error && job.Status != QueueItemStatus.Completed)
-            {
-                throw new GeneralApplicationException(
-                    Resources.Error, Resources.Queue_UnableToResetJob, null);
-            }
-
-            job.Status = QueueItemStatus.Waiting;
         }
 
         public void RestoreQueue(string importPath)
@@ -752,12 +738,12 @@ namespace HandBrakeWPF.Services.Queue
             handler?.Invoke(this, e);
         }
 
-        private string GetQueueJson(List<EncodeTask> tasks, HBConfiguration configuration)
+        private string GetQueueJson(List<EncodeTask> tasks)
         {
             List<Task> queueJobs = new List<Task>();
             foreach (var item in tasks)
             {
-                Task task = new Task { Job = this.encodeTaskFactory.Create(item, configuration) };
+                Task task = new Task { Job = this.encodeTaskFactory.Create(item) };
                 queueJobs.Add(task);
             }
 
@@ -790,7 +776,7 @@ namespace HandBrakeWPF.Services.Queue
                 this.StopJobPolling();
 
                 // Remove the Breakpoint
-                Execute.OnUIThread(() => this.queue.Remove(task));
+                ThreadHelper.OnUIThread(() => this.queue.Remove(task));
 
                 this.IsProcessing = false;
                 this.IsPaused = false;
