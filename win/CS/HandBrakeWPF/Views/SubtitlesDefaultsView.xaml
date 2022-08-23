@@ -118,11 +118,6 @@
             <TextBlock Text="Default Subtitle Name:" Grid.Row="5" Grid.Column="0" Margin="0,5,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" />
             <TextBox Text="{Binding SubtitleBehaviours.SubtitleDefaultKeyword, UpdateSourceTrigger=PropertyChanged}" 
                              Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,15,10,2" HorizontalAlignment="Stretch" >
-                <TextBox.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem Header="Copy Full Query" cal:Message.Attach="[Event Click] = [Action CopyQuery]"  />
-                    </ContextMenu>
-                </TextBox.ContextMenu>
             </TextBox>
 
             <!-- Burn In Behaviour -->
