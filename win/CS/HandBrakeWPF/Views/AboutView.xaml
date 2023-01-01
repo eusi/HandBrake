@@ -38,7 +38,7 @@
                             Margin="5,10,0,0"
                             Orientation="Horizontal">
                     <TextBlock Margin="0,0,0,0" FontSize="16" FontFamily="Segoe UI Light" Text="{x:Static Properties:Resources.AboutView_Version}" />
-                    <TextBox Margin="0,0,0,0" BorderThickness="0" FontSize="16" IsReadOnly="True" FontFamily="Segoe UI Light" VerticalAlignment="Bottom" Text="22-08-23 by eusi, based on" />
+                    <TextBox Margin="0,0,0,0" BorderThickness="0" FontSize="16" IsReadOnly="True" FontFamily="Segoe UI Light" VerticalAlignment="Bottom" Text="23-01-01 by eusi, based on" />
                     <TextBox Margin="0,0,0,0" BorderThickness="0" FontSize="16" IsReadOnly="True" FontFamily="Segoe UI Light" VerticalAlignment="Bottom" Text="{Binding Version, Mode=OneWay}"
                              MouseDoubleClick="AboutTextBox_OnMouseDoubleClick" x:Name="versionTextBox" />
                 </StackPanel>
