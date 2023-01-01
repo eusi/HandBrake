@@ -301,7 +301,7 @@ namespace HandBrakeWPF.Services
             defaults.Add(UserSettingConstants.AlwaysUseDefaultPath, true);
             defaults.Add(UserSettingConstants.RemovePunctuation, false);
             defaults.Add(UserSettingConstants.FileOverwriteBehaviour, 0);
-            defaults.Add(UserSettingConstants.UseM4v, 1);
+            defaults.Add(UserSettingConstants.UseM4v, 0);
 
             // When Done
             defaults.Add(UserSettingConstants.SendFile, false);
@@ -318,6 +318,7 @@ namespace HandBrakeWPF.Services
             defaults.Add(UserSettingConstants.UseQSVDecodeForNonQSVEnc, false);
             defaults.Add(UserSettingConstants.EnableVceEncoder, true);
             defaults.Add(UserSettingConstants.EnableNvencEncoder, true);
+            defaults.Add(UserSettingConstants.EnableNvDecSupport, true);
             defaults.Add(UserSettingConstants.EnableQuickSyncLowPower, true);
             
             // Advanced

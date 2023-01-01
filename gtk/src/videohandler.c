@@ -1,4 +1,4 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
+/* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4 -*- */
 /*
  * videohandler.c
  * Copyright (C) John Stebbins 2008-2022 <stebbins@stebbins>
@@ -323,6 +323,7 @@ format_vquality_cb(GtkScale *scale, gdouble val, signal_user_data_t *ud)
         case HB_VCODEC_FFMPEG_MPEG2:
         case HB_VCODEC_FFMPEG_VP8:
         case HB_VCODEC_FFMPEG_VP9:
+        case HB_VCODEC_FFMPEG_VP9_10BIT:
         case HB_VCODEC_THEORA:
         {
             // When the range of a slider changes, GTK used to sample all the

@@ -97,7 +97,6 @@ struct hb_work_private_s
 
     int                  async_depth;
     int                  max_async_depth;
-    int                  max_buffer_size;
 
     // if encode-only, system memory used
     int                  is_sys_mem;
@@ -220,8 +219,8 @@ static int log_encoder_params(const hb_work_private_t *pv, const mfxVideoParam *
            hb_qsv_level_name  (videoParam->mfx.CodecId, videoParam->mfx.CodecLevel));
     hb_log("encqsvInit: TargetUsage %"PRIu16" AsyncDepth %"PRIu16"",
            videoParam->mfx.TargetUsage, videoParam->AsyncDepth);
-    hb_log("encqsvInit: GopRefDist %"PRIu16" GopPicSize %"PRIu16" NumRefFrame %"PRIu16"",
-           videoParam->mfx.GopRefDist, videoParam->mfx.GopPicSize, videoParam->mfx.NumRefFrame);
+    hb_log("encqsvInit: GopRefDist %"PRIu16" GopPicSize %"PRIu16" NumRefFrame %"PRIu16" IdrInterval %"PRIu16"",
+           videoParam->mfx.GopRefDist, videoParam->mfx.GopPicSize, videoParam->mfx.NumRefFrame, videoParam->mfx.IdrInterval);
 
     if (pv->qsv_info->capabilities & HB_QSV_CAP_B_REF_PYRAMID)
     {
@@ -373,6 +372,12 @@ static int log_encoder_params(const hb_work_private_t *pv, const mfxVideoParam *
         }
     }
 
+    if (option2 && (option2->RepeatPPS != MFX_CODINGOPTION_OFF))
+    {
+        hb_log("encqsvInit: RepeatPPS %s",
+            hb_qsv_codingoption_get_name(option2->RepeatPPS));
+    }
+
     return 0;
 }
 
@@ -507,13 +512,12 @@ unsupported:
     pv->param.codingOption2.BRefType = MFX_B_REF_OFF;
 }
 
-static int qsv_hevc_make_header(hb_work_object_t *w, mfxSession session)
+static int qsv_hevc_make_header(hb_work_object_t *w, mfxSession session, const mfxVideoParam *videoParam)
 {
     size_t len;
     int ret = 0;
     uint8_t *buf, *end;
     mfxBitstream bitstream;
-    hb_buffer_t *bitstream_buf;
     mfxStatus status;
     mfxSyncPoint syncPoint;
     mfxFrameSurface1 frameSurface1;
@@ -523,26 +527,25 @@ static int qsv_hevc_make_header(hb_work_object_t *w, mfxSession session)
     memset(&syncPoint,     0, sizeof(mfxSyncPoint));
     memset(&frameSurface1, 0, sizeof(mfxFrameSurface1));
 
-    /* The bitstream buffer should be able to hold any encoded frame */
-    bitstream_buf = hb_video_buffer_init(pv->job->width, pv->job->height);
-    if (bitstream_buf == NULL)
+    if (videoParam == NULL)
     {
-        hb_log("qsv_hevc_make_header: hb_buffer_init failed");
+        hb_log("qsv_hevc_make_header: videoParam is NULL");
+        ret = -1;
+        goto end;
+    }
+    /* The bitstream buffer should be able to hold any encoded frame */
+    size_t buf_max_size = videoParam->mfx.BufferSizeInKB * 1000 * ( 0 == videoParam->mfx.BRCParamMultiplier ? 1 : videoParam->mfx.BRCParamMultiplier);
+    bitstream.Data      = av_mallocz(sizeof(uint8_t) * buf_max_size);
+    bitstream.MaxLength = buf_max_size;
+    if (bitstream.Data == NULL)
+    {
+        hb_log("qsv_hevc_make_header: bitstream.Data allocation failed");
         ret = -1;
         goto end;
     }
 
-    /* need more space for 10bits */
-    if (pv->param.videoParam->mfx.FrameInfo.FourCC == MFX_FOURCC_P010 ||
-        (pv->param.videoParam->mfx.CodecId == MFX_CODEC_HEVC || pv->param.videoParam->mfx.CodecId == MFX_CODEC_AV1))
-    {
-         hb_buffer_realloc(bitstream_buf,bitstream_buf->size*2);
-    }
-    int bpp12 = (pv->param.videoParam->mfx.FrameInfo.FourCC == MFX_FOURCC_P010) ? 6 : 3;
-    bitstream.Data      = bitstream_buf->data;
-    bitstream.MaxLength = bitstream_buf->alloc;
-
     /* We only need to encode one frame, so we only need one surface */
+    int bpp12                = (pv->param.videoParam->mfx.FrameInfo.FourCC == MFX_FOURCC_P010) ? 6 : 3;
     mfxU16 Height            = pv->param.videoParam->mfx.FrameInfo.Height;
     mfxU16 Width             = pv->param.videoParam->mfx.FrameInfo.Width;
     frameSurface1.Info       = pv->param.videoParam->mfx.FrameInfo;
@@ -678,7 +681,8 @@ static int qsv_hevc_make_header(hb_work_object_t *w, mfxSession session)
     }
 
 end:
-    hb_buffer_close(&bitstream_buf);
+    if (bitstream.Data)
+        av_free(bitstream.Data);
     av_free(frameSurface1.Data.Y);
     return ret;
 }
@@ -714,7 +718,7 @@ AVBufferRef *hb_qsv_create_mids(AVBufferRef *hw_frames_ref)
     if (!hw_frames_ref1)
         return NULL;
 
-    mids = av_mallocz_array(nb_surfaces, sizeof(*mids));
+    mids = av_calloc(nb_surfaces, sizeof(*mids));
     if (!mids) {
         av_buffer_unref(&hw_frames_ref1);
         return NULL;
@@ -749,7 +753,7 @@ static int qsv_setup_mids(mfxFrameAllocResponse *resp, AVBufferRef *hw_frames_re
     // the allocated size of the array is two larger than the number of
     // surfaces, we store the references to the frames context and the
     // QSVMid array there
-    resp->mids = av_mallocz_array(nb_surfaces + 2, sizeof(*resp->mids));
+    resp->mids = av_calloc(nb_surfaces + 2, sizeof(*resp->mids));
     if (!resp->mids)
         return AVERROR(ENOMEM);
 
@@ -1072,7 +1076,7 @@ int qsv_enc_init(hb_work_private_t *pv)
     }
 
     // allocate tasks
-    qsv_encode->p_buf_max_size = pv->max_buffer_size * 1000 * ( 0 == pv->param.videoParam->mfx.BRCParamMultiplier ? 1 : pv->param.videoParam->mfx.BRCParamMultiplier);
+    qsv_encode->p_buf_max_size = pv->param.videoParam->mfx.BufferSizeInKB * 1000 * ( 0 == pv->param.videoParam->mfx.BRCParamMultiplier ? 1 : pv->param.videoParam->mfx.BRCParamMultiplier);
     qsv_encode->tasks          = hb_qsv_list_init(HAVE_THREADS);
     for (i = 0; i < pv->max_async_depth; i++)
     {
@@ -1591,13 +1595,15 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     // set the GOP structure
     if (pv->param.gop.gop_ref_dist < 0)
     {
-        if (pv->param.videoParam->mfx.RateControlMethod == MFX_RATECONTROL_CQP)
+        if ((hb_qsv_hardware_generation(hb_qsv_get_platform(hb_qsv_get_adapter_index())) >= QSV_G8) &&
+            (pv->param.videoParam->mfx.CodecId == MFX_CODEC_HEVC ||
+            pv->param.videoParam->mfx.CodecId == MFX_CODEC_AV1))
         {
-            pv->param.gop.gop_ref_dist = 4;
+            pv->param.gop.gop_ref_dist = 8;
         }
         else
         {
-            pv->param.gop.gop_ref_dist = 3;
+            pv->param.gop.gop_ref_dist = 4;
         }
     }
     pv->param.videoParam->mfx.GopRefDist = pv->param.gop.gop_ref_dist;
@@ -1606,19 +1612,24 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     if (pv->param.gop.gop_pic_size < 0)
     {
         int rate = (double)job->orig_vrate.num / job->orig_vrate.den + 0.5;
-        if (pv->param.videoParam->mfx.RateControlMethod == MFX_RATECONTROL_CQP)
-        {
-            // ensure B-pyramid is enabled for CQP on Haswell
-            pv->param.gop.gop_pic_size = 32;
-        }
-        else
-        {
-            // set the keyframe interval based on the framerate
-            pv->param.gop.gop_pic_size = rate;
-        }
+        // set the keyframe interval based on the framerate
+        pv->param.gop.gop_pic_size = rate;
     }
     pv->param.videoParam->mfx.GopPicSize = pv->param.gop.gop_pic_size;
 
+    // set the Hyper Encode structure
+    if (pv->param.hyperEncodeParam.Mode != MFX_HYPERMODE_OFF)
+    {
+        if (pv->param.videoParam->mfx.CodecId == MFX_CODEC_HEVC)
+        {
+            pv->param.videoParam->mfx.IdrInterval = 1;
+        }
+        else if (pv->param.videoParam->mfx.CodecId == MFX_CODEC_AVC)
+        {
+            pv->param.videoParam->mfx.IdrInterval = 0;
+        }
+        pv->param.videoParam->AsyncDepth = 60;
+    }
     // sanitize some settings that affect memory consumption
     if (!pv->is_sys_mem)
     {
@@ -1641,7 +1652,6 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         // LookAheadDepth 10 will cause a hang with some driver versions
         pv->param.codingOption2.LookAheadDepth = FFMAX(pv->param.codingOption2.LookAheadDepth, 11);
     }
-
     /*
      * We may need to adjust GopRefDist, GopPicSize and
      * NumRefFrame to enable or disable B-pyramid, so do it last.
@@ -1706,7 +1716,7 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         return -1;
     }
 #endif
-
+    /* MFXVideoENCODE_Init with desired encoding parameters */
     sts = MFXVideoENCODE_Init(session, pv->param.videoParam);
 // workaround for the early 15.33.x driver, should be removed later
 #define HB_DRIVER_FIX_33
@@ -1734,6 +1744,7 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         MFXClose(session);
         return -1;
     }
+    /* Prepare the structures for query */
     memset(&videoParam, 0, sizeof(mfxVideoParam));
     videoParam.ExtParam = extParamArray;
     videoParam.NumExtParam = 0;
@@ -1782,6 +1793,7 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     {
         videoParam.ExtParam[videoParam.NumExtParam++] = (mfxExtBuffer*)hyper_encode;
     }
+    /* Query actual encoding parameters after MFXVideoENCODE_Init, some of them could be overridden */
     sts = MFXVideoENCODE_GetVideoParam(session, &videoParam);
     if (sts != MFX_ERR_NONE)
     {
@@ -1806,7 +1818,7 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     }
     else if (videoParam.mfx.CodecId == MFX_CODEC_HEVC)
     {
-        if (qsv_hevc_make_header(w, session) < 0)
+        if (qsv_hevc_make_header(w, session, &videoParam) < 0)
         {
             hb_error("encqsvInit: qsv_hevc_make_header failed");
 #if !HB_QSV_ONEVPL
@@ -1872,10 +1884,10 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         hb_error("encqsvInit: log_encoder_params failed (%d)", err);
         return -1;
     }
-    pv->max_buffer_size = videoParam.mfx.BufferSizeInKB;
+    pv->param.videoParam->mfx = videoParam.mfx;
     // AsyncDepth has now been set and/or modified by Media SDK
     // fall back to default if zero
-    pv->max_async_depth = videoParam.AsyncDepth ? videoParam.AsyncDepth : HB_QSV_ASYNC_DEPTH_DEFAULT;
+    pv->max_async_depth = videoParam.AsyncDepth ? videoParam.AsyncDepth : hb_qsv_param_default_async_depth();
     pv->async_depth     = 0;
 
     return 0;

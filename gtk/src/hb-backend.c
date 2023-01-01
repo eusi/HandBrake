@@ -234,9 +234,10 @@ combo_opts_t sharpen_opts =
 
 static options_map_t d_crop_opts[] =
 {
-    {N_("Automatic"), "auto",   0},
-    {N_("None"),      "none",   1},
-    {N_("Custom"),    "custom", 2},
+    {N_("None"),         "none",         0},
+    {N_("Conservative"), "conservative", 1},
+    {N_("Automatic"),    "auto",         2},
+    {N_("Custom"),       "custom",       3},
 };
 combo_opts_t crop_opts =
 {
@@ -608,6 +609,12 @@ combo_name_map_t combo_name_map[] =
     },
     {
         "WhenComplete",
+        &when_complete_opts,
+        small_opts_set,
+        generic_opt_get
+    },
+    {
+        "MainWhenComplete",
         &when_complete_opts,
         small_opts_set,
         generic_opt_get
@@ -2453,37 +2460,31 @@ title_opts_set(signal_user_data_t *ud, const gchar *name,
     }
     if( count <= 0 )
     {
-        char *opt;
-
         // No titles.  Fill in a default.
         gtk_list_store_append(store, &iter);
-        opt = g_strdup_printf("<small>%s</small>", _("No Titles"));
         gtk_list_store_set(store, &iter,
-                           0, opt,
+                           0, _("No Titles"),
                            1, TRUE,
                            2, "none",
                            3, -1.0,
                            -1);
-        g_free(opt);
         return;
     }
     for (ii = 0; ii < count; ii++)
     {
-        char *title_opt, *title_index, *opt;
+        char *title_opt, *title_index;
 
         title = hb_list_item(list, ii);
         title_opt = ghb_create_title_label(title);
-        opt = g_strdup_printf("<small>%s</small>", title_opt);
         title_index = g_strdup_printf("%d", title->index);
 
         gtk_list_store_append(store, &iter);
         gtk_list_store_set(store, &iter,
-                           0, opt,
+                           0, title_opt,
                            1, TRUE,
                            2, title_index,
                            3, (gdouble)title->index,
                            -1);
-        g_free(opt);
         g_free(title_opt);
         g_free(title_index);
     }
@@ -2597,7 +2598,7 @@ video_tune_opts_set(signal_user_data_t *ud, const gchar *name,
 
     for (ii = 0; ii < count; ii++)
     {
-        if (((encoder & (HB_VCODEC_X264_MASK | HB_VCODEC_FFMPEG_SVT_AV1_MASK)) &&
+        if (((encoder & (HB_VCODEC_X264_MASK | HB_VCODEC_SVT_AV1_MASK)) &&
              !strcmp(tunes[ii], "fastdecode")) ||
             ((encoder & (HB_VCODEC_X264_MASK | HB_VCODEC_X265_MASK)) &&
              !strcmp(tunes[ii], "zerolatency")))
@@ -3936,23 +3937,31 @@ ghb_apply_pad(GhbValue *settings,
 }
 
 void
-ghb_apply_crop(GhbValue *settings, const hb_geometry_crop_t * geo)
+ghb_apply_crop(GhbValue *settings, const hb_geometry_crop_t * geo, const hb_title_t * title)
 {
-    gboolean autocrop, customcrop;
+    gboolean autocrop, conservativecrop, customcrop;
     gint crop[4] = {0,};
 
     const gchar * crop_mode;
 
     crop_mode  = ghb_dict_get_string(settings, "crop_mode");
-    autocrop   = !strcmp(crop_mode, "auto");
-    customcrop = !strcmp(crop_mode, "custom");
+    autocrop         = !strcmp(crop_mode, "auto");
+    conservativecrop = !strcmp(crop_mode, "conservative");
+    customcrop       = !strcmp(crop_mode, "custom");
 
-    if (autocrop)
+    if (title && autocrop)
     {
-        crop[0] = geo->crop[0];
-        crop[1] = geo->crop[1];
-        crop[2] = geo->crop[2];
-        crop[3] = geo->crop[3];
+        crop[0] = title->crop[0];
+        crop[1] = title->crop[1];
+        crop[2] = title->crop[2];
+        crop[3] = title->crop[3];
+    }
+    else if (title && conservativecrop)
+    {
+        crop[0] = title->loose_crop[0];
+        crop[1] = title->loose_crop[1];
+        crop[2] = title->loose_crop[2];
+        crop[3] = title->loose_crop[3];
     }
     else if (customcrop)
     {
@@ -4040,7 +4049,7 @@ ghb_set_scale_settings(signal_user_data_t * ud, GhbValue *settings, gint mode)
     hb_rotate_geometry(&srcGeo, &srcGeo, angle, hflip);
 
     // Apply crop mode to current settings and sanitize crop values
-    ghb_apply_crop(settings, &srcGeo);
+    ghb_apply_crop(settings, &srcGeo, title);
 
     memset(&uiGeo, 0, sizeof(uiGeo));
 
@@ -4468,11 +4477,11 @@ ghb_validate_video(GhbValue *settings, GtkWindow *parent)
         v_unsup = TRUE;
     }
     else if ((mux->format & HB_MUX_MASK_WEBM) &&
-             (vcodec != HB_VCODEC_FFMPEG_VP8 && vcodec != HB_VCODEC_FFMPEG_VP9))
+             (vcodec != HB_VCODEC_FFMPEG_VP8 && vcodec != HB_VCODEC_FFMPEG_VP9 && vcodec != HB_VCODEC_FFMPEG_VP9_10BIT && vcodec != HB_VCODEC_FFMPEG_SVT_AV1 && vcodec != HB_VCODEC_FFMPEG_SVT_AV1_10BIT))
     {
-        // webm only supports vp8 and vp9.
+        // webm only supports vp8, vp9 and av1.
         message = g_strdup_printf(
-                    _("Only VP8 or VP9 is supported in the WebM container.\n\n"
+                    _("Only VP8, VP9 and AV1 is supported in the WebM container.\n\n"
                     "You should choose a different video codec or container.\n"
                     "If you continue, one will be chosen for you."));
         v_unsup = TRUE;
@@ -4480,7 +4489,7 @@ ghb_validate_video(GhbValue *settings, GtkWindow *parent)
 
     if (v_unsup)
     {
-        if (!ghb_message_dialog(parent, GTK_MESSAGE_WARNING,
+        if (!ghb_message_dialog(parent, GTK_MESSAGE_QUESTION,
                                 message, _("Cancel"), _("Continue")))
         {
             g_free(message);
@@ -4577,7 +4586,7 @@ ghb_validate_subtitles(GhbValue *settings, GtkWindow *parent)
                 _("SRT file does not exist or not a regular file.\n\n"
                     "You should choose a valid file.\n"
                     "If you continue, this subtitle will be ignored."));
-                if (!ghb_message_dialog(parent, GTK_MESSAGE_WARNING, message,
+                if (!ghb_message_dialog(parent, GTK_MESSAGE_QUESTION, message,
                     _("Cancel"), _("Continue")))
                 {
                     g_free(message);
@@ -4638,7 +4647,7 @@ ghb_validate_audio(GhbValue *settings, GtkWindow *parent)
                         _("The source does not support Pass-Thru.\n\n"
                         "You should choose a different audio codec.\n"
                         "If you continue, one will be chosen for you."));
-            if (!ghb_message_dialog(parent, GTK_MESSAGE_WARNING,
+            if (!ghb_message_dialog(parent, GTK_MESSAGE_QUESTION,
                                     message, _("Cancel"), _("Continue")))
             {
                 g_free(message);
@@ -4693,7 +4702,7 @@ ghb_validate_audio(GhbValue *settings, GtkWindow *parent)
                         _("%s is not supported in the %s container.\n\n"
                         "You should choose a different audio codec.\n"
                         "If you continue, one will be chosen for you."), a_unsup, mux_s);
-            if (!ghb_message_dialog(parent, GTK_MESSAGE_WARNING,
+            if (!ghb_message_dialog(parent, GTK_MESSAGE_QUESTION,
                                     message, _("Cancel"), _("Continue")))
             {
                 g_free(message);
@@ -4869,4 +4878,41 @@ ghb_dvd_volname(const gchar *device)
         return name;
     }
     return NULL;
+}
+
+const gchar *ghb_get_filter_name (hb_filter_object_t *filter)
+{
+    switch (filter->id)
+    {
+        case HB_FILTER_COMB_DETECT:
+            return _("Comb Detect");
+        case HB_FILTER_DETELECINE:
+            return _("Detelecine");
+        case HB_FILTER_YADIF:
+            return _("Deinterlace (Yadif)");
+        case HB_FILTER_BWDIF:
+            return _("Deinterlace (Bwdif)");
+        case HB_FILTER_DECOMB:
+            return _("Decomb");
+        case HB_FILTER_DEBLOCK:
+            return _("Deblock");
+        case HB_FILTER_NLMEANS:
+            return _("Denoise (NLMeans)");
+        case HB_FILTER_HQDN3D:
+            return _("Denoise (HQDN3D)");
+        case HB_FILTER_CHROMA_SMOOTH:
+            return _("Chroma Smooth");
+        case HB_FILTER_UNSHARP:
+            return _("Sharpen (Unsharp)");
+        case HB_FILTER_ROTATE:
+            return _("Rotate");
+        case HB_FILTER_LAPSHARP:
+            return _("Sharpen (lapsharp)");
+        case HB_FILTER_GRAYSCALE:
+            return _("Grayscale");
+        case HB_FILTER_COLORSPACE:
+            return _("Colorspace");
+        default:
+            return filter->name;
+    }
 }

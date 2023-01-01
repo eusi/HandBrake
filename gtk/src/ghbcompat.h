@@ -53,9 +53,9 @@
 #define GHB_STOCK_CANCEL    GTK_STOCK_CANCEL
 #define GHB_STOCK_SAVE      GTK_STOCK_SAVE
 #else
-#define GHB_STOCK_OPEN      "_Open"
-#define GHB_STOCK_CANCEL    "_Cancel"
-#define GHB_STOCK_SAVE      "_Save"
+#define GHB_STOCK_OPEN      _("_Open")
+#define GHB_STOCK_CANCEL    _("_Cancel")
+#define GHB_STOCK_SAVE      _("_Save")
 #endif
 
 static inline void ghb_widget_get_preferred_width(
@@ -414,5 +414,18 @@ static inline GdkAtom ghb_atom_string(const char * str)
     return gdk_atom_intern_static_string(str);
 }
 #endif
+
+static inline GtkGesture *ghb_gesture_click_new (GtkWidget *widget)
+{
+    GtkGesture *gesture;
+
+#if GTK_CHECK_VERSION(4, 4, 0)
+    gesture = gtk_gesture_click_new();
+    gtk_widget_add_controller(widget, GTK_EVENT_CONTROLLER(gesture));
+#else
+    gesture = gtk_gesture_multi_press_new(widget);
+#endif
+    return gesture;
+}
 
 #endif // _GHB_COMPAT_H_

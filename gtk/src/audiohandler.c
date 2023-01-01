@@ -1,4 +1,4 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
+/* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4 -*- */
 /*
  * audiohandler.c
  * Copyright (C) John Stebbins 2008-2022 <stebbins@stebbins>
@@ -799,8 +799,8 @@ audio_refresh_list_row_ui(
         0, info_src,
         1, "-->",
         2, info_dst,
-        3, "hb-edit",
-        4, "hb-remove",
+        3, "document-edit-symbolic",
+        4, "edit-delete-symbolic",
         5, 0.5,
         -1);
 
@@ -1385,6 +1385,7 @@ audio_add_clicked_cb(GtkWidget *xwidget, signal_user_data_t *ud)
         // Pop up the edit dialog
         GtkResponseType response;
         GtkWidget *dialog = GHB_WIDGET(ud->builder, "audio_dialog");
+        gtk_window_set_title(GTK_WINDOW(dialog), _("Add Audio Track"));
         response = gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_hide(dialog);
         if (response != GTK_RESPONSE_OK)
@@ -1466,6 +1467,7 @@ audio_edit(GtkTreeView *tv, GtkTreePath *tp, signal_user_data_t *ud)
         // Pop up the edit dialog
         GtkResponseType response;
         GtkWidget *dialog = GHB_WIDGET(ud->builder, "audio_dialog");
+        gtk_window_set_title(GTK_WINDOW(dialog), _("Edit Audio Track"));
         response = gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_hide(dialog);
         if (response != GTK_RESPONSE_OK)
@@ -1949,7 +1951,7 @@ GtkWidget * ghb_create_audio_settings_row(signal_user_data_t *ud)
     button = GTK_BUTTON(gtk_button_new());
     gtk_widget_set_hexpand(GTK_WIDGET(button), TRUE);
     gtk_widget_set_halign(GTK_WIDGET(button), GTK_ALIGN_FILL);
-    ghb_button_set_icon_name(button, "hb-remove");
+    ghb_button_set_icon_name(button, "edit-delete");
     gtk_widget_set_tooltip_markup(GTK_WIDGET(button),
     _("Remove this audio encoder"));
     gtk_button_set_relief(button, GTK_RELIEF_NONE);

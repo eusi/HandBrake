@@ -249,6 +249,9 @@ case $host in
 	*-*-netbsd*)
 		HB_LIBS="$HB_LIBS -pthread"
 		;;
+	*-*-openbsd*)
+		HB_LIBS="$HB_LIBS -lpthread"
+		;;
 	*-*-linux*)
 		if test "x$use_qsv" = "xyes" ; then
 			HB_LIBS="$HB_LIBS -lva -lva-drm"
@@ -270,7 +273,7 @@ AM_CONDITIONAL([GHB_FLATPAK], [test "$use_flatpak" = "yes"])
 if test "x$PYTHON" != "x" ; then
 	HB_PYTHON="$PYTHON"
 else
-	HB_PYTHON="python2"
+	HB_PYTHON="python3"
 fi
 
 AC_SUBST(HB_PYTHON)

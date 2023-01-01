@@ -1,6 +1,7 @@
 /* decavcodec.c
 
    Copyright (c) 2003-2020 HandBrake Team
+   Copyright 2022 NVIDIA Corporation
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -53,6 +54,10 @@
 #include "libavutil/hwcontext_qsv.h"
 #include "handbrake/qsv_common.h"
 #include "handbrake/qsv_libav.h"
+#endif
+
+#if HB_PROJECT_FEATURE_NVENC
+#include "handbrake/nvenc_common.h"
 #endif
 
 static void compute_frame_duration( hb_work_private_t *pv );
@@ -1159,6 +1164,8 @@ int reinit_video_filters(hb_work_private_t * pv)
     enum AVPixelFormat pix_fmt;
     enum AVColorRange  color_range;
 
+    memset((void*)&filter_init, 0, sizeof(filter_init));
+
 #if HB_PROJECT_FEATURE_QSV
     if (pv->qsv.decode &&
         pv->qsv.config.io_pattern == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
@@ -1242,7 +1249,19 @@ int reinit_video_filters(hb_work_private_t * pv)
         {
             hb_dict_set(settings, "w", hb_value_int(orig_width));
             hb_dict_set(settings, "h", hb_value_int(orig_height));
-            hb_avfilter_append_dict(filters, "scale_qsv", settings);
+            hb_avfilter_append_dict(filters, "vpp_qsv", settings);
+        }
+        else
+#endif
+#if HB_PROJECT_FEATURE_NVENC
+        if (pv->frame->hw_frames_ctx)
+        {
+            hb_dict_set(settings, "w", hb_value_int(orig_width));
+            hb_dict_set(settings, "h", hb_value_int(orig_height));
+            hb_dict_set(settings, "interp_algo", hb_value_string("lanczos"));
+            hb_dict_set(settings, "format", hb_value_string(av_get_pix_fmt_name(pix_fmt)));
+            hb_avfilter_append_dict(filters, "scale_cuda", settings);
+            filter_init.nv_hw_ctx.hw_frames_ctx = pv->frame->hw_frames_ctx;
         }
         else
 #endif
@@ -1432,6 +1451,7 @@ static int decodeFrame( hb_work_private_t * pv, packet_info_t * packet_info )
     return got_picture;
 }
 
+
 static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
 {
 
@@ -1521,10 +1541,25 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         return 1;
     }
 
+#if HB_PROJECT_FEATURE_NVENC
+    int use_hw_dec = 0;
+    if (hb_nvdec_is_enabled(job))
+    {
+        use_hw_dec = 1;
+    }
+#endif
+
     pv->context = avcodec_alloc_context3( pv->codec );
     pv->context->workaround_bugs = FF_BUG_AUTODETECT;
     pv->context->err_recognition = AV_EF_CRCCHECK;
     pv->context->error_concealment = FF_EC_GUESS_MVS|FF_EC_DEBLOCK;
+
+#if HB_PROJECT_FEATURE_NVENC
+    if (use_hw_dec)
+    {
+        hb_nvdec_hw_ctx_init(pv->context, pv->job);
+    }
+#endif
 
     if ( pv->title->opaque_priv )
     {
@@ -1553,9 +1588,19 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         }
 
 #if HB_PROJECT_FEATURE_QSV
-        if (pv->qsv.decode && pv->context->codec_id == AV_CODEC_ID_HEVC)
+        if (pv->qsv.decode)
         {
-            av_dict_set( &av_opts, "load_plugin", "hevc_hw", 0 );
+            if (pv->context->codec_id == AV_CODEC_ID_HEVC)
+                av_dict_set( &av_opts, "load_plugin", "hevc_hw", 0 );
+#if defined(_WIN32) || defined(__MINGW32__)
+            if (!hb_qsv_full_path_is_enabled(job))
+            {
+                hb_qsv_device_init(job);
+                pv->context->hw_device_ctx = av_buffer_ref(job->qsv.ctx->hb_hw_device_ctx);
+                pv->context->get_format = hb_qsv_get_format;
+                pv->context->opaque = pv->job;
+            }
+#endif
         }
 #endif
 
@@ -1727,6 +1772,18 @@ static int decodePacket( hb_work_object_t * w )
             return HB_WORK_OK;
         }
 
+#if HB_PROJECT_FEATURE_NVENC
+        AVBufferRef *hw_device_ctx = NULL;
+        if (pv->context->hw_device_ctx)
+        {
+            int ret = av_buffer_replace(&hw_device_ctx, pv->context->hw_device_ctx);
+            if (ret < 0)
+            {
+                return HB_WORK_ERROR;
+            }
+        }
+#endif
+
         hb_avcodec_free_context(&pv->context);
         pv->context = context;
 
@@ -1734,6 +1791,17 @@ static int decodePacket( hb_work_object_t * w )
         pv->context->err_recognition   = AV_EF_CRCCHECK;
         pv->context->error_concealment = FF_EC_GUESS_MVS|FF_EC_DEBLOCK;
 
+#if HB_PROJECT_FEATURE_NVENC
+        if (hw_device_ctx)
+        {
+            int ret = av_buffer_replace(&pv->context->hw_device_ctx, hw_device_ctx);
+            av_buffer_unref(&hw_device_ctx);
+            if (ret < 0)
+            {
+                return HB_WORK_ERROR;
+            }
+        }
+#endif
 
 #if HB_PROJECT_FEATURE_QSV
         if (pv->qsv.decode &&
@@ -2107,8 +2175,16 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
 #if HB_PROJECT_FEATURE_QSV
     if (hb_qsv_available())
     {
-        if (hb_qsv_decode_codec_supported_codec(hb_qsv_get_adapter_index(), pv->context->codec_id, pv->context->pix_fmt, pv->context->width, pv->context->height))
+        if (hb_qsv_decode_is_codec_supported(hb_qsv_get_adapter_index(), pv->context->codec_id, pv->context->pix_fmt, pv->context->width, pv->context->height))
+        {
             info->video_decode_support |= HB_DECODE_SUPPORT_QSV;
+        }
+    }
+#endif
+
+#if HB_PROJECT_FEATURE_NVENC
+    if (hb_check_nvenc_available() && hb_nvdec_available(w->title->video_codec_param)){
+        info->video_decode_support |= HB_DECODE_SUPPORT_NVDEC;
     }
 #endif
 
@@ -2308,7 +2384,10 @@ static void decodeAudio(hb_work_private_t *pv, packet_info_t * packet_info)
 
         if (out != NULL)
         {
-            out->s.scr_sequence = packet_info->scr_sequence;
+            if (packet_info != NULL)
+            {
+                out->s.scr_sequence = packet_info->scr_sequence;
+            }
             out->s.start        = pts;
             out->s.duration     = duration;
             if (out->s.start == AV_NOPTS_VALUE)

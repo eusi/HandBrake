@@ -4,6 +4,9 @@
 /* HBStateFormatter -> work time format */
 " (%.2f fps, avg %.2f fps, ETA %@)" = " (%1$.2f BpS, im Mittel %2$.2f BpS, ETA %3$@)";
 
+/* HBStateFormatter -> work time format */
+" (%.2f fps, avg %.2f fps)" = "(%1$.2f BpS, im Mittel %2$.2f BpS)";
+
 /* HBStateFormatter -> search time format
    HBStateFormatter -> work time format */
 " (ETA %@)" = " (ETA %@)";
@@ -64,6 +67,9 @@
 
 /* HBPicture -> short info */
 "%@Output: %dx%d, Anamorphic: %dx%d Custom" = "%1$@Anzeige: %2$dx%3$d, Anamorph: %4$dx%5$d Eigene";
+
+/* HBPicture -> short non anamorphic info */
+"%dx%d" = "%1$dx%2$d";
 
 /* HBPicture -> short info */
 "%dx%d Storage, %dx%d Display" = "%1$d x %2$d Original, %3$d x %4$d Anzeige";
@@ -402,6 +408,10 @@
 
 /* Title description */
 "Title %d, %@, %@" = "Titel %1$d, %2$@, %3$@";
+
+/* Audio track title description
+   Subtitles track title description */
+"Title: %@" = "Titel: %@";
 
 /* Video description */
 "Tune: " = "Abstimmung: ";

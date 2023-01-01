@@ -11,6 +11,7 @@ namespace HandBrake.Interop.Interop
 {
     using System;
     using System.Diagnostics;
+    using System.Dynamic;
     using System.Runtime.InteropServices;
 
     using HandBrake.Interop.Interop.HbLib;
@@ -52,6 +53,22 @@ namespace HandBrake.Interop.Interop
                 {
                     // We support Skylake 6th gen and newer. 
                     return HBFunctions.hb_qsv_available() > 0 && QsvHardwareGeneration >= 5; // 5 == Skylake
+                }
+                catch (Exception)
+                {
+                    // Silent failure. Typically this means the dll hasn't been built with --enable-qsv
+                    return false;
+                }
+            }
+        }
+
+        public static bool IsQsvHyperEncodeAvailable
+        {
+            get
+            {
+                try
+                {
+                    return HBFunctions.hb_qsv_available() > 0 && QsvHyperEncode > 0;
                 }
                 catch (Exception)
                 {
@@ -103,6 +120,24 @@ namespace HandBrake.Interop.Interop
                     int qsv_platform = HBFunctions.hb_qsv_get_platform(adapter_index);
                     int hardware = HBFunctions.hb_qsv_hardware_generation(qsv_platform); 
                     return hardware;
+                }
+                catch (Exception exc)
+                {
+                    // Silent failure. -1 means unsupported.
+                    Debug.WriteLine(exc);
+                    return -1;
+                }
+            }
+        }
+
+        public static int QsvHyperEncode
+        {
+            get
+            {
+                try
+                {
+                    int adapter_index = HBFunctions.hb_qsv_get_adapter_index();
+                    return HBFunctions.hb_qsv_hyper_encode_available(adapter_index);
                 }
                 catch (Exception exc)
                 {
@@ -235,6 +270,27 @@ namespace HandBrake.Interop.Interop
                     }
 
                     return isNvencH265Available.Value;
+                }
+                catch (Exception)
+                {
+                    // Silent failure. Typically this means the dll hasn't been built with --enable-qsv
+                    return false;
+                }
+            }
+        }
+
+        public static bool IsNVDecAvailable
+        {
+            get
+            {
+                try
+                {
+                    if (!IsNVEncH264Available)
+                    {
+                        return false;
+                    }
+
+                    return HBFunctions.hb_check_nvdec_available() > 0;
                 }
                 catch (Exception)
                 {

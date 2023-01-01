@@ -1,4 +1,4 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
+/* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4 -*- */
 /*
  * settings.c
  * Copyright (C) John Stebbins 2008-2022 <stebbins@stebbins>
@@ -69,6 +69,7 @@ ghb_get_setting_key(GtkWidget *widget)
 
     g_debug("get_setting_key ()\n");
     if (widget == NULL) return NULL;
+    g_return_val_if_fail(GTK_IS_WIDGET(widget), NULL);
     name = gtk_buildable_get_name(GTK_BUILDABLE(widget));
 
     if (name == NULL || !strncmp(name, "Gtk", 3))
@@ -571,4 +572,3 @@ ghb_ui_settings_update(
     ghb_widget_to_setting(settings, (GtkWidget*)object);
     return 0;
 }
-

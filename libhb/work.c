@@ -17,6 +17,10 @@
 #include "handbrake/qsv_filter_pp.h"
 #endif
 
+#if HB_PROJECT_FEATURE_NVENC
+#include "handbrake/nvenc_common.h"
+#endif
+
 typedef struct
 {
     hb_list_t * jobs;
@@ -147,6 +151,7 @@ static void work_func( void * _work )
             hb_qsv_setup_job(job);
         }
 #endif
+
         hb_job_setup_passes(job->h, job, passes);
         hb_job_close(&job);
 
@@ -250,6 +255,7 @@ hb_work_object_t* hb_video_encoder(hb_handle_t *h, int vcodec)
             w->codec_param = AV_CODEC_ID_VP8;
             break;
         case HB_VCODEC_FFMPEG_VP9:
+        case HB_VCODEC_FFMPEG_VP9_10BIT:
             w = hb_get_work(h, WORK_ENCAVCODEC);
             w->codec_param = AV_CODEC_ID_VP9;
             break;
@@ -281,6 +287,7 @@ hb_work_object_t* hb_video_encoder(hb_handle_t *h, int vcodec)
             w->codec_param = AV_CODEC_ID_H264;
             break;
         case HB_VCODEC_FFMPEG_VCE_H265:
+        case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
             w = hb_get_work(h, WORK_ENCAVCODEC);
             w->codec_param = AV_CODEC_ID_HEVC;
             break;
@@ -450,8 +457,14 @@ void hb_display_job_info(hb_job_t *job)
     {
         hb_log("   + decoder: %s %d-bit (%s)",
                hb_qsv_decode_get_codec_name(title->video_codec_param), hb_get_bit_depth(job->input_pix_fmt), av_get_pix_fmt_name(job->input_pix_fmt));
-    }
-    else
+    } else
+#endif
+#if HB_PROJECT_FEATURE_NVENC
+    if (hb_nvdec_is_enabled(job))
+    {
+        hb_log("   + decoder: %s %d-bit (%s)",
+               hb_nvdec_get_codec_name(title->video_codec_param), hb_get_bit_depth(job->input_pix_fmt), av_get_pix_fmt_name(job->input_pix_fmt));
+    } else
 #endif
     {
         hb_log("   + decoder: %s %d-bit (%s)", title->video_codec_name, hb_get_bit_depth(job->input_pix_fmt), av_get_pix_fmt_name(job->input_pix_fmt));
@@ -560,6 +573,7 @@ void hb_display_job_info(hb_job_t *job)
                 case HB_VCODEC_QSV_AV1_10BIT:
                 case HB_VCODEC_FFMPEG_VCE_H264:
                 case HB_VCODEC_FFMPEG_VCE_H265:
+                case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
                 case HB_VCODEC_FFMPEG_NVENC_H264:
                 case HB_VCODEC_FFMPEG_NVENC_H265:
                 case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
@@ -591,6 +605,7 @@ void hb_display_job_info(hb_job_t *job)
                 case HB_VCODEC_QSV_AV1_10BIT:
                 case HB_VCODEC_FFMPEG_VCE_H264:
                 case HB_VCODEC_FFMPEG_VCE_H265:
+                case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
                 case HB_VCODEC_FFMPEG_NVENC_H264:
                 case HB_VCODEC_FFMPEG_NVENC_H265:
                 case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
@@ -1642,12 +1657,12 @@ static void do_job(hb_job_t *job)
         if (subtitle->source != IMPORTSRT &&
             subtitle->source != IMPORTSSA)
         {
-            subtitle->fifo_in  = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
+            subtitle->fifo_in  = hb_fifo_init( FIFO_UNBOUNDED, FIFO_UNBOUNDED_WAKE );
         }
         if (!job->indepth_scan)
         {
             // When doing subtitle indepth scan, the pipeline ends at sync
-            subtitle->fifo_out = hb_fifo_init( FIFO_SMALL, FIFO_SMALL_WAKE );
+            subtitle->fifo_out = hb_fifo_init( FIFO_UNBOUNDED, FIFO_UNBOUNDED_WAKE );
         }
 
         w->fifo_in = subtitle->fifo_in;

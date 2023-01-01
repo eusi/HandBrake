@@ -1,4 +1,4 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
+/* -*- Mode: C; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4 -*- */
 /*
  * presets.c
  * Copyright (C) John Stebbins 2008-2022 <stebbins@stebbins>
@@ -256,24 +256,25 @@ ghb_preset_to_settings(GhbValue *settings, GhbValue *preset)
     ghb_dict_set(settings, "scale_width", ghb_value_dup(
         ghb_dict_get_value(settings, "PictureWidth")));
 
-    if (ghb_dict_get_bool(settings, "PictureAutoCrop"))
+    int crop_mode = ghb_dict_get_int(settings, "PictureCropMode");
+
+    switch (crop_mode)
     {
-        ghb_dict_set_string(settings, "crop_mode", "auto");
-    }
-    else
-    {
-        int ct = ghb_dict_get_int(settings, "PictureTopCrop");
-        int cb = ghb_dict_get_int(settings, "PictureBottomCrop");
-        int cl = ghb_dict_get_int(settings, "PictureLeftCrop");
-        int cr = ghb_dict_get_int(settings, "PictureRightCrop");
-        if (ct == 0 && cb == 0 && cl == 0 && cr == 0)
-        {
+        case 0:
+            ghb_dict_set_string(settings, "crop_mode", "auto");
+            break;
+        case 1:
+            ghb_dict_set_string(settings, "crop_mode", "conservative");
+            break;
+        case 2:
             ghb_dict_set_string(settings, "crop_mode", "none");
-        }
-        else
-        {
+            break;
+        case 3:
             ghb_dict_set_string(settings, "crop_mode", "custom");
-        }
+            break;
+        default:
+            ghb_dict_set_string(settings, "crop_mode", "auto");
+            break;
     }
 
     int width, height;
@@ -1728,9 +1729,30 @@ ghb_settings_to_preset(GhbValue *settings)
     g_free(rot_flip);
 
     const gchar * crop_mode;
+    int autocrop, conservativecrop, customcrop;
 
     crop_mode = ghb_dict_get_string(settings, "crop_mode");
-    ghb_dict_set_bool(preset, "PictureAutoCrop", !strcmp(crop_mode, "auto"));
+
+    autocrop         = !strcmp(crop_mode, "auto");
+    conservativecrop = !strcmp(crop_mode, "conservative");
+    customcrop       = !strcmp(crop_mode, "custom");
+
+    if (autocrop)
+    {
+        ghb_dict_set_int(preset, "PictureCropMode", 0);
+    }
+    else if (conservativecrop)
+    {
+        ghb_dict_set_int(preset, "PictureCropMode", 1);
+    }
+    else if (customcrop)
+    {
+        ghb_dict_set_int(preset, "PictureCropMode", 3);
+    }
+    else
+    {
+        ghb_dict_set_int(preset, "PictureCropMode", 2);
+    }
 
     // VideoQualityType/0/1/2 - vquality_type_/target/bitrate/constant
     // *note: target is no longer used
@@ -1785,7 +1807,7 @@ ghb_settings_to_preset(GhbValue *settings)
         sep = ",";
     }
     int encoder = ghb_get_video_encoder(settings);
-    if (encoder & (HB_VCODEC_X264_MASK | HB_VCODEC_FFMPEG_SVT_AV1_MASK))
+    if (encoder & (HB_VCODEC_X264_MASK | HB_VCODEC_SVT_AV1_MASK))
     {
         if (ghb_dict_get_bool(preset, "x264FastDecode"))
         {
@@ -2007,27 +2029,16 @@ preset_import_action_cb(GSimpleAction *action, GVariant *param,
     GtkFileFilter   *filter;
 
     hb_window = GTK_WINDOW(GHB_WIDGET(ud->builder, "hb_window"));
-    dialog = gtk_file_chooser_dialog_new("Import Preset", hb_window,
+    dialog = gtk_file_chooser_dialog_new(_("Import Preset"), hb_window,
                 GTK_FILE_CHOOSER_ACTION_OPEN,
                 GHB_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                 GHB_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
                 NULL);
 
-    filter = gtk_file_filter_new();
-    gtk_file_filter_set_name(filter, _("All (*)"));
-    gtk_file_filter_add_pattern(filter, "*");
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
-
-    filter = gtk_file_filter_new();
-    gtk_file_filter_set_name(filter, _("Presets (*.json)"));
-    gtk_file_filter_add_pattern(filter, "*.json");
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+    ghb_add_file_filter(GTK_FILE_CHOOSER(dialog), ud, _("All"), "FilterAll");
+    filter = ghb_add_file_filter(GTK_FILE_CHOOSER(dialog), ud, _("Presets (*.json)"), "FilterJSON");
     gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(dialog), filter);
-
-    filter = gtk_file_filter_new();
-    gtk_file_filter_set_name(filter, _("Legacy Presets (*.plist)"));
-    gtk_file_filter_add_pattern(filter, "*.plist");
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+    ghb_add_file_filter(GTK_FILE_CHOOSER(dialog), ud, _("Legacy Presets (*.plist)"), "FilterPlist");
 
     exportDir = ghb_dict_get_string(ud->prefs, "ExportDirectory");
     if (exportDir == NULL || exportDir[0] == '\0')
@@ -2435,22 +2446,24 @@ preset_remove_action_cb(GSimpleAction *action, GVariant *param,
     }
 
     GtkWindow       * hb_window;
-    GtkWidget       * dialog;
     gboolean          is_folder;
     GtkResponseType   response;
     const char      * name;
+    char            * message;
 
     name  = ghb_dict_get_string(preset, "PresetName");
     is_folder = preset_is_folder(path);
     hb_window = GTK_WINDOW(GHB_WIDGET(ud->builder, "hb_window"));
-    dialog = gtk_message_dialog_new(hb_window, GTK_DIALOG_MODAL,
-                        GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO,
-                        _("Confirm deletion of %s:\n\n%s"),
-                        is_folder ? _("folder") : _("preset"),
-                        name);
-    response = gtk_dialog_run(GTK_DIALOG(dialog));
-    gtk_widget_destroy(dialog);
-    if (response == GTK_RESPONSE_YES)
+    message = g_strdup_printf(_("Confirm deletion of %s:\n\n%s"),
+                              is_folder ? _("folder") : _("preset"),
+                              name);
+    response = ghb_message_dialog(hb_window,
+                        GTK_MESSAGE_WARNING,
+                        message,
+                        _("Cancel"),
+                        _("Delete"));
+    g_free(message);
+    if (response)
     {
         int depth = path->depth;
 

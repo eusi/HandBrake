@@ -27,6 +27,7 @@
 #include "values.h"
 
 #define GHB_WIDGET(b,n) GTK_WIDGET(gtk_builder_get_object ((b), (n)))
+#define GHB_ACTION(b,n) g_action_map_lookup_action(G_ACTION_MAP(gtk_builder_get_application (b)), (n))
 //#define GHB_WIDGET(b,n)   GTK_WIDGET(debug_get_object((b), (n)))
 #define GHB_OBJECT(b,n) gtk_builder_get_object ((b), (n))
 
@@ -61,6 +62,7 @@ typedef struct
     gboolean              dont_clear_presets;
     gboolean              scale_busy;
     gint                  cancel_encode;
+    gint                  when_complete;
     GtkBuilder          * builder;
     GhbValue            * globals;
     GhbValue            * prefs;
