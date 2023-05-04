@@ -48,18 +48,15 @@ namespace HandBrakeWPF.ViewModels
     using HandBrakeWPF.Services.Scan.Model;
     using HandBrakeWPF.Startup;
     using HandBrakeWPF.Utilities;
+    using HandBrakeWPF.Utilities.FileDialogs;
     using HandBrakeWPF.ViewModels.Interfaces;
     using HandBrakeWPF.Views;
-
-    using Ookii.Dialogs.Wpf;
 
     using Action = System.Action;
     using Application = System.Windows.Application;
     using DataFormats = System.Windows.DataFormats;
     using DragEventArgs = System.Windows.DragEventArgs;
     using ILog = Services.Logging.Interfaces.ILog;
-    using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
-    using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
     public class MainViewModel : ViewModelBase, IMainViewModel
     {
@@ -485,8 +482,8 @@ namespace HandBrakeWPF.ViewModels
                     }
 
                     // Use the Path on the Title, or the Source Scan path if one doesn't exist.
-                    this.SourceLabel = this.ScannedSource?.SourceName ?? this.SelectedTitle?.DisplaySourceName;
-                    this.CurrentTask.Source = !string.IsNullOrEmpty(this.selectedTitle.SourceName) ? this.selectedTitle.SourceName : this.ScannedSource.ScanPath;
+                    this.SourceLabel = this.SelectedTitle?.DisplaySourceName ?? this.ScannedSource?.SourceName ;
+                    this.CurrentTask.Source = !string.IsNullOrEmpty(this.selectedTitle.SourceName) ? this.selectedTitle.SourceName : this.ScannedSource?.ScanPath;
                     this.CurrentTask.Title = value.TitleNumber;
                     this.NotifyOfPropertyChange(() => this.StartEndRangeItems);
                     this.NotifyOfPropertyChange(() => this.SelectedTitle);
@@ -795,31 +792,7 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        public string SourceInfo
-        {
-            get
-            {
-                if (this.SelectedTitle != null)
-                {
-                    int parW = this.SelectedTitle.ParVal.Width;
-                    int parH = this.SelectedTitle.ParVal.Height;
-                    int displayW = this.SelectedTitle.Resolution.Width * parW / parH;
-
-                    return string.Format("{0}x{1} ({2}x{3}), {4} FPS, {5} {6}, {7} {8}", 
-                        this.SelectedTitle.Resolution.Width, 
-                        this.SelectedTitle.Resolution.Height,
-                        displayW,
-                        this.SelectedTitle.Resolution.Height, 
-                        Math.Round(this.SelectedTitle.Fps, 2), 
-                        this.SelectedTitle.AudioTracks.Count, 
-                        Resources.MainView_AudioTrackCount,
-                        this.SelectedTitle.Subtitles.Count,
-                        Resources.MainView_SubtitleTracksCount);
-                }
-
-                return string.Empty;
-            }
-        }
+        public string SourceInfo => SourceInfoHelper.GenerateSourceInfo(this.SelectedTitle);
 
         public bool ShowAddAllToQueue => this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowAddAllToQueue);
 
@@ -853,6 +826,8 @@ namespace HandBrakeWPF.ViewModels
         public bool IsNightly => HandBrakeVersionHelper.IsNightly();
 
         public bool IsPresetPaneDisplayed { get; set; }
+
+        public bool IsPresetDescriptionVisible { get; set; }
 
         /* Commands */
 
@@ -908,6 +883,13 @@ namespace HandBrakeWPF.ViewModels
             {
                 Thread clearLog = new Thread(() => GeneralUtilities.ClearLogFiles(7));
                 clearLog.Start();
+            }
+
+            // Preset Panel
+            if (userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowPresetDesc))
+            {
+                IsPresetDescriptionVisible = true;
+                this.NotifyOfPropertyChange(() => this.IsPresetDescriptionVisible);
             }
 
             this.PictureSettingsViewModel.TabStatusChanged += this.TabStatusChanged;
@@ -966,7 +948,7 @@ namespace HandBrakeWPF.ViewModels
             OpenOptionsScreenCommand command = new OpenOptionsScreenCommand();
             command.Execute(null);
         }
-
+         
         public void OpenLogWindow()
         {
             WindowHelper.ShowWindow<ILogViewModel, LogView>(this.windowManager);
@@ -1246,7 +1228,7 @@ namespace HandBrakeWPF.ViewModels
 
         public void FolderScan()
         {
-            VistaFolderBrowserDialog dialog = new VistaFolderBrowserDialog { Description = Resources.Main_PleaseSelectFolder, UseDescriptionForTitle = true };
+            FolderBrowserDialog dialog = new FolderBrowserDialog { Description = Resources.Main_PleaseSelectFolder, UseDescriptionForTitle = true };
             bool? dialogResult = dialog.ShowDialog();
 
             if (dialogResult.HasValue && dialogResult.Value)
@@ -1638,6 +1620,8 @@ namespace HandBrakeWPF.ViewModels
             {
                 this.NotifyOfPropertyChange(() => this.PresetsCategories);
                 this.SelectedPreset = this.presetService.GetPreset(presetViewModel.PresetName);
+
+                this.IsModifiedPreset = false;
             }
         }
 
@@ -1689,7 +1673,7 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => this.SelectedPreset);
         }
 
-        public void PresetRemove()
+        public void PresetRemoveSelected()
         {
             this.PresetRemove(this.SelectedPreset);
         }
@@ -1803,6 +1787,28 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
+        public void ExportUserPresets()
+        {
+            SaveFileDialog savefiledialog = new SaveFileDialog
+                                            {
+                                                Filter = "json|*.json",
+                                                CheckPathExists = true,
+                                                AddExtension = true,
+                                                DefaultExt = ".json",
+                                                OverwritePrompt = true,
+                                                FilterIndex = 0
+                                            };
+
+            savefiledialog.ShowDialog();
+            string filename = savefiledialog.FileName;
+
+            if (!string.IsNullOrEmpty(filename))
+            {
+                IList<PresetDisplayCategory> userPresets = this.presetService.GetPresetCategories(true);
+                this.presetService.ExportCategories(savefiledialog.FileName, userPresets);
+            }
+        }
+
         public void PresetReSelect()
         {
             this.PresetSelect(this.SelectedPreset);
@@ -1839,11 +1845,27 @@ namespace HandBrakeWPF.ViewModels
                     this.SummaryViewModel.UpdateDisplayedInfo();
 
                     this.isSettingPreset = false;
+
+                    if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.AutoNaming) && this.userSettingService.GetUserSetting<string>(UserSettingConstants.AutoNameFormat) != null)
+                    {
+                        if (this.userSettingService.GetUserSetting<string>(UserSettingConstants.AutoNameFormat).Contains(Constants.Preset))
+                        {
+                            this.Destination = AutoNameHelper.AutoName(this.CurrentTask, this.SelectedTitle?.DisplaySourceName, this.ScannedSource?.SourceName, this.selectedPreset);
+                        }
+                    }
+
                     return true;
                 }
             }
 
             return false;
+        }
+
+        public void ShowHidePresetDesc()
+        {
+            this.IsPresetDescriptionVisible = !this.IsPresetDescriptionVisible;
+            this.userSettingService.SetUserSetting(UserSettingConstants.ShowPresetDesc, this.IsPresetDescriptionVisible);
+            this.NotifyOfPropertyChange(() => this.IsPresetDescriptionVisible);
         }
 
         public void StartScan(string filename, int title)
@@ -1864,7 +1886,7 @@ namespace HandBrakeWPF.ViewModels
                     string path = ((DriveInformation)item).RootDirectory;
                     string videoDir = Path.Combine(path, "VIDEO_TS");
 
-                    this.StartScan(Directory.Exists(videoDir) ? videoDir : path, 0);
+                    this.StartScan(Directory.Exists(videoDir) ? videoDir : path, this.TitleSpecificScan);
                 }
                 else if (item.GetType() == typeof(SourceMenuItem))
                 {
@@ -1968,7 +1990,7 @@ namespace HandBrakeWPF.ViewModels
               
                 // Cleanup
                 this.ShowStatusWindow = false;
-                this.SourceLabel = this.ScannedSource?.SourceName ?? this.SelectedTitle?.DisplaySourceName;
+                this.SourceLabel = this.SelectedTitle?.DisplaySourceName ?? this.ScannedSource?.SourceName;
                 this.StatusLabel = Resources.Main_ScanCompleted;
             });
         }
@@ -1988,6 +2010,8 @@ namespace HandBrakeWPF.ViewModels
                 this.MetaDataViewModel.SetSource(this.ScannedSource, this.SelectedTitle, this.selectedPreset, this.CurrentTask);
                 this.SummaryViewModel.SetSource(this.ScannedSource, this.SelectedTitle, this.selectedPreset, this.CurrentTask);
                 this.isSettingPreset = false;
+
+                TriggerAutonameChange(ChangedOption.Dimensions);
             }
         }
 
@@ -2057,6 +2081,11 @@ namespace HandBrakeWPF.ViewModels
 
         private void TriggerAutonameChange(ChangedOption option)
         {
+            if (!this.userSettingService.GetUserSetting<bool>(UserSettingConstants.AutoNaming))
+            {
+                return;
+            }
+
             string autonameFormat = this.userSettingService.GetUserSetting<string>(UserSettingConstants.AutoNameFormat);
 
             if (string.IsNullOrEmpty(autonameFormat))
@@ -2065,6 +2094,17 @@ namespace HandBrakeWPF.ViewModels
             }
 
             if (autonameFormat.Contains(Constants.QualityBitrate) && (option == ChangedOption.Bitrate || option == ChangedOption.Quality))
+            {
+                this.Destination = AutoNameHelper.AutoName(this.CurrentTask, this.SelectedTitle?.DisplaySourceName, this.ScannedSource?.SourceName, this.selectedPreset);
+            }
+
+            if (autonameFormat.Contains(Constants.EncoderBitDepth) && option == ChangedOption.Encoder)
+            {
+                this.Destination = AutoNameHelper.AutoName(this.CurrentTask, this.SelectedTitle?.DisplaySourceName, this.ScannedSource?.SourceName, this.selectedPreset);
+            }
+
+
+            if ((autonameFormat.Contains(Constants.StorageWidth) || autonameFormat.Contains(Constants.StorageHeight)) && option == ChangedOption.Dimensions)
             {
                 this.Destination = AutoNameHelper.AutoName(this.CurrentTask, this.SelectedTitle?.DisplaySourceName, this.ScannedSource?.SourceName, this.selectedPreset);
             }
@@ -2169,7 +2209,7 @@ namespace HandBrakeWPF.ViewModels
 
                 if (e.Successful)
                 {
-                    this.SourceLabel = this.ScannedSource?.SourceName ?? this.SelectedTitle?.DisplaySourceName;
+                    this.SourceLabel = this.SelectedTitle?.DisplaySourceName ?? this.ScannedSource?.SourceName;
                     this.StatusLabel = Resources.Main_ScanCompleted;
                 }
                 else if (e.Cancelled)
@@ -2313,7 +2353,7 @@ namespace HandBrakeWPF.ViewModels
                         if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowStatusInTitleBar))
                         {
                             this.WindowTitle = string.Format(Resources.WindowTitleStatus, Resources.HandBrake_Title, String.Format("{0:##0.0}", Math.Round(status.ProgressValue, 1)), status.Task, status.TaskCount);
-                            this.notifyIconService.SetTooltip(string.Format(Resources.TaskTrayStatusTitle, Resources.HandBrake_Title, this.ProgressPercentage, status.Task, status.TaskCount, status.EstimatedTimeLeft));
+                            this.notifyIconService.SetTooltip(string.Format(Resources.TaskTrayStatusTitle, Resources.HandBrake_Title));
                         }
 
                         this.IsMultiProcess = false;
@@ -2323,6 +2363,8 @@ namespace HandBrakeWPF.ViewModels
                     {
                         this.windowsTaskbar.SetNoProgress();
                         this.ProgramStatusLabel = string.Format(Resources.Main_QueueMultiJobStatus, this.queueProcessor.CompletedCount, Environment.NewLine, queueJobStatuses.Count, this.queueProcessor.Count);
+
+                        this.notifyIconService.SetTooltip(string.Format(Resources.TaskTrayStatusManyTitle, Resources.HandBrake_Title, queueJobStatuses.Count));
                         this.IsMultiProcess = true;
                         this.NotifyOfPropertyChange(() => this.IsMultiProcess);
                     }

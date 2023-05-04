@@ -74,7 +74,7 @@ static int     titlescan           = 0;
 static int     main_feature        = 0;
 static char *  native_language     = NULL;
 static int     native_dub          = 0;
-static int     twoPass             = -1;
+static int     multiPass           = -1;
 static int     pad_disable         = 0;
 static char *  pad                 = NULL;
 static int     colorspace_disable  = 0;
@@ -185,7 +185,7 @@ static char *   encoder_level   = NULL;
 static char *   advanced_opts   = NULL;
 static int      maxHeight     = 0;
 static int      maxWidth      = 0;
-static int      fastfirstpass = -1;
+static int      fastanalysispass = -1;
 static char *   preset_export_name   = NULL;
 static char *   preset_export_desc   = NULL;
 static char *   preset_export_file   = NULL;
@@ -218,7 +218,7 @@ static void SigHandler( int );
 
 /* Utils */
 static void ShowHelp(void);
-static void ShowCommands()
+static void ShowCommands(void)
 {
     fprintf(stdout, "\nCommands:\n");
     fprintf(stdout, " [h]elp    Show this message\n");
@@ -252,7 +252,7 @@ static int stdout_tty = 0;
 static int stderr_tty = 0;
 static char * stdout_sep = "\r";
 static char * stderr_sep = "\r";
-static void test_tty()
+static void test_tty(void)
 {
 #if defined(__MINGW32__)
     HANDLE handle;
@@ -853,7 +853,7 @@ static void show_progress_json(hb_state_t * state)
     hb_value_free(&state_dict);
     fprintf(stdout, "Progress: %s\n", state_json);
     free(state_json);
-    fflush(stderr);
+    fflush(stdout);
 }
 
 static int HandleEvents(hb_handle_t * h, hb_dict_t *preset_dict)
@@ -1294,7 +1294,7 @@ static void showFilterDefault(FILE* const out, int filter_id)
     fprintf(out, "\n");
 }
 
-static void ShowHelp()
+static void ShowHelp(void)
 {
     int i, clock_min, clock_max, clock;
     const hb_rate_t *rate;
@@ -1436,9 +1436,9 @@ static void ShowHelp()
 "                           specified video encoder\n"
 "   -q, --quality <float>   Set video quality (e.g. 22.0)\n"
 "   -b, --vb <number>       Set video bitrate in kbit/s (default: 1000)\n"
-"   -2, --two-pass          Use two-pass mode\n"
-"       --no-two-pass       Disable two-pass mode\n"
-"   -T, --turbo             When using 2-pass use \"turbo\" options on the\n"
+"   --multi-pass            Use multi-pass mode\n"
+"       --no-multi-pass     Disable multi-pass mode\n"
+"   -T, --turbo             When using multi-pass use \"turbo\" options on the\n"
 "                           first pass to improve speed\n"
 "                           (works with x264 and x265)\n"
 "       --no-turbo          Disable 2-pass mode's \"turbo\" first pass\n"
@@ -1972,15 +1972,11 @@ if (hb_qsv_available())
 "                           explicitly synchronized.\n"
 "                           Omit 'number' for zero.\n"
 "                           (default: 4)\n"
-    );
-#if defined(_WIN32) || defined(__MINGW32__)
-    fprintf( out,
 "   --qsv-adapter[=index]\n"
 "                           Set QSV hardware graphics adapter index\n"
 "                           (default: QSV hardware graphics adapter with highest hardware generation)\n"
 "\n"
     );
-#endif
 }
 #endif
 }
@@ -2127,7 +2123,7 @@ static void ShowPresets(hb_value_array_t *presets, int indent, int descriptions)
     }
 }
 
-static double parse_hhmmss_strtok()
+static double parse_hhmmss_strtok(void)
 {
     /* Assumes strtok has already been called on a string.  Intends to parse
      * hh:mm:ss.ss or mm:ss.ss or ss.ss or ss into double seconds.  Actually
@@ -2294,8 +2290,8 @@ static int ParseOptions( int argc, char ** argv )
             { "native-dub",  no_argument,       NULL,    NATIVE_DUB },
             { "encoder",     required_argument, NULL,    'e' },
             { "aencoder",    required_argument, NULL,    'E' },
-            { "two-pass",    no_argument,       NULL,    '2' },
-            { "no-two-pass", no_argument,       &twoPass, 0 },
+            { "multi-pass",    no_argument,     &multiPass, 1 },
+            { "no-multi-pass", no_argument,     &multiPass, 0 },
             { "deinterlace", optional_argument, NULL,    'd' },
             { "no-deinterlace", no_argument,    &yadif_disable,       1 },
             { "bwdif",       optional_argument, NULL,    FILTER_BWDIF },
@@ -2380,7 +2376,7 @@ static int ParseOptions( int argc, char ** argv )
             { "rate",        required_argument, NULL,    'r' },
             { "arate",       required_argument, NULL,    'R' },
             { "turbo",       no_argument,       NULL,    'T' },
-            { "no-turbo",    no_argument,       &fastfirstpass,    0 },
+            { "no-turbo",    no_argument,       &fastanalysispass, 0 },
             { "maxHeight",   required_argument, NULL,    'Y' },
             { "maxWidth",    required_argument, NULL,    'X' },
             { "preset",      required_argument, NULL,    'Z' },
@@ -2745,9 +2741,6 @@ static int ParseOptions( int argc, char ** argv )
                     ssaburn = 1 ;
                 }
                 break;
-            case '2':
-                twoPass = 1;
-                break;
             case 'd':
                 free(yadif);
                 if (optarg != NULL)
@@ -3060,7 +3053,7 @@ static int ParseOptions( int argc, char ** argv )
                                   "    ");
                 return 1;
             case 'T':
-                fastfirstpass = 1;
+                fastanalysispass = 1;
                 break;
             case 'Y':
                 maxHeight = atoi( optarg );
@@ -4272,21 +4265,21 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     {
         hb_dict_set(preset, "VideoQualityType", hb_value_int(1));
         hb_dict_set(preset, "VideoAvgBitrate", hb_value_int(vbitrate));
-        if (twoPass == 1)
+        if (multiPass == 1)
         {
-            hb_dict_set(preset, "VideoTwoPass", hb_value_bool(1));
+            hb_dict_set(preset, "VideoMultiPass", hb_value_bool(1));
         }
-        else if (twoPass == 0)
+        else if (multiPass == 0)
         {
-            hb_dict_set(preset, "VideoTwoPass", hb_value_bool(0));
+            hb_dict_set(preset, "VideoMultiPass", hb_value_bool(0));
         }
-        if (fastfirstpass == 1)
+        if (fastanalysispass == 1)
         {
-            hb_dict_set(preset, "VideoTurboTwoPass", hb_value_bool(1));
+            hb_dict_set(preset, "VideoTurboMultiPass", hb_value_bool(1));
         }
-        else if (fastfirstpass == 0)
+        else if (fastanalysispass == 0)
         {
-            hb_dict_set(preset, "VideoTurboTwoPass", hb_value_bool(0));
+            hb_dict_set(preset, "VideoTurboMultiPass", hb_value_bool(0));
         }
     }
     const char *vrate_preset;
@@ -4395,8 +4388,6 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     else if (crop_mode != NULL && !strcmp(crop_mode, "none")) 
     {
         hb_dict_set(preset, "PictureCropMode",  hb_value_int(2));
-    } else {
-        hb_dict_set(preset, "PictureCropMode",  hb_value_int(0)); // Automatic
     }
 
     if (display_width > 0)
@@ -5312,7 +5303,7 @@ PrepareJob(hb_handle_t *h, hb_title_t *title, hb_dict_t *preset_dict)
     int one_burned = 0;
     if (subtracks != NULL)
     {
-        int ii, track_count, out_track = 0;
+        int ii, out_track = 0;
         for (ii = 0; subtracks[ii] != NULL; ii++)
         {
             if (strcasecmp(subtracks[ii], "none" ) == 0)
@@ -5358,26 +5349,6 @@ PrepareJob(hb_handle_t *h, hb_title_t *title, hb_dict_t *preset_dict)
             else
             {
                 fprintf(stderr, "ERROR: unable to parse subtitle input \"%s\", skipping\n", subtracks[ii]);
-            }
-        }
-        track_count = hb_value_array_len(subtitle_array);
-
-        /* Subtitle Track Names */
-        ii = 0;
-        if (subnames != NULL)
-        {
-            for (; subnames[ii] != NULL && ii < track_count; ii++)
-            {
-                if (*subnames[ii])
-                {
-                    subtitle_dict = hb_value_array_get(subtitle_array, ii);
-                    hb_dict_set(subtitle_dict, "Name",
-                                hb_value_string(subnames[ii]));
-                }
-            }
-            if (subnames[ii] != NULL)
-            {
-                fprintf(stderr, "Dropping excess subtitle track names\n");
             }
         }
     }
@@ -5441,6 +5412,26 @@ PrepareJob(hb_handle_t *h, hb_title_t *title, hb_dict_t *preset_dict)
         for (ii = 0; ssafile[ii] != NULL; ii++)
         {
             add_ssa(subtitle_array, ii, &one_burned);
+        }
+    }
+
+    int ii = 0, track_count = hb_value_array_len(subtitle_array);
+
+    /* Subtitle Track Names */
+    if (subnames != NULL)
+    {
+        for (; subnames[ii] != NULL && ii < track_count; ii++)
+        {
+            if (*subnames[ii])
+            {
+                subtitle_dict = hb_value_array_get(subtitle_array, ii);
+                hb_dict_set(subtitle_dict, "Name",
+                            hb_value_string(subnames[ii]));
+            }
+        }
+        if (subnames[ii] != NULL)
+        {
+            fprintf(stderr, "Dropping excess subtitle track names\n");
         }
     }
 

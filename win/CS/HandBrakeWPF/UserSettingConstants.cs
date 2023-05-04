@@ -9,6 +9,8 @@
 
 namespace HandBrakeWPF
 {
+    using System;
+
     /// <summary>
     /// Constants for the User Settings Service
     /// </summary>
@@ -21,7 +23,7 @@ namespace HandBrakeWPF
         public const string AutoNaming = "autoNaming";
         public const string ClearOldLogs = "clearOldLogs";
         public const string DaysBetweenUpdateCheck = "daysBetweenUpdateCheck";
-        public const string DefaultPlayer = "defaultPlayer";
+        public const string UseExternalPlayer = "previewUseExternalPlayer";
         public const string LastUpdateCheckDate = "lastUpdateCheckDate";
         public const string MainWindowMinimize = "MainWindowMinimize";
         public const string UpdateStatus = "updateStatus";
@@ -87,5 +89,9 @@ namespace HandBrakeWPF
         public const string ForceDisableHardwareSupport = "ForceDisableHardwareSupport";
         public const string IsUpdateAvailableBuild = "IsUpdateAvailableBuild";
         public const string EnableNvDecSupport = "EnableNvDecSupport";
+        public const string UseIsoDateFormat = "UseIsoDateFormat";
+        public const string ExtendedQueueDisplay = "ExtendedQueueDisplay";
+        public const string HardwareDetectTimeoutSeconds = "HardwareDetectTimeoutSeconds";
+        public const string ShowPresetDesc = "ShowPresetDescription";
     }
 }

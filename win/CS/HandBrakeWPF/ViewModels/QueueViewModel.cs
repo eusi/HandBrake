@@ -32,9 +32,8 @@ namespace HandBrakeWPF.ViewModels
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Queue.Interfaces;
     using HandBrakeWPF.Services.Queue.Model;
+    using HandBrakeWPF.Utilities.FileDialogs;
     using HandBrakeWPF.ViewModels.Interfaces;
-
-    using Microsoft.Win32;
 
     public class QueueViewModel : ViewModelBase, IQueueViewModel
     {
@@ -45,6 +44,7 @@ namespace HandBrakeWPF.ViewModels
         private WhenDone whenDoneAction;
         private QueueTask selectedTask;
         private bool isQueueRunning;
+        private bool extendedQueueDisplay;
 
         public QueueViewModel(IUserSettingService userSettingService, IQueueService queueProcessor, IErrorService errorService)
         {
@@ -59,6 +59,7 @@ namespace HandBrakeWPF.ViewModels
             this.SelectedTabIndex = 0;
 
             this.WhenDoneAction = (WhenDone)this.userSettingService.GetUserSetting<int>(UserSettingConstants.WhenCompleteAction);
+            this.ExtendedQueueDisplay = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ExtendedQueueDisplay);
 
             this.WhenDoneCommand = new SimpleRelayCommand<int>(this.WhenDone);
             this.RetryCommand = new SimpleRelayCommand<QueueTask>(this.RetryJob);
@@ -169,6 +170,17 @@ namespace HandBrakeWPF.ViewModels
                 }
 
                 return false;
+            }
+        }
+
+        public bool ExtendedQueueDisplay
+        {
+            get => this.extendedQueueDisplay;
+            set
+            {
+                if (value == this.extendedQueueDisplay) return;
+                this.extendedQueueDisplay = value;
+                this.NotifyOfPropertyChange(() => this.ExtendedQueueDisplay);
             }
         }
 
@@ -553,6 +565,11 @@ namespace HandBrakeWPF.ViewModels
             this.queueProcessor.MoveToBottom(this.SelectedItems);
         }
 
+        public void BackupQueue()
+        {
+            this.queueProcessor.BackupQueue(string.Empty);
+        }
+
         public override void Activate()
         {
             this.Load();
@@ -627,6 +644,12 @@ namespace HandBrakeWPF.ViewModels
             {
                 this.errorService.ShowError(Resources.Clipboard_Unavailable, Resources.Clipboard_Unavailable_Solution, exc);
             }
+        }
+
+        public void ChangeQueueDisplay()
+        {
+            this.ExtendedQueueDisplay = !this.ExtendedQueueDisplay;
+            this.userSettingService.SetUserSetting(UserSettingConstants.ExtendedQueueDisplay, this.ExtendedQueueDisplay);
         }
 
         private void HandleLogData()

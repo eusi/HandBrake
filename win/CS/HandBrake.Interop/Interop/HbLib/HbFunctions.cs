@@ -150,8 +150,8 @@ namespace HandBrake.Interop.Interop.HbLib
         [DllImport("hb", EntryPoint = "hb_video_quality_get_name", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr hb_video_quality_get_name(uint codec);
 
-        [DllImport("hb", EntryPoint = "hb_video_twopass_is_supported", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int hb_video_twopass_is_supported(uint codec);
+        [DllImport("hb", EntryPoint = "hb_video_multipass_is_supported", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int hb_video_multipass_is_supported(uint codec);
 
         [DllImport("hb", EntryPoint = "hb_video_encoder_is_supported", CallingConvention = CallingConvention.Cdecl)]
         public static extern int hb_video_encoder_is_supported(int encoder);
@@ -305,6 +305,12 @@ namespace HandBrake.Interop.Interop.HbLib
         [DllImport("hb", EntryPoint = "hb_presets_read_file_json", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr hb_presets_read_file_json(IntPtr filename);
 
+        [DllImport("hb", EntryPoint = "hb_presets_clean_json", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr hb_presets_clean_json(IntPtr json);
+
+        [DllImport("hb", EntryPoint = "hb_presets_import_json", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int hb_presets_import_json(IntPtr jsonIn, ref IntPtr jsonOutput);
+        
         [DllImport("hb", EntryPoint = "hb_presets_current_version", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr hb_presets_current_version(IntPtr major, IntPtr minor, IntPtr micro);
 

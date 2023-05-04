@@ -298,6 +298,7 @@ namespace HandBrakeWPF.Services
             defaults.Add(UserSettingConstants.AutoNameTitleCase, true);
             defaults.Add(UserSettingConstants.AutoNameRemoveUnderscore, true);
             defaults.Add(UserSettingConstants.AutonameFileCollisionBehaviour, 0);
+            defaults.Add(UserSettingConstants.UseIsoDateFormat, false);
             defaults.Add(UserSettingConstants.AlwaysUseDefaultPath, true);
             defaults.Add(UserSettingConstants.RemovePunctuation, false);
             defaults.Add(UserSettingConstants.FileOverwriteBehaviour, 0);
@@ -339,7 +340,7 @@ namespace HandBrakeWPF.Services
 
             // Preview
             defaults.Add(UserSettingConstants.LastPreviewDuration, 30);
-            defaults.Add(UserSettingConstants.DefaultPlayer, false);
+            defaults.Add(UserSettingConstants.UseExternalPlayer, false);
 
             // Experimental
             defaults.Add(UserSettingConstants.ProcessIsolationEnabled, true);
@@ -353,6 +354,9 @@ namespace HandBrakeWPF.Services
             defaults.Add(UserSettingConstants.RunCounter, 0);
             defaults.Add(UserSettingConstants.ForceSoftwareRendering, false);
             defaults.Add(UserSettingConstants.IsUpdateAvailableBuild, 0);
+            defaults.Add(UserSettingConstants.ExtendedQueueDisplay, true);
+            defaults.Add(UserSettingConstants.HardwareDetectTimeoutSeconds, 12);
+
             
             return defaults;
         }

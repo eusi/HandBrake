@@ -8,6 +8,147 @@ Before updating HandBrake, please make sure there are no pending encodes in the 
 Windows users, please make sure to install [Microsoft .NET Desktop Runtime version 6.0.x](https://dotnet.microsoft.com/en-us/download/dotnet/6.0). Read carefully: you need the **DESKTOP** runtime. You must install .NET 6 even if you have installed .NET 7.
 
 
+## HandBrake 1.7
+
+#### General
+
+- Miscellaneous bug fixes and improvements
+
+#### Video
+
+- Improved HDR Passthru. Preserve HDR10+ and Dolby Vision dynamic metadata
+  - Dolby Vision is supported only when using the x265 10-bit encoder, only the following Dolby Vision profiles and cross compatibility IDs are supported:
+    - 5.0
+    - 7.6 (base layer only, converted to 8.1)
+    - 8.1
+    - 8.4
+  - HDR10+ is supported on both x265 10bit and SVT-AV1 encoders
+- Support for SVT-AV1 multi-pass ABR mode
+- Added NVENC AV1 encoder
+
+#### Third-party libraries
+
+- Updated libraries
+  - AMF 1.4.29 (AMD VCN encoding)
+  - FFmpeg 6.0 (decoding and filters)
+  - libass 0.17.1 (subtitles)
+  - libdav1d 1.1.0 (AV1 decoding)
+  - libopus 1.4 (Opus audio encoding)
+  - libvpx 1.13.0 (VP8/VP9 video encoding)
+  - libxml 2.10.4 (general)
+  - SVT-AV1 1.5 (AV1 encoding)
+  - x265 r12776 (H.265/HEVC video encoding)
+
+- New libraries
+  - libdovi (Dolby Vision metadata)
+  
+### Mac
+
+### Linux
+
+### Windows
+- Improved Preview window with video playback support. (Supports most, but not all codecs/containers. Requires Microsoft Codec Packs from the Microsoft Store for modern codecs)
+- Improved Autoname Preferences UI and added new options: {width} {height} {quality_type} {encoder_bit_depth} {modification-time} {modification-date}
+- Improved UI on the queue window. 
+  - The left progress panel now can optionally show additional status information. 
+- Improved Preset Panel. 
+  - Queue Manager button replaced by a drop menu of discrete options for quicker access to functionality. 
+  - Optional display of preset description at the bottom of the preset pane.
+- Improved Add Selection window. Sorting feature is now more discoverable. 
+- Miscellaneous bug fixes and improvements
+
+
+## HandBrake 1.6.2
+
+### All platforms
+
+#### Video
+
+- Fixed an issue when scaling video content that is not mod2.
+- Fixed an issue with QSV that could result in the output video being a green screen (#4842)
+- Fixed a green video issue with QuickSync (#4876)
+- Fixed a pixel format conversion issue that could result is slightly different colors when using a 10-bit hardware encoder (#5011)
+- Various fixes and library updates for QuickSync to improve support on Linux (#4958)
+- Switch to using swscale instead of zscale when the resolution isn't mod2. Should fix scan failures in this condition
+- Fixed PAR when reading from a AV1 anamorphic video track
+- Changed NVEnc option to not default to using multipass. This is now a user configurable advanced option. 
+
+#### Command line interface
+
+- Fixed an issue with cropping when using presets / crop arguments (#5055)
+
+#### Audio
+
+- Fixed ac3/eac3 dowmix, volume was too low.
+- Fixed availability of left / right mono mixdowns. 
+- Backported an ffmpeg fix for OPUS LBRR
+
+#### Subtitles
+
+- Fixed a locale issue that could result in the wrong decimal separator in SSA headers.
+- Fixed an issue that caused issues with 0 length subtitles when using SSA. 
+
+### Mac
+
+- Fixed Chroma Smooth tune options.
+- Fixed an issue with the Deblock Filter custom string field. 
+- Fixed the file size display on the queue statistics window when file size info is not available 
+- Miscellaneous other fixes.
+
+### Windows
+
+- Fixed an issue with automatic file naming when using drive-based sources (#4859)
+- Fixed Title Specific Scan for drive sources. (#4921)
+- Fixed an issue that could cause a preset to show as "modified" when it was not. (#4909, #4908)
+- Fixed an issue where changes to queue order could be lost. (#4922)
+- Fixed an issue on the audio tab where audio tracks could be duplicated when using non fallback encoder. (#5012)
+- Fixed an issue where some hardware presets are incorrectly shown as disabled when swapping graphics cards.
+- Fixed an issue where windows notifications could cause the app to crash on startup where issues exist on the system. (#5097)
+- Some reliability improvements in the Process Isolation Feature. 
+- Miscellaneous other fixes. (#5090, #5091)
+
+
+## HandBrake 1.6.1
+
+### All platforms
+
+#### Video
+
+- Fixed a potential decoder issue that could cause desync with audio (#4788, #4789)
+
+#### Command line interface
+
+- Fixed inability to name external subtitles tracks using --subname
+
+### Mac
+
+- Fixed behavior of quality slider when changing encoders
+
+### Linux
+
+- Fixed translations missing updates as part of 1.6.0 (#4790)
+  - Bulgarian (Български)
+  - Corsican (Corsu)
+  - Dutch (Nederlands)
+  - German (Deutsch)
+  - Spanish (Español)
+- Fixed (partially) Intel QSV hardware detection (#4768)
+- Fixed a potential crash when canceling an Intel QSV encode (#4341)
+- Fixed building with -Werror=format-security by adding missing format strings where needed
+
+### Windows
+
+- Fixed quality slider not allowing negative values for encoders supporting them
+- Fixed issues upgrading presets from older versions (#4820)
+- Fixed a potential graphical interface hang when stopping the queue (#4782)
+- Fixed optical disc drives on the source selection pane not scanning correctly (#4771)
+- Fixed erroneous display of 2-pass check box for Intel QSV AV1 encoder (not yet supported) (#4777)
+- Fixed a build configuration issue that broke version 1.6.0 for Windows on arm64
+- Fixed an issue that prevented NVDEC from being available
+- Fixed passthru audio erroneously falling back to encoding (#4795)
+- Fixed the Save New Preset button incorrectly overwriting recently added presets (#4804)
+
+
 ## HandBrake 1.6.0
 
 ### All platforms

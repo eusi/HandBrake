@@ -29,14 +29,10 @@ namespace HandBrakeWPF.ViewModels
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Presets.Interfaces;
     using HandBrakeWPF.Utilities;
+    using HandBrakeWPF.Utilities.FileDialogs;
     using HandBrakeWPF.ViewModels.Interfaces;
 
-    using Microsoft.Win32;
-
-    using Ookii.Dialogs.Wpf;
-
     using ILog = HandBrakeWPF.Services.Logging.Interfaces.ILog;
-
     public class OptionsViewModel : ViewModelBase, IOptionsViewModel
     {
         private readonly IUserSettingService userSettingService;
@@ -118,6 +114,8 @@ namespace HandBrakeWPF.ViewModels
         private bool enableQuickSyncHyperEncode;
 
         private bool enableNvDecSupport;
+
+        private bool useIsoDateFormat;
 
         public OptionsViewModel(
             IUserSettingService userSettingService,
@@ -559,6 +557,55 @@ namespace HandBrakeWPF.ViewModels
 
                 this.alwaysUseDefaultPath = value;
                 this.NotifyOfPropertyChange(() => this.AlwaysUseDefaultPath);
+            }
+        }
+
+        public BindingList<PlaceHolderBucket> OutputFilenamePlaceholders
+        {
+            get
+            {
+                return new BindingList<PlaceHolderBucket>
+                {
+                    new PlaceHolderBucket { Name = Constants.Source },
+                    new PlaceHolderBucket { Name = Constants.Title },
+                    new PlaceHolderBucket { Name = Constants.Chapters},
+                    new PlaceHolderBucket { Name = Constants.CreationDate },
+                    new PlaceHolderBucket { Name = Constants.CreationTime },
+                    new PlaceHolderBucket { Name = Constants.ModificationDate },
+                    new PlaceHolderBucket { Name = Constants.ModificationTime },
+                    new PlaceHolderBucket { Name = Constants.Date },
+                    new PlaceHolderBucket { Name = Constants.Time },
+                    new PlaceHolderBucket { Name = Constants.QualityBitrate },
+                    new PlaceHolderBucket { Name = Constants.QualityType },
+                    new PlaceHolderBucket { Name = Constants.Preset },
+                    new PlaceHolderBucket { Name = Constants.EncoderBitDepth },
+                    new PlaceHolderBucket { Name = Constants.StorageWidth },
+                    new PlaceHolderBucket { Name = Constants.StorageHeight },
+                };
+            }
+        }
+
+        public BindingList<PlaceHolderBucket> PathFilenamePlaceholders
+        {
+            get
+            {
+                return new BindingList<PlaceHolderBucket>
+                       {
+                           new PlaceHolderBucket { Name = Constants.SourcePath },
+                           new PlaceHolderBucket { Name = Constants.SourceFolderName },
+                           new PlaceHolderBucket { Name = Constants.Source }
+                       };
+            }
+        }
+
+        public bool UseIsoDateFormat
+        {
+            get => this.useIsoDateFormat;
+            set
+            {
+                if (value == this.useIsoDateFormat) return;
+                this.useIsoDateFormat = value;
+                this.OnPropertyChanged();
             }
         }
 
@@ -1100,7 +1147,7 @@ namespace HandBrakeWPF.ViewModels
 
         public void BrowseAutoNamePath()
         {
-            VistaFolderBrowserDialog dialog = new VistaFolderBrowserDialog { Description = Resources.OptionsView_SelectFolder, UseDescriptionForTitle = true, SelectedPath = this.AutoNameDefaultPath };
+            FolderBrowserDialog dialog = new FolderBrowserDialog { Description = Resources.OptionsView_SelectFolder, UseDescriptionForTitle = true, SelectedPath = this.AutoNameDefaultPath };
             bool? dialogResult = dialog.ShowDialog();
             if (dialogResult.HasValue && dialogResult.Value)
             {
@@ -1120,7 +1167,7 @@ namespace HandBrakeWPF.ViewModels
 
         public void BrowseLogPath()
         {
-            VistaFolderBrowserDialog dialog = new VistaFolderBrowserDialog { Description = Resources.OptionsView_SelectFolder, UseDescriptionForTitle = true, SelectedPath = this.LogDirectory };
+            FolderBrowserDialog dialog = new FolderBrowserDialog { Description = Resources.OptionsView_SelectFolder, UseDescriptionForTitle = true, SelectedPath = this.LogDirectory };
             bool? dialogResult = dialog.ShowDialog();
             if (dialogResult.HasValue && dialogResult.Value)
             {
@@ -1211,6 +1258,11 @@ namespace HandBrakeWPF.ViewModels
             this.NotifyOfPropertyChange(() => this.IsAutomaticSafeMode);
         }
 
+        public void ResetAutoNameFormat()
+        {
+            this.AutonameFormat = "{source}-{title}";
+        }
+
         #endregion
 
         public override void OnLoad()
@@ -1299,6 +1351,8 @@ namespace HandBrakeWPF.ViewModels
             this.PrePostFilenameText = this.userSettingService.GetUserSetting<string>(UserSettingConstants.AutonameFilePrePostString);
 
             this.AlwaysUseDefaultPath = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.AlwaysUseDefaultPath);
+
+            this.UseIsoDateFormat = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.UseIsoDateFormat);
 
             // #############################
             // Picture Tab
@@ -1496,6 +1550,7 @@ namespace HandBrakeWPF.ViewModels
             this.userSettingService.SetUserSetting(UserSettingConstants.AutonameFileCollisionBehaviour, this.SelectedCollisionBehaviour);
             this.userSettingService.SetUserSetting(UserSettingConstants.AutonameFilePrePostString, this.PrePostFilenameText);
             this.userSettingService.SetUserSetting(UserSettingConstants.AlwaysUseDefaultPath, this.AlwaysUseDefaultPath);
+            this.userSettingService.SetUserSetting(UserSettingConstants.UseIsoDateFormat, this.UseIsoDateFormat);
 
             /* Previews */
             this.userSettingService.SetUserSetting(UserSettingConstants.MediaPlayerPath, this.VLCPath);

@@ -109,35 +109,7 @@ int gettimeofday( struct timeval * tv, struct timezone * tz )
 #endif
 */
 
-// Convert utf8 string to current code page.
-// The internal string representation in hb is utf8. But some
-// libraries (libmkv, and mp4v2) expect filenames in the current
-// code page.  So we must convert.
-char * hb_utf8_to_cp(const char *src)
-{
-    char *dst = NULL;
-
-#if defined( SYS_MINGW )
-    int num_chars = MultiByteToWideChar(CP_UTF8, 0, src, -1, NULL, 0);
-    if (num_chars <= 0)
-        return NULL;
-    wchar_t * tmp = calloc(num_chars, sizeof(wchar_t));
-    MultiByteToWideChar(CP_UTF8, 0, src, -1, tmp, num_chars);
-    int len = WideCharToMultiByte(GetACP(), 0, tmp, num_chars, NULL, 0, NULL, NULL);
-    if (len <= 0)
-        return NULL;
-    dst = calloc(len, sizeof(char));
-    WideCharToMultiByte(GetACP(), 0, tmp, num_chars, dst, len, NULL, NULL);
-    free(tmp);
-#else
-    // Other platforms don't have code pages
-    dst = strdup(src);
-#endif
-
-    return dst;
-}
-
-int hb_dvd_region(char *device, int *region_mask)
+int hb_dvd_region(const char *device, int *region_mask)
 {
 #if defined( DVD_LU_SEND_RPC_STATE ) && defined( DVD_AUTH )
     struct stat  st;
@@ -239,21 +211,25 @@ struct
 
 int hb_get_cpu_count()
 {
+    init_cpu_info();
     return hb_cpu_info.count;
 }
 
 int hb_get_cpu_platform()
 {
+    init_cpu_info();
     return hb_cpu_info.platform;
 }
 
 const char* hb_get_cpu_name()
 {
+    init_cpu_info();
     return hb_cpu_info.name;
 }
 
 const char* hb_get_cpu_platform_name()
 {
+    init_cpu_info();
     switch (hb_cpu_info.platform)
     {
         case HB_CPU_PLATFORM_INTEL_BNL:
@@ -307,13 +283,16 @@ const char* hb_get_cpu_platform_name()
 
 static void init_cpu_info()
 {
-    hb_cpu_info.name     = NULL;
+    if (hb_cpu_info.count != 0)
+        return;
+
+    hb_cpu_info.name     = "Unknown";
     hb_cpu_info.count    = init_cpu_count();
     hb_cpu_info.platform = HB_CPU_PLATFORM_UNSPECIFIED;
 
+#if ARCH_X86_64 || ARCH_X86_32
     if (av_get_cpu_flags() & AV_CPU_FLAG_SSE)
     {
-#if ARCH_X86_64 || ARCH_X86_32
         int eax, ebx, ecx, edx, family, model;
 
         cpuid(1, &eax, &ebx, &ecx, &edx);
@@ -420,7 +399,14 @@ static void init_cpu_info()
                   &hb_cpu_info.buf4[11]);
 
             hb_cpu_info.name    = hb_cpu_info.buf;
-            hb_cpu_info.buf[47] = '\0'; // just in case
+
+            // ensure string is null-terminated and trim trailing whitespace
+            int ii = sizeof(hb_cpu_info.buf) - 1;
+            do {
+                hb_cpu_info.buf[ii] = '\0';
+                ii -= 1;
+            }
+            while (ii > 0 && isspace(hb_cpu_info.buf[ii]));
 
             while (isspace(*hb_cpu_info.name))
             {
@@ -428,8 +414,8 @@ static void init_cpu_info()
                 hb_cpu_info.name++;
             }
         }
-#endif // ARCH_X86_64 || ARCH_X86_32
     }
+#endif // ARCH_X86_64 || ARCH_X86_32
 }
 
 /*
@@ -1587,10 +1573,20 @@ static int try_adapter(const char * name, const char * dir,
     return -1;
 }
 
-static int open_adapter(const char * name)
+static int open_adapter(const char * name, const uint dri_render_node)
 {
-    int fd = try_adapter(name, DRI_PATH, DRI_NODE_RENDER,
-                         DRI_RENDER_NODE_START, DRI_RENDER_NODE_LAST);
+    int fd;
+    // If dri_render_node is unknown enumerate across the predifined range of renders
+    if (dri_render_node == 0)
+    {
+        fd = try_adapter(name, DRI_PATH, DRI_NODE_RENDER,
+                            DRI_RENDER_NODE_START, DRI_RENDER_NODE_LAST);
+    }
+    else
+    {
+        fd = try_adapter(name, DRI_PATH, DRI_NODE_RENDER,
+                            dri_render_node, dri_render_node);
+    }
     if (fd < 0)
     {
         fd = try_adapter(name, DRI_PATH, DRI_NODE_CARD,
@@ -1626,7 +1622,8 @@ static int try_va_interface(hb_display_t * hbDisplay,
     return 0;
 }
 
-hb_display_t * hb_display_init(const char         *  driver_name,
+hb_display_t * hb_display_init(const char         * driver_name,
+                               const uint32_t       dri_render_node,
                                const char * const * interface_names)
 {
     hb_display_t * hbDisplay = calloc(sizeof(hb_display_t), 1);
@@ -1634,7 +1631,7 @@ hb_display_t * hb_display_init(const char         *  driver_name,
     int            ii;
 
     hbDisplay->vaDisplay = NULL;
-    hbDisplay->vaFd      = open_adapter(driver_name);
+    hbDisplay->vaFd      = open_adapter(driver_name, dri_render_node);
     if (hbDisplay->vaFd < 0)
     {
         hb_deep_log( 3, "hb_va_display_init: no display found" );
@@ -1701,7 +1698,8 @@ void hb_display_close(hb_display_t ** _d)
 
 #else // !SYS_LINUX && !SYS_FREEBSD
 
-hb_display_t * hb_display_init(const char         *  driver_name,
+hb_display_t * hb_display_init(const char         * driver_name,
+                               const uint32_t       dri_render_node,
                                const char * const * interface_names)
 {
     return NULL;
@@ -1715,7 +1713,8 @@ void hb_display_close(hb_display_t ** _d)
 #endif // SYS_LINUX || SYS_FREEBSD
 #else // !HB_PROJECT_FEATURE_QSV
 
-hb_display_t * hb_display_init(const char         *  driver_name,
+hb_display_t * hb_display_init(const char         * driver_name,
+                               const uint32_t       dri_render_node,
                                const char * const * interface_names)
 {
     return NULL;

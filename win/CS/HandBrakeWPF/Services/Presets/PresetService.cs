@@ -644,6 +644,7 @@ namespace HandBrakeWPF.Services.Presets
         {
             // First clear the Presets arraylists
             this.presets.Clear();
+            bool forceSave = false;
 
             // Load the presets file.
             try
@@ -660,6 +661,13 @@ namespace HandBrakeWPF.Services.Presets
                 try
                 {
                     container = HandBrakePresetService.GetPresetsFromFile(this.presetFile);
+
+                    PresetVersion presetVersion = HandBrakePresetService.GetCurrentPresetVersion();
+                    if (container.VersionMajor != presetVersion.Major || container.VersionMinor != presetVersion.Minor || container.VersionMicro != presetVersion.Micro)
+                    {
+                        container = HandBrakePresetService.UpgradePresets(this.presetFile);
+                        forceSave = true;
+                    }
                 }
                 catch (Exception exc)
                 {
@@ -700,13 +708,12 @@ namespace HandBrakeWPF.Services.Presets
                 
                 this.ProcessPresetList(container);
 
-                PresetVersion presetVersion = HandBrakePresetService.GetCurrentPresetVersion();
-                if (container.VersionMajor != presetVersion.Major || container.VersionMinor != presetVersion.Minor || container.VersionMicro != presetVersion.Micro)
-                {
-                    this.UpdateBuiltInPresets();
-                }
-
                 CheckAndSetDefault(); // Make a preset default if one we have none.
+
+                if (forceSave)
+                {
+                    this.SavePresetFiles();
+                }
             }
             catch (Exception ex)
             {
@@ -872,26 +879,7 @@ namespace HandBrakeWPF.Services.Presets
 
         private bool IsPresetDisabled(Preset preset)
         {
-            bool isQsvEnabled = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncEncoding);
-            bool isNvencEnabled = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvencEncoder);
-            bool isVcnEnabled = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableVceEncoder);
-
-            if (preset.Task.VideoEncoder == null)
-            {
-                return true;
-            }
-
-            if (preset.Task.VideoEncoder.IsQuickSync && !isQsvEnabled)
-            {
-                return true;
-            }
-
-            if (preset.Task.VideoEncoder.IsNVEnc && !isNvencEnabled)
-            {
-                return true;
-            }
-
-            if (preset.Task.VideoEncoder.IsVCN && !isVcnEnabled)
+            if (preset.Task.VideoEncoder == null || !HandBrakeEncoderHelpers.VideoEncoders.Contains(preset.Task.VideoEncoder))
             {
                 return true;
             }

@@ -333,7 +333,8 @@ struct hb_subtitle_config_s
     int64_t      offset;
 };
 
-struct hb_mastering_display_metadata_s {
+struct hb_mastering_display_metadata_s
+{
     hb_rational_t display_primaries[3][2];
     hb_rational_t white_point[2];
     hb_rational_t min_luminance;
@@ -342,9 +343,29 @@ struct hb_mastering_display_metadata_s {
     int has_luminance;
 };
 
-struct hb_content_light_metadata_s {
+struct hb_content_light_metadata_s
+{
     unsigned max_cll;
     unsigned max_fall;
+};
+
+struct hb_ambient_viewing_environment_metadata_s
+{
+    hb_rational_t ambient_illuminance;
+    hb_rational_t ambient_light_x;
+    hb_rational_t ambient_light_y;
+};
+
+struct hb_dovi_conf_s
+{
+    unsigned dv_version_major;
+    unsigned dv_version_minor;
+    unsigned dv_profile;
+    unsigned dv_level;
+    unsigned rpu_present_flag;
+    unsigned el_present_flag;
+    unsigned bl_present_flag;
+    unsigned dv_bl_signal_compatibility_id;
 };
 
 /*******************************************************************************
@@ -408,9 +429,10 @@ void        hb_video_quality_get_limits(uint32_t codec, float *low, float *high,
 const char* hb_video_quality_get_name(uint32_t codec);
 int         hb_video_quality_is_supported(uint32_t codec);
 
-int         hb_video_twopass_is_supported(uint32_t codec);
+int         hb_video_multipass_is_supported(uint32_t codec);
 
 int                hb_video_encoder_is_supported(int encoder);
+int                hb_video_encoder_get_count_of_analysis_passes(int encoder);
 int                hb_video_encoder_pix_fmt_is_supported(int encoder, int pix_fmt, const char *profile);
 int                hb_video_encoder_get_depth   (int encoder);
 const char* const* hb_video_encoder_get_presets (int encoder);
@@ -554,15 +576,17 @@ struct hb_job_s
          cfr:               0 (vfr), 1 (cfr), 2 (pfr) [see render.c]
          pass:              0, 1 or 2 (or -1 for scan)
          areBframes:        boolean to note if b-frames are used */
+
+    // Changing the constant values requires changes in win/CS/HandBrake.Interop/Interop/HbLib/NativeConstants.cs for Windows GUI
 #define HB_VCODEC_INVALID            0x00000000
 
 #define HB_VCODEC_AV1_MASK           0x40000000
 #define HB_VCODEC_H264_MASK          0x20000000
 #define HB_VCODEC_H265_MASK          0x10000000
 
-#define HB_VCODEC_SVT_AV1_MASK      (0x00800000 | HB_VCODEC_AV1_MASK | HB_VCODEC_FFMPEG_MASK)
-#define HB_VCODEC_X264_MASK         (0x00400000 | HB_VCODEC_H264_MASK)
-#define HB_VCODEC_X265_MASK         (0x00200000 | HB_VCODEC_H265_MASK)
+#define HB_VCODEC_SVT_AV1_MASK       0x00800000
+#define HB_VCODEC_X264_MASK          0x00400000
+#define HB_VCODEC_X265_MASK          0x00200000
 
 #define HB_VCODEC_VT_MASK            0x00080000
 #define HB_VCODEC_QSV_MASK           0x00040000
@@ -570,15 +594,15 @@ struct hb_job_s
 
 #define HB_VCODEC_THEORA             0x00000001
 
-#define HB_VCODEC_X264_8BIT         (0x00000002 | HB_VCODEC_X264_MASK)
+#define HB_VCODEC_X264_8BIT         (0x00000002 | HB_VCODEC_X264_MASK | HB_VCODEC_H264_MASK)
 #define HB_VCODEC_X264              HB_VCODEC_X264_8BIT
-#define HB_VCODEC_X264_10BIT        (0x00000003 | HB_VCODEC_X264_MASK)
+#define HB_VCODEC_X264_10BIT        (0x00000003 | HB_VCODEC_X264_MASK | HB_VCODEC_H264_MASK)
 
-#define HB_VCODEC_X265_8BIT         (0x00000004 | HB_VCODEC_X265_MASK)
+#define HB_VCODEC_X265_8BIT         (0x00000004 | HB_VCODEC_X265_MASK | HB_VCODEC_H265_MASK)
 #define HB_VCODEC_X265              HB_VCODEC_X265_8BIT
-#define HB_VCODEC_X265_10BIT        (0x00000005 | HB_VCODEC_X265_MASK)
-#define HB_VCODEC_X265_12BIT        (0x00000006 | HB_VCODEC_X265_MASK)
-#define HB_VCODEC_X265_16BIT        (0x00000007 | HB_VCODEC_X265_MASK)
+#define HB_VCODEC_X265_10BIT        (0x00000005 | HB_VCODEC_X265_MASK | HB_VCODEC_H265_MASK)
+#define HB_VCODEC_X265_12BIT        (0x00000006 | HB_VCODEC_X265_MASK | HB_VCODEC_H265_MASK)
+#define HB_VCODEC_X265_16BIT        (0x00000007 | HB_VCODEC_X265_MASK | HB_VCODEC_H265_MASK)
 
 #define HB_VCODEC_FFMPEG_MPEG4      (0x00000008 | HB_VCODEC_FFMPEG_MASK)
 #define HB_VCODEC_FFMPEG_MPEG2      (0x00000009 | HB_VCODEC_FFMPEG_MASK)
@@ -597,10 +621,12 @@ struct hb_job_s
 #define HB_VCODEC_FFMPEG_NVENC_H264         (0x00000030 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_H264_MASK)
 #define HB_VCODEC_FFMPEG_NVENC_H265         (0x00000031 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_H265_MASK)
 #define HB_VCODEC_FFMPEG_NVENC_H265_10BIT   (0x00000032 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_H265_MASK)
+#define HB_VCODEC_FFMPEG_NVENC_AV1          (0x00000033 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_AV1_MASK)
+#define HB_VCODEC_FFMPEG_NVENC_AV1_10BIT    (0x00000034 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_AV1_MASK)
 
-#define HB_VCODEC_FFMPEG_SVT_AV1_8BIT       (0x00000041 | HB_VCODEC_SVT_AV1_MASK)
-#define HB_VCODEC_FFMPEG_SVT_AV1            HB_VCODEC_FFMPEG_SVT_AV1_8BIT
-#define HB_VCODEC_FFMPEG_SVT_AV1_10BIT      (0x00000042 | HB_VCODEC_SVT_AV1_MASK)
+#define HB_VCODEC_SVT_AV1_8BIT       (0x00000041 | HB_VCODEC_SVT_AV1_MASK | HB_VCODEC_AV1_MASK)
+#define HB_VCODEC_SVT_AV1            HB_VCODEC_SVT_AV1_8BIT
+#define HB_VCODEC_SVT_AV1_10BIT      (0x00000042 | HB_VCODEC_SVT_AV1_MASK | HB_VCODEC_AV1_MASK)
 
 #define HB_VCODEC_VT_H264           (0x00000050 | HB_VCODEC_VT_MASK | HB_VCODEC_H264_MASK)
 #define HB_VCODEC_VT_H265           (0x00000051 | HB_VCODEC_VT_MASK | HB_VCODEC_H265_MASK)
@@ -628,8 +654,8 @@ struct hb_job_s
     hb_rational_t   orig_vrate;
     int             cfr;
     PRIVATE int     pass_id;
-    int             twopass;        // Enable 2-pass encode. Boolean
-    int             fastfirstpass;
+    int             multipass;        // Enable multi-pass encode. Boolean
+    int             fastanalysispass;
     char           *encoder_preset;
     char           *encoder_tune;
     char           *encoder_options;
@@ -702,6 +728,11 @@ struct hb_job_s
 
     hb_mastering_display_metadata_t mastering;
     hb_content_light_metadata_t coll;
+    hb_ambient_viewing_environment_metadata_t ambient;
+    hb_dovi_conf_t dovi;
+
+    enum {NONE = 0x0, ALL = 0x3, DOVI = 0x1, HDR_10_PLUS = 0x2} passthru_dynamic_hdr_metadata;
+
 
     hb_list_t     * list_chapter;
 
@@ -1165,8 +1196,13 @@ struct hb_title_s
     int             color_matrix;
     int             color_range;
     int             chroma_location;
+
     hb_mastering_display_metadata_t mastering;
     hb_content_light_metadata_t     coll;
+    hb_ambient_viewing_environment_metadata_t ambient;
+    hb_dovi_conf_t  dovi;
+    int             hdr_10_plus;
+
     hb_rational_t   vrate;
     int             crop[4];
     int             loose_crop[4];
@@ -1235,8 +1271,8 @@ struct hb_state_s
             /* HB_STATE_WORKING || HB_STATE_SEARCHING || HB_STATE_WORKDONE */
 #define HB_PASS_SUBTITLE    -1
 #define HB_PASS_ENCODE      0
-#define HB_PASS_ENCODE_1ST  1   // Some code depends on these values being
-#define HB_PASS_ENCODE_2ND  2   // 1 and 2.  Do not change.
+#define HB_PASS_ENCODE_ANALYSIS  1   // Some code depends on these values being
+#define HB_PASS_ENCODE_FINAL     2   // 1 and 2.  Do not change.
             int           pass_id;
             int           pass;
             int           pass_count;
@@ -1358,6 +1394,7 @@ extern hb_work_object_t hb_encvt;
 extern hb_work_object_t hb_encx264;
 extern hb_work_object_t hb_enctheora;
 extern hb_work_object_t hb_encx265;
+extern hb_work_object_t hb_encsvtav1;
 extern hb_work_object_t hb_decavcodeca;
 extern hb_work_object_t hb_decavcodecv;
 extern hb_work_object_t hb_declpcm;
@@ -1449,9 +1486,7 @@ struct hb_filter_object_s
 enum
 {
     HB_FILTER_INVALID = 0,
-    // for QSV - important to have before other filters
     HB_FILTER_FIRST = 1,
-    HB_FILTER_QSV_PRE = 1,
 
     // First, filters that may change the framerate (drop or dup frames)
     HB_FILTER_DETELECINE,
@@ -1475,16 +1510,13 @@ enum
     HB_FILTER_PAD,
     HB_FILTER_COLORSPACE,
     HB_FILTER_FORMAT,
+    HB_FILTER_RPU,
 
     // Finally filters that don't care what order they are in,
     // except that they must be after the above filters
     HB_FILTER_AVFILTER,
 
-    // for QSV - important to have as a last one
-    HB_FILTER_QSV_POST,
-    // default MSDK VPP filter
-    HB_FILTER_QSV,
-    HB_FILTER_LAST = HB_FILTER_QSV,
+    HB_FILTER_LAST,
     // wrapper filter for frame based multi-threading of simple filters
     HB_FILTER_MT_FRAME
 };
@@ -1508,6 +1540,9 @@ char               * hb_filter_settings_string_json(int filter_id,
 typedef void hb_error_handler_t( const char *errmsg );
 
 extern void hb_register_error_handler( hb_error_handler_t * handler );
+
+void hb_str_to_locale(char *buffer);
+void hb_str_from_locale(char *buffer);
 
 char * hb_strdup_vaprintf( const char * fmt, va_list args );
 char * hb_strdup_printf(const char *fmt, ...) HB_WPRINTF(1, 2);

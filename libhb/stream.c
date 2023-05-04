@@ -3334,7 +3334,7 @@ static int hb_parse_ps(
 static int hb_ps_read_packet( hb_stream_t * stream, hb_buffer_t *b )
 {
     // Appends to buffer if size != 0
-    int start_code = -1;
+    unsigned int start_code = -1;
     int pos = b->size;
     int stream_id = -1;
     int c;
@@ -5885,6 +5885,12 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
                         AVContentLightMetadata *coll = (AVContentLightMetadata *)sd.data;
                         title->coll.max_cll = coll->MaxCLL;
                         title->coll.max_fall = coll->MaxFALL;
+                        break;
+                    }
+                    case AV_PKT_DATA_DOVI_CONF:
+                    {
+                        AVDOVIDecoderConfigurationRecord *dovi = (AVDOVIDecoderConfigurationRecord *)sd.data;
+                        title->dovi = hb_dovi_ff_to_hb(*dovi);
                         break;
                     }
                     default:

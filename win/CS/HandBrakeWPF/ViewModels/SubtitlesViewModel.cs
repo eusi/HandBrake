@@ -24,9 +24,8 @@ namespace HandBrakeWPF.ViewModels
     using HandBrakeWPF.Services.Interfaces;
     using HandBrakeWPF.Services.Presets.Model;
     using HandBrakeWPF.Services.Scan.Model;
+    using HandBrakeWPF.Utilities.FileDialogs;
     using HandBrakeWPF.ViewModels.Interfaces;
-
-    using Microsoft.Win32;
 
     using EncodeTask = Services.Encode.Model.EncodeTask;
     using OutputFormat = Services.Encode.Model.Models.OutputFormat;
@@ -780,13 +779,15 @@ namespace HandBrakeWPF.ViewModels
                     continue;
                 }
 
+                string extension = Path.GetExtension(srtFile);
+
                 SubtitleTrack track = new SubtitleTrack
                                           {
                                               SrtFileName = Path.GetFileNameWithoutExtension(srtFile),
                                               SrtOffset = 0,
                                               SrtCharCode = "UTF-8",
                                               SrtLang = "English",
-                                              SubtitleType = SubtitleType.IMPORTSRT,
+                                              SubtitleType = extension.Contains("ass", StringComparison.InvariantCultureIgnoreCase) ? SubtitleType.IMPORTSSA : SubtitleType.IMPORTSRT,
                                               SrtPath = srtFile
                                           };
                 this.Task.SubtitleTracks.Add(track);

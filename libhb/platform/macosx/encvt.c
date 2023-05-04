@@ -13,6 +13,7 @@
 #include "libavutil/avutil.h"
 
 #include "handbrake/handbrake.h"
+#include "handbrake/hdr10plus.h"
 
 int  encvt_init(hb_work_object_t *, hb_job_t *);
 int  encvt_work(hb_work_object_t *, hb_buffer_t **, hb_buffer_t **);
@@ -76,6 +77,7 @@ struct hb_work_private_s
         CFBooleanRef allowFrameReordering;
         CFBooleanRef allowTemporalCompression;
         CFBooleanRef prioritizeEncodingSpeedOverQuality;
+        CFBooleanRef preserveDynamicHDRMetadata;
         struct
         {
             int maxrate;
@@ -90,6 +92,7 @@ struct hb_work_private_s
             int chromaLocation;
             CFDataRef masteringDisplay;
             CFDataRef contentLightLevel;
+            CFDataRef ambientViewingEnviroment;
         }
         color;
         SInt32 width;
@@ -126,6 +129,7 @@ void hb_vt_param_default(struct hb_vt_param *param)
     param->allowFrameReordering     = kCFBooleanTrue;
     param->allowTemporalCompression = kCFBooleanTrue;
     param->prioritizeEncodingSpeedOverQuality = kCFBooleanFalse;
+    param->preserveDynamicHDRMetadata         = kCFBooleanFalse;
     param->fieldDetail              = HB_VT_FIELDORDER_PROGRESSIVE;
 }
 
@@ -339,6 +343,44 @@ static void hb_vt_add_color_tag(CVPixelBufferRef pxbuffer, hb_job_t *job)
     }
 }
 
+static void hb_vt_add_dynamic_hdr_metadata(CVPixelBufferRef pxbuffer, hb_job_t *job, hb_buffer_t *buf)
+{
+    for (int i = 0; i < buf->nb_side_data; i++)
+    {
+        const AVFrameSideData *side_data = buf->side_data[i];
+        if (job->passthru_dynamic_hdr_metadata & HDR_10_PLUS &&
+            side_data->type == AV_FRAME_DATA_DYNAMIC_HDR_PLUS)
+        {
+#ifdef MAC_OS_VERSION_13_0
+            if (__builtin_available(macOS 13, *))
+            {
+                uint8_t *payload = NULL;
+                uint32_t playload_size = 0;
+
+                hb_dynamic_hdr10_plus_to_itu_t_t35((AVDynamicHDRPlus *)side_data->data, &payload, &playload_size);
+                if (!playload_size)
+                {
+                    continue;
+                }
+
+                CFDataRef data = CFDataCreate(kCFAllocatorDefault, payload, playload_size);
+                if (data)
+                {
+                    CVBufferSetAttachment(pxbuffer, kCMSampleAttachmentKey_HDR10PlusPerFrameData, data, kCVAttachmentMode_ShouldPropagate);
+                    CFRelease(data);
+                }
+            }
+#endif
+        }
+        if (job->passthru_dynamic_hdr_metadata & DOVI &&
+            side_data->type == AV_FRAME_DATA_DOVI_RPU_BUFFER)
+        {
+           // Not supported yet
+        }
+    }
+
+}
+
 static inline int64_t rescale(hb_rational_t q, int b)
 {
     return av_rescale(q.num, b, q.den);
@@ -389,6 +431,21 @@ static CFDataRef hb_vt_content_light_level_xlat(hb_content_light_metadata_t coll
 
     CFDataAppendBytes(data, (UInt8 *)&MaxCLL, 2);
     CFDataAppendBytes(data, (UInt8 *)&MaxFALL, 2);
+
+    return data;
+}
+
+static CFDataRef hb_vt_ambient_viewing_enviroment_xlat(hb_ambient_viewing_environment_metadata_t ambient)
+{
+    CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 8);
+
+    uint32_t ambient_illuminance = CFSwapInt32HostToBig(rescale(ambient.ambient_illuminance, 10000));
+    uint16_t ambient_light_x =  CFSwapInt16HostToBig(rescale(ambient.ambient_light_x, 50000));
+    uint16_t ambient_light_y =  CFSwapInt16HostToBig(rescale(ambient.ambient_light_y, 50000));
+
+    CFDataAppendBytes(data, (UInt8 *)&ambient_illuminance, 4);
+    CFDataAppendBytes(data, (UInt8 *)&ambient_light_x, 2);
+    CFDataAppendBytes(data, (UInt8 *)&ambient_light_y, 2);
 
     return data;
 }
@@ -619,6 +676,16 @@ static int hb_vt_settings_xlat(hb_work_private_t *pv, hb_job_t *job)
         }
     }
 
+    if (job->ambient.ambient_illuminance.num && job->ambient.ambient_illuminance.den)
+    {
+        pv->settings.color.ambientViewingEnviroment = hb_vt_ambient_viewing_enviroment_xlat(job->ambient);
+    }
+
+    if (job->passthru_dynamic_hdr_metadata & HDR_10_PLUS)
+    {
+        pv->settings.preserveDynamicHDRMetadata = kCFBooleanTrue;
+    }
+
     return 0;
 }
 
@@ -763,6 +830,7 @@ static OSStatus wrap_buf(hb_work_private_t *pv, hb_buffer_t *buf, CVPixelBufferR
                                              pix_buf);
 
     hb_vt_add_color_tag(*pix_buf, pv->job);
+    hb_vt_add_dynamic_hdr_metadata(*pix_buf, pv->job, buf);
 
     return err;
 }
@@ -1016,9 +1084,15 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
     {
         hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_TransferFunction failed");
     }
+    CFNumberRef gamma = hb_vt_colr_gamma_xlat(pv->settings.color.transfer);
     err = VTSessionSetProperty(pv->session,
                                CFSTR("GammaLevel"),
-                               hb_vt_colr_gamma_xlat(pv->settings.color.transfer));
+                               gamma);
+    if (gamma)
+    {
+        CFRelease(gamma);
+    }
+
     if (err != noErr)
     {
         hb_log("VTSessionSetProperty: GammaLevel failed");
@@ -1069,6 +1143,18 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
         }
     }
 
+    if (CFDictionaryContainsKey(supportedProps, CFSTR("AmbientViewingEnvironment")) &&
+        pv->settings.color.ambientViewingEnviroment != NULL)
+    {
+        err = VTSessionSetProperty(pv->session,
+                                   CFSTR("AmbientViewingEnvironment"),
+                                   pv->settings.color.ambientViewingEnviroment);
+        if (err != noErr)
+        {
+            hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_AmbientViewingEnvironment failed");
+        }
+    }
+
     if (__builtin_available(macOS 11.0, *))
     {
         if (CFDictionaryContainsKey(supportedProps, kVTCompressionPropertyKey_HDRMetadataInsertionMode) &&
@@ -1080,6 +1166,20 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
             if (err != noErr)
             {
                 hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_HDRMetadataInsertionMode failed");
+            }
+        }
+    }
+
+    if (__builtin_available(macOS 13.0, *))
+    {
+        if (CFDictionaryContainsKey(supportedProps, kVTCompressionPropertyKey_PreserveDynamicHDRMetadata))
+        {
+            err = VTSessionSetProperty(pv->session,
+                                       kVTCompressionPropertyKey_PreserveDynamicHDRMetadata,
+                                       pv->settings.preserveDynamicHDRMetadata);
+            if (err != noErr)
+            {
+                hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_PreserveDynamicHDRMetadata failed");
             }
         }
     }
@@ -1190,7 +1290,7 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
     }
 
     // Multi-pass
-    if (job->pass_id == HB_PASS_ENCODE_1ST && cookieOnly == 0)
+    if (job->pass_id == HB_PASS_ENCODE_ANALYSIS && cookieOnly == 0)
     {
         const char *filename = hb_get_temporary_filename("videotoolbox.log");
 
@@ -1333,6 +1433,7 @@ static OSStatus create_cookie(hb_work_object_t *w, hb_job_t *job, hb_work_privat
     if (pool == NULL)
     {
         hb_log("VTCompressionSession: VTCompressionSessionGetPixelBufferPool error");
+        return -1;
     }
 
     err = CVPixelBufferPoolCreatePixelBuffer(NULL, pool, &pix_buf);
@@ -1408,7 +1509,7 @@ static OSStatus reuse_vtsession(hb_work_object_t *w, hb_job_t * job, hb_work_pri
     OSStatus err = noErr;
 
     hb_interjob_t *interjob = hb_interjob_get(job->h);
-    vt_interjob_t *context = interjob->vt_context;
+    vt_interjob_t *context = interjob->context;
 
     if (job->vcodec == HB_VCODEC_VT_H264)
     {
@@ -1467,7 +1568,7 @@ static OSStatus reuse_vtsession(hb_work_object_t *w, hb_job_t * job, hb_work_pri
         CFRelease(allowFrameReordering);
     }
 
-    interjob->vt_context = NULL;
+    interjob->context = NULL;
     free(context);
 
     return err;
@@ -1496,9 +1597,9 @@ int encvt_init(hb_work_object_t *w, hb_job_t *job)
         return -1;
     }
 
-    pv->remainingPasses = job->pass_id == HB_PASS_ENCODE_1ST ? 1 : 0;
+    pv->remainingPasses = job->pass_id == HB_PASS_ENCODE_ANALYSIS ? 1 : 0;
 
-    if (job->pass_id != HB_PASS_ENCODE_2ND)
+    if (job->pass_id != HB_PASS_ENCODE_FINAL)
     {
         err = create_cookie(w, job, pv);
         if (err != noErr)
@@ -1571,6 +1672,10 @@ void encvt_close(hb_work_object_t * w)
     if (pv->settings.color.contentLightLevel)
     {
         CFRelease(pv->settings.color.contentLightLevel);
+    }
+    if (pv->settings.color.ambientViewingEnviroment)
+    {
+        CFRelease(pv->settings.color.ambientViewingEnviroment);
     }
 
     free(pv);
@@ -1783,7 +1888,7 @@ int encvt_work(hb_work_object_t *w, hb_buffer_t **buf_in, hb_buffer_t **buf_out)
 
         hb_job_t *job = pv->job;
 
-        if (job->pass_id == HB_PASS_ENCODE_1ST)
+        if (job->pass_id == HB_PASS_ENCODE_ANALYSIS)
         {
             OSStatus err = noErr;
             Boolean furtherPassesRequestedOut;
@@ -1804,9 +1909,9 @@ int encvt_work(hb_work_object_t *w, hb_buffer_t **buf_in, hb_buffer_t **buf_out)
             context->format = pv->format;
 
             hb_interjob_t *interjob = hb_interjob_get(job->h);
-            interjob->vt_context = context;
+            interjob->context = context;
         }
-        else if (job->pass_id == HB_PASS_ENCODE_2ND)
+        else if (job->pass_id == HB_PASS_ENCODE_FINAL)
         {
             VTCompressionSessionEndPass(pv->session,
                                         NULL,

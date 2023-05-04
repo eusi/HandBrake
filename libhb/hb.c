@@ -117,6 +117,11 @@ int hb_picture_fill(uint8_t *data[], int stride[], hb_buffer_t *buf)
 {
     int ret, ii;
 
+    if (buf->f.max_plane < 0)
+    {
+        return -1;
+    }
+
     for (ii = 0; ii <= buf->f.max_plane; ii++)
         stride[ii] = buf->plane[ii].stride;
     for (; ii < 4; ii++)
@@ -929,7 +934,6 @@ hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
 
             case HB_FILTER_VFR:
             case HB_FILTER_RENDER_SUB:
-            case HB_FILTER_QSV:
             case HB_FILTER_NLMEANS:
             case HB_FILTER_CHROMA_SMOOTH:
             case HB_FILTER_LAPSHARP:
@@ -1131,7 +1135,7 @@ fail:
  */
 int hb_detect_comb( hb_buffer_t * buf, int color_equal, int color_diff, int threshold, int prog_equal, int prog_diff, int prog_threshold )
 {
-    int j, k, n, off, cc_1, cc_2, cc[3];
+    int j, k, n, off, cc_1, cc_2, cc[3] = {0};
 	// int flag[3] ; // debugging flag
     uint16_t s1, s2, s3, s4;
     cc_1 = 0; cc_2 = 0;
@@ -1189,7 +1193,7 @@ int hb_detect_comb( hb_buffer_t * buf, int color_equal, int color_diff, int thre
     }
 
 
-    /* HandBrake is all yuv420, so weight the average percentage of all 3 planes accordingly.*/
+    /* HandBrake previews are all yuv420, so weight the average percentage of all 3 planes accordingly. */
     int average_cc = ( 2 * cc[0] + ( cc[1] / 2 ) + ( cc[2] / 2 ) ) / 3;
 
     /* Now see if that average percentage of combed pixels surpasses the threshold percentage given by the user.*/
@@ -1976,7 +1980,7 @@ void hb_job_setup_passes(hb_handle_t * h, hb_job_t * job, hb_list_t * list_pass)
 {
     if (job->vquality > HB_INVALID_VIDEO_QUALITY)
     {
-        job->twopass = 0;
+        job->multipass = 0;
     }
     if (job->indepth_scan)
     {
@@ -1985,12 +1989,16 @@ void hb_job_setup_passes(hb_handle_t * h, hb_job_t * job, hb_list_t * list_pass)
         hb_add_internal(h, job, list_pass);
         job->indepth_scan = 0;
     }
-    if (job->twopass)
+    if (job->multipass)
     {
-        hb_deep_log(2, "Adding two-pass encode");
-        job->pass_id = HB_PASS_ENCODE_1ST;
-        hb_add_internal(h, job, list_pass);
-        job->pass_id = HB_PASS_ENCODE_2ND;
+        hb_deep_log(2, "Adding multi-pass encode");
+        int analysis_pass_count = hb_video_encoder_get_count_of_analysis_passes(job->vcodec);
+        for (int i = 0; i < analysis_pass_count; i++)
+        {
+            job->pass_id = HB_PASS_ENCODE_ANALYSIS;
+            hb_add_internal(h, job, list_pass);
+        }
+        job->pass_id = HB_PASS_ENCODE_FINAL;
         hb_add_internal(h, job, list_pass);
     }
     else
@@ -2223,6 +2231,7 @@ int hb_global_init()
 #if HB_PROJECT_FEATURE_X265
     hb_register(&hb_encx265);
 #endif
+    hb_register(&hb_encsvtav1);
 #if HB_PROJECT_FEATURE_QSV
     if (!disable_hardware)
     {
