@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:Properties="clr-namespace:HandBrakeWPF.Properties"
              xmlns:dd="urn:gong-wpf-dragdrop"
+             xmlns:behaviours="clr-namespace:HandBrakeWPF.Behaviours"
              d:DesignHeight="170"
              d:DesignWidth="616"
              mc:Ignorable="d" >
@@ -49,6 +50,7 @@
 
             <ListView.View>
                 <GridView AllowsColumnReorder="False">
+                    <GridViewColumn Header="" Width="10" />
                     <GridViewColumn Header="{x:Static Properties:Resources.ChaptersView_ChapterNumber}" Width="75" />
                     <GridViewColumn Header="{x:Static Properties:Resources.ChaptersView_Duration}" Width="83" />
                     <GridViewColumn Header="{x:Static Properties:Resources.ChaptersView_ChapterName}" Width="Auto" />
@@ -79,14 +81,15 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="10" />
                             <ColumnDefinition Width="72" />
                             <ColumnDefinition Width="80" />
                             <ColumnDefinition Width="166" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0" Text="{Binding ChapterNumber}" HorizontalAlignment="Left" />
-                        <TextBlock Grid.Column="1" Text="{Binding Duration}" />
-                        <TextBox Grid.Column="2" Text="{Binding ChapterName}" />
+                        <TextBlock Grid.Column="1" Text="{Binding ChapterNumber}" HorizontalAlignment="Left" Margin="15,0,0,0" />
+                        <TextBlock Grid.Column="2" Text="{Binding Duration}" />
+                        <TextBox Grid.Column="3" Text="{Binding ChapterName}" behaviours:TextBoxBehavior.TripleClickSelectAll="True" />
 
                     </Grid>
 

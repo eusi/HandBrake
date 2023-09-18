@@ -1842,7 +1842,7 @@ int hb_preset_apply_video(const hb_dict_t *preset, hb_dict_t *job_dict)
     }
 
     vqtype = hb_value_get_int(hb_dict_get(preset, "VideoQualityType"));
-    if (vqtype == 2)        // Constant quality
+    if (vqtype == 2 && hb_video_quality_is_supported(vcodec))   // Constant quality
     {
         hb_dict_set(video_dict, "Quality",
                     hb_value_xform(hb_dict_get(preset, "VideoQualitySlider"),
@@ -1854,18 +1854,21 @@ int hb_preset_apply_video(const hb_dict_t *preset, hb_dict_t *job_dict)
         hb_dict_set(video_dict, "Bitrate",
                     hb_value_xform(hb_dict_get(preset, "VideoAvgBitrate"),
                                    HB_VALUE_TYPE_INT));
-        hb_dict_set(video_dict, "MultiPass",
-                    hb_value_xform(hb_dict_get(preset, "VideoMultiPass"),
-                                   HB_VALUE_TYPE_BOOL));
-        hb_dict_set(video_dict, "Turbo",
-                    hb_value_xform(hb_dict_get(preset, "VideoTurboMultiPass"),
-                                   HB_VALUE_TYPE_BOOL));
+        if (hb_video_multipass_is_supported(vcodec))
+        {
+            hb_dict_set(video_dict, "MultiPass",
+                        hb_value_xform(hb_dict_get(preset, "VideoMultiPass"),
+                                       HB_VALUE_TYPE_BOOL));
+            hb_dict_set(video_dict, "Turbo",
+                        hb_value_xform(hb_dict_get(preset, "VideoTurboMultiPass"),
+                                       HB_VALUE_TYPE_BOOL));
+        }
         hb_dict_remove(video_dict, "Quality");
     }
     else
     {
         value = hb_dict_get(preset, "VideoQualitySlider");
-        if (value != NULL && hb_value_get_double(value) >= 0)
+        if (value != NULL && hb_value_get_double(value) >= 0 && hb_video_quality_is_supported(vcodec))
         {
             hb_dict_set(video_dict, "Quality",
                         hb_value_xform(value, HB_VALUE_TYPE_DOUBLE));
@@ -1876,12 +1879,15 @@ int hb_preset_apply_video(const hb_dict_t *preset, hb_dict_t *job_dict)
             hb_dict_set(video_dict, "Bitrate",
                         hb_value_xform(hb_dict_get(preset, "VideoAvgBitrate"),
                                        HB_VALUE_TYPE_INT));
-            hb_dict_set(video_dict, "MultiPass",
-                        hb_value_xform(hb_dict_get(preset, "VideoMultiPass"),
-                                       HB_VALUE_TYPE_BOOL));
-            hb_dict_set(video_dict, "Turbo",
-                        hb_value_xform(hb_dict_get(preset, "VideoTurboMultiPass"),
-                                       HB_VALUE_TYPE_BOOL));
+            if (hb_video_multipass_is_supported(vcodec))
+            {
+                hb_dict_set(video_dict, "MultiPass",
+                            hb_value_xform(hb_dict_get(preset, "VideoMultiPass"),
+                                           HB_VALUE_TYPE_BOOL));
+                hb_dict_set(video_dict, "Turbo",
+                            hb_value_xform(hb_dict_get(preset, "VideoTurboMultiPass"),
+                                           HB_VALUE_TYPE_BOOL));
+            }
             hb_dict_remove(video_dict, "Quality");
         }
     }
@@ -1949,16 +1955,16 @@ int hb_preset_apply_mux(const hb_dict_t *preset, hb_dict_t *job_dict)
     hb_dict_set(dest_dict, "InlineParameterSets",
                 hb_value_xform(hb_dict_get(preset, "InlineParameterSets"),
                                HB_VALUE_TYPE_BOOL));
-    if (mux & HB_MUX_MASK_MP4)
+    if (mux)
     {
-        hb_dict_t *mp4_dict = hb_dict_init();
-        hb_dict_set(mp4_dict, "Mp4Optimize",
-                    hb_value_xform(hb_dict_get(preset, "Mp4HttpOptimize"),
+        hb_dict_t *options_dict = hb_dict_init();
+        hb_dict_set(options_dict, "Optimize",
+                    hb_value_xform(hb_dict_get(preset, "Optimize"),
                                    HB_VALUE_TYPE_BOOL));
-        hb_dict_set(mp4_dict, "IpodAtom",
+        hb_dict_set(options_dict, "IpodAtom",
                     hb_value_xform(hb_dict_get(preset, "Mp4iPodCompatible"),
                                    HB_VALUE_TYPE_BOOL));
-        hb_dict_set(dest_dict, "Mp4Options", mp4_dict);
+        hb_dict_set(dest_dict, "Options", options_dict);
     }
 
     return 0;
@@ -2789,6 +2795,12 @@ static void und_to_any(hb_value_array_t * list)
     }
 }
 
+static void import_container_settings_51_0_0(hb_value_t *preset)
+{
+    int optimize = hb_dict_get_bool(preset, "Mp4HttpOptimize");
+    hb_dict_set_bool(preset, "Optimize", optimize);
+}
+
 static void import_video_pass_settings_50_0_0(hb_value_t *preset)
 {
     int two_pass = hb_dict_get_bool(preset, "VideoTwoPass");
@@ -3493,6 +3505,11 @@ static void import_video_0_0_0(hb_value_t *preset)
     }
 }
 
+static void import_51_0_0(hb_value_t *preset)
+{
+    import_container_settings_51_0_0(preset);
+}
+
 static void import_50_0_0(hb_value_t *preset)
 {
     import_video_pass_settings_50_0_0(preset);
@@ -3659,6 +3676,11 @@ static int preset_import(hb_value_t *preset, int major, int minor, int micro)
         else if (cmpVersion(major, minor, micro, 50, 0, 0) <= 0)
         {
             import_50_0_0(preset);
+            result = 1;
+        }
+        else if (cmpVersion(major, minor, micro, 51, 0, 0) <= 0)
+        {
+            import_51_0_0(preset);
             result = 1;
         }
 

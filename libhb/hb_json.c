@@ -594,8 +594,8 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     // Destination {Mux, InlineParameterSets, AlignAVStart,
     //              ChapterMarkers, ChapterList}
     "s:{s:o, s:o, s:o, s:o, s:[]},"
-    // Source {Path, Title, Angle}
-    "s:{s:o, s:o, s:o,},"
+    // Source {Path, Title, Angle, HWDecode}
+    "s:{s:o, s:o, s:o, s:o},"
     // PAR {Num, Den}
     "s:{s:o, s:o},"
     // Video {Encoder, HardwareDecode, QSV {Decode, AsyncDepth, AdapterIndex}}
@@ -620,6 +620,7 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
             "Path",             hb_value_string(job->title->path),
             "Title",            hb_value_int(job->title->index),
             "Angle",            hb_value_int(job->angle),
+            "HWDecode",         hb_value_int(job->hw_decode),
         "PAR",
             "Num",              hb_value_int(job->par.num),
             "Den",              hb_value_int(job->par.den),
@@ -655,13 +656,13 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     {
         hb_dict_set(dest_dict, "File", hb_value_string(job->file));
     }
-    if (job->mux & HB_MUX_MASK_MP4)
+    if (job->mux)
     {
-        hb_dict_t *mp4_dict;
-        mp4_dict = json_pack_ex(&error, 0, "{s:o, s:o}",
-            "Mp4Optimize",      hb_value_bool(job->mp4_optimize),
+        hb_dict_t *options_dict;
+        options_dict = json_pack_ex(&error, 0, "{s:o, s:o}",
+            "Optimize",         hb_value_bool(job->optimize),
             "IpodAtom",         hb_value_bool(job->ipod_atom));
-        hb_dict_set(dest_dict, "Mp4Options", mp4_dict);
+        hb_dict_set(dest_dict, "Options", options_dict);
     }
     hb_dict_t *source_dict = hb_dict_get(dict, "Source");
     hb_dict_t *range_dict;
@@ -726,17 +727,17 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
                 hb_value_int(job->color_matrix));
     hb_dict_set(video_dict, "ChromaLocation",
                 hb_value_int(job->chroma_location));
-    if (job->color_prim_override != HB_COLR_PRI_UNDEF)
+    if (job->color_prim_override != HB_COLR_PRI_UNSET)
     {
         hb_dict_set(video_dict, "ColorPrimariesOverride",
                     hb_value_int(job->color_prim_override));
     }
-    if (job->color_transfer_override != HB_COLR_TRA_UNDEF)
+    if (job->color_transfer_override != HB_COLR_TRA_UNSET)
     {
         hb_dict_set(video_dict, "ColorTransferOverride",
                     hb_value_int(job->color_transfer_override));
     }
-    if (job->color_matrix_override != HB_COLR_MAT_UNDEF)
+    if (job->color_matrix_override != HB_COLR_MAT_UNSET)
     {
         hb_dict_set(video_dict, "ColorMatrixOverride",
                     hb_value_int(job->color_matrix_override));
@@ -1013,13 +1014,14 @@ void hb_json_job_scan( hb_handle_t * h, const char * json_job )
 
     dict = hb_value_json(json_job);
 
-    int title_index;
+    int title_index, hw_decode;
     const char *path = NULL;
 
-    result = json_unpack_ex(dict, &error, 0, "{s:{s:s, s:i}}",
+    result = json_unpack_ex(dict, &error, 0, "{s:{s:s, s:i, s?i}}",
                             "Source",
                                 "Path",     unpack_s(&path),
-                                "Title",    unpack_i(&title_index)
+                                "Title",    unpack_i(&title_index),
+                                "HWDecode", unpack_i(&hw_decode)
                            );
     if (result < 0)
     {
@@ -1029,8 +1031,8 @@ void hb_json_job_scan( hb_handle_t * h, const char * json_job )
     }
 
     // If the job wants to use Hardware decode, it must also be
-    // enabled during scan.  So enable it here.
-    hb_scan(h, path, title_index, -1, 0, 0);
+    // enabled during scan.  So enable it here.                      
+    hb_scan(h, path, title_index, -1, 0, 0, 0, 0, NULL, hw_decode);
 
     // Wait for scan to complete
     hb_state_t state;
@@ -1120,7 +1122,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     "s:i,"
     // Destination {File, Mux, InlineParameterSets, AlignAVStart,
     //              ChapterMarkers, ChapterList,
-    //              Mp4Options {Mp4Optimize, IpodAtom}}
+    //              Options {Optimize, IpodAtom}}
     "s:{s?s, s:o, s?b, s?b, s:b, s?o s?{s?b, s?b}},"
     // Source {Angle, Range {Type, Start, End, SeekPoints}}
     "s:{s?i, s?{s:s, s?I, s?I, s?I}},"
@@ -1163,8 +1165,8 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             "AlignAVStart",         unpack_b(&job->align_av_start),
             "ChapterMarkers",       unpack_b(&job->chapter_markers),
             "ChapterList",          unpack_o(&chapter_list),
-            "Mp4Options",
-                "Mp4Optimize",      unpack_b(&job->mp4_optimize),
+            "Options",
+                "Optimize",         unpack_b(&job->optimize),
                 "IpodAtom",         unpack_b(&job->ipod_atom),
         "Source",
             "Angle",                unpack_i(&job->angle),

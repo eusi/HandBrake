@@ -14,6 +14,8 @@
 
 #include "handbrake/handbrake.h"
 #include "handbrake/hdr10plus.h"
+#include "handbrake/hbffmpeg.h"
+#include "vt_common.h"
 
 int  encvt_init(hb_work_object_t *, hb_job_t *);
 int  encvt_work(hb_work_object_t *, hb_buffer_t **, hb_buffer_t **);
@@ -450,71 +452,13 @@ static CFDataRef hb_vt_ambient_viewing_enviroment_xlat(hb_ambient_viewing_enviro
     return data;
 }
 
-static OSType hb_vt_get_cv_pixel_format(hb_job_t* job)
-{
-    if (job->output_pix_fmt == AV_PIX_FMT_NV12)
-    {
-        return job->color_range == AVCOL_RANGE_JPEG ?
-                                        kCVPixelFormatType_420YpCbCr8BiPlanarFullRange :
-                                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange;
-    }
-    else if (job->output_pix_fmt == AV_PIX_FMT_YUV420P)
-    {
-        return job->color_range == AVCOL_RANGE_JPEG ?
-                                        kCVPixelFormatType_420YpCbCr8PlanarFullRange :
-                                        kCVPixelFormatType_420YpCbCr8Planar;
-    }
-    else if (job->output_pix_fmt == AV_PIX_FMT_BGRA)
-    {
-        return kCVPixelFormatType_32BGRA;
-    }
-    else if (job->output_pix_fmt == AV_PIX_FMT_P010LE)
-    {
-        return job->color_range == AVCOL_RANGE_JPEG ?
-                                        kCVPixelFormatType_420YpCbCr10BiPlanarFullRange :
-                                        kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange;
-    }
-    else if (job->output_pix_fmt == AV_PIX_FMT_NV16)
-    {
-        return job->color_range == AVCOL_RANGE_JPEG ?
-                                        kCVPixelFormatType_422YpCbCr8BiPlanarFullRange :
-                                        kCVPixelFormatType_422YpCbCr8BiPlanarVideoRange;
-    }
-    else if (job->output_pix_fmt == AV_PIX_FMT_P210)
-    {
-        return job->color_range == AVCOL_RANGE_JPEG ?
-                                        kCVPixelFormatType_422YpCbCr10BiPlanarFullRange :
-                                        kCVPixelFormatType_422YpCbCr10BiPlanarVideoRange;
-    }
-    else if (job->output_pix_fmt == AV_PIX_FMT_NV24)
-    {
-        return job->color_range == AVCOL_RANGE_JPEG ?
-                                        kCVPixelFormatType_444YpCbCr8BiPlanarFullRange :
-                                        kCVPixelFormatType_444YpCbCr8BiPlanarVideoRange;
-    }
-    else if (job->output_pix_fmt == AV_PIX_FMT_P410)
-    {
-        return job->color_range == AVCOL_RANGE_JPEG ?
-                                        kCVPixelFormatType_444YpCbCr10BiPlanarFullRange :
-                                        kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange;
-    }
-    else if (job->output_pix_fmt == AV_PIX_FMT_P416)
-    {
-        return kCVPixelFormatType_444YpCbCr16BiPlanarVideoRange;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
 static int hb_vt_settings_xlat(hb_work_private_t *pv, hb_job_t *job)
 {
     /* Set global default values. */
     hb_vt_param_default(&pv->settings);
 
     pv->settings.codec       = job->vcodec == HB_VCODEC_VT_H264 ? kCMVideoCodecType_H264 : kCMVideoCodecType_HEVC;
-    pv->settings.pixelFormat = hb_vt_get_cv_pixel_format(job);
+    pv->settings.pixelFormat = hb_vt_get_cv_pixel_format(job->output_pix_fmt, job->color_range);
     pv->settings.timescale = 90000;
 
     // set the preset
@@ -790,47 +734,60 @@ static int hb_vt_parse_options(hb_work_private_t *pv, hb_job_t *job)
     return 0;
 }
 
-void pixelBufferReleasePlanarBytesCallback(
-                                           void *releaseRefCon,
-                                           const void *dataPtr,
-                                           size_t dataSize,
-                                           size_t numberOfPlanes,
-                                           const void *planeAddresses[])
-{
-    hb_buffer_t *buf = (hb_buffer_t *)releaseRefCon;
-    hb_buffer_close(&buf);
-}
-
 static OSStatus wrap_buf(hb_work_private_t *pv, hb_buffer_t *buf, CVPixelBufferRef *pix_buf)
 {
-    OSStatus err;
-    int numberOfPlanes = pv->settings.pixelFormat == kCVPixelFormatType_420YpCbCr8Planar ||
-                         pv->settings.pixelFormat == kCVPixelFormatType_420YpCbCr8PlanarFullRange ? 3 : 2;
+    OSStatus err = 0;
 
-    void *planeBaseAddress[3] = {buf->plane[0].data, buf->plane[1].data, buf->plane[2].data};
-    size_t planeWidth[3] = {buf->plane[0].width, buf->plane[1].width, buf->plane[2].width};
-    size_t planeHeight[3] = {buf->plane[0].height, buf->plane[1].height, buf->plane[2].height};
-    size_t planeBytesPerRow[3] = {buf->plane[0].stride, buf->plane[1].stride, buf->plane[2].stride};
+    if (pv->job->hw_pix_fmt == AV_PIX_FMT_VIDEOTOOLBOX)
+    {
+        if (buf->storage_type == AVFRAME)
+        {
+            *pix_buf = (CVPixelBufferRef)((AVFrame *)buf->storage)->data[3];
+            CVPixelBufferRetain(*pix_buf);
+        }
+        else if (buf->storage_type == COREMEDIA)
+        {
+            *pix_buf = (CVPixelBufferRef)buf->storage;
+            CVPixelBufferRetain(*pix_buf);
+        }
+        else
+        {
+            err = 1;
+        }
+    }
+    else
+    {
+        int numberOfPlanes = pv->settings.pixelFormat == kCVPixelFormatType_420YpCbCr8Planar ||
+        pv->settings.pixelFormat == kCVPixelFormatType_420YpCbCr8PlanarFullRange ? 3 : 2;
 
-    err = CVPixelBufferCreateWithPlanarBytes(
-                                             kCFAllocatorDefault,
-                                             buf->f.width,
-                                             buf->f.height,
-                                             pv->settings.pixelFormat,
-                                             buf->data,
-                                             0,
-                                             numberOfPlanes,
-                                             planeBaseAddress,
-                                             planeWidth,
-                                             planeHeight,
-                                             planeBytesPerRow,
-                                             &pixelBufferReleasePlanarBytesCallback,
-                                             buf,
-                                             NULL,
-                                             pix_buf);
+        void *planeBaseAddress[3] = {buf->plane[0].data, buf->plane[1].data, buf->plane[2].data};
+        size_t planeWidth[3] = {buf->plane[0].width, buf->plane[1].width, buf->plane[2].width};
+        size_t planeHeight[3] = {buf->plane[0].height, buf->plane[1].height, buf->plane[2].height};
+        size_t planeBytesPerRow[3] = {buf->plane[0].stride, buf->plane[1].stride, buf->plane[2].stride};
 
-    hb_vt_add_color_tag(*pix_buf, pv->job);
-    hb_vt_add_dynamic_hdr_metadata(*pix_buf, pv->job, buf);
+        err = CVPixelBufferCreateWithPlanarBytes(
+                                                 kCFAllocatorDefault,
+                                                 buf->f.width,
+                                                 buf->f.height,
+                                                 pv->settings.pixelFormat,
+                                                 buf->data,
+                                                 0,
+                                                 numberOfPlanes,
+                                                 planeBaseAddress,
+                                                 planeWidth,
+                                                 planeHeight,
+                                                 planeBytesPerRow,
+                                                 NULL,
+                                                 buf,
+                                                 NULL,
+                                                 pix_buf);
+    }
+
+    if (*pix_buf)
+    {
+        hb_vt_add_color_tag(*pix_buf, pv->job);
+        hb_vt_add_dynamic_hdr_metadata(*pix_buf, pv->job, buf);
+    }
 
     return err;
 }
@@ -846,8 +803,8 @@ void hb_vt_compression_output_callback(
 
     if (sourceFrameRefCon)
     {
-        CVPixelBufferRef pixelbuffer = sourceFrameRefCon;
-        CVPixelBufferRelease(pixelbuffer);
+        hb_buffer_t *buf = (hb_buffer_t *)sourceFrameRefCon;
+        hb_buffer_close(&buf);
     }
 
     if (status != noErr)
@@ -1131,7 +1088,7 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
         }
     }
 
-    if (CFDictionaryContainsKey(supportedProps, kVTCompressionPropertyKey_MasteringDisplayColorVolume) &&
+    if (CFDictionaryContainsKey(supportedProps, kVTCompressionPropertyKey_ContentLightLevelInfo) &&
         pv->settings.color.contentLightLevel != NULL)
     {
         err = VTSessionSetProperty(pv->session,
@@ -1643,6 +1600,24 @@ void encvt_close(hb_work_object_t * w)
 
     hb_chapter_queue_close(&pv->chapter_queue);
 
+    // A cancelled encode doesn't send an EOF,
+    // do some additional cleanups here
+    if (*pv->job->die)
+    {
+        if (pv->session)
+        {
+            VTCompressionSessionCompleteFrames(pv->session, kCMTimeIndefinite);
+        }
+        if (pv->queue)
+        {
+            CMSampleBufferRef sampleBuffer;
+            while ((sampleBuffer = (CMSampleBufferRef)CMSimpleQueueDequeue(pv->queue)))
+            {
+                CFRelease(sampleBuffer);
+            }
+        }
+    }
+
     if (pv->remainingPasses == 0 || *pv->job->die)
     {
         if (pv->session)
@@ -1698,13 +1673,33 @@ static hb_buffer_t * extract_buf(CMSampleBufferRef sampleBuffer, hb_work_object_
     if (buffer)
     {
         size_t sampleSize = CMBlockBufferGetDataLength(buffer);
-        buf = hb_buffer_init(sampleSize);
+        Boolean isContiguous = CMBlockBufferIsRangeContiguous(buffer, 0, sampleSize);
 
-        err = CMBlockBufferCopyDataBytes(buffer, 0, sampleSize, buf->data);
-
-        if (err != kCMBlockBufferNoErr)
+        if (isContiguous)
         {
-            hb_log("VTCompressionSession: CMBlockBufferCopyDataBytes error");
+            size_t lengthAtOffsetOut, totalLengthOut;
+            char * _Nullable dataPointerOut;
+
+            buf = hb_buffer_wrapper_init();
+            err = CMBlockBufferGetDataPointer(buffer, 0, &lengthAtOffsetOut, &totalLengthOut, &dataPointerOut);
+            if (err != kCMBlockBufferNoErr)
+            {
+                hb_log("VTCompressionSession: CMBlockBufferGetDataPointer error");
+            }
+            buf->data = (uint8_t *)dataPointerOut;
+            buf->size = totalLengthOut;
+            buf->storage = sampleBuffer;
+            buf->storage_type = COREMEDIA;
+            CFRetain(sampleBuffer);
+        }
+        else
+        {
+            buf = hb_buffer_init(sampleSize);
+            err = CMBlockBufferCopyDataBytes(buffer, 0, sampleSize, buf->data);
+            if (err != kCMBlockBufferNoErr)
+            {
+                hb_log("VTCompressionSession: CMBlockBufferCopyDataBytes error");
+            }
         }
 
         buf->s.frametype = HB_FRAME_IDR;
@@ -1817,8 +1812,9 @@ static hb_buffer_t *vt_encode(hb_work_object_t *w, hb_buffer_t *in)
                                               CMTimeMake(in->s.start, pv->settings.timescale),
                                               CMTimeMake(in->s.duration, pv->settings.timescale),
                                               frameProperties,
-                                              pix_buffer,
+                                              in,
                                               NULL);
+        CVPixelBufferRelease(pix_buffer);
 
         if (err)
         {

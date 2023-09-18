@@ -1,7 +1,6 @@
 /* hbffmpeg.c
 
    Copyright (c) 2003-2022 HandBrake Team
-   Copyright 2022 NVIDIA Corporation
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -51,22 +50,75 @@ static void wipe_avframe_side_data(AVFrame *frame)
     av_freep(&frame->side_data);
 }
 
-void hb_video_buffer_to_avframe(AVFrame *frame, hb_buffer_t * buf)
+static void hb_buffer_close_callback(void *opaque, uint8_t *data)
 {
-    frame->data[0]     = buf->plane[0].data;
-    frame->data[1]     = buf->plane[1].data;
-    frame->data[2]     = buf->plane[2].data;
-    frame->linesize[0] = buf->plane[0].stride;
-    frame->linesize[1] = buf->plane[1].stride;
-    frame->linesize[2] = buf->plane[2].stride;
+    hb_buffer_t *buf = opaque;
+    hb_buffer_close(&buf);
+}
+
+void hb_video_buffer_to_avframe(AVFrame *frame, hb_buffer_t **buf_in)
+{
+    hb_buffer_t *buf = *buf_in;
+
+    if (buf->storage_type == AVFRAME)
+    {
+        av_frame_ref(frame, buf->storage);
+    }
+    else
+    {
+        // Create a refcounted AVBufferRef to avoid additional copies
+        AVBufferRef *buf_ref = av_buffer_create(buf->data,
+                                                buf->size,
+                                                hb_buffer_close_callback,
+                                                buf,
+                                                0);
+
+        frame->buf[0] = buf_ref;
+
+        for (int pp = 0; pp <= buf->f.max_plane; pp++)
+        {
+            frame->data[pp] = buf->plane[pp].data;
+            frame->linesize[pp] = buf->plane[pp].stride;
+        }
+
+        for (int i = 0; i < buf->nb_side_data; i++)
+        {
+            const AVFrameSideData *sd_src = buf->side_data[i];
+            AVBufferRef *ref = av_buffer_ref(sd_src->buf);
+            AVFrameSideData *sd_dst = av_frame_new_side_data_from_buf(frame, sd_src->type, ref);
+            if (!sd_dst)
+            {
+                av_buffer_unref(&ref);
+                wipe_avframe_side_data(frame);
+            }
+        }
+
+        frame->extended_data = frame->data;
+    }
 
     frame->pts              = buf->s.start;
     frame->duration         = buf->s.duration;
     frame->width            = buf->f.width;
     frame->height           = buf->f.height;
     frame->format           = buf->f.fmt;
-    frame->interlaced_frame = !!buf->s.combed;
-    frame->top_field_first  = !!(buf->s.flags & PIC_FLAG_TOP_FIELD_FIRST);
+
+    if (buf->s.combed)
+    {
+        frame->flags |= AV_FRAME_FLAG_INTERLACED;
+    }
+    else
+    {
+        frame->flags &= ~AV_FRAME_FLAG_INTERLACED;
+    }
+
+    if (buf->s.flags & PIC_FLAG_TOP_FIELD_FIRST)
+    {
+        frame->flags |= AV_FRAME_FLAG_TOP_FIELD_FIRST;
+    }
+    else
+    {
+        frame->flags &= ~AV_FRAME_FLAG_TOP_FIELD_FIRST;
+    }
 
     frame->format          = buf->f.fmt;
     frame->color_primaries = hb_colr_pri_hb_to_ff(buf->f.color_prim);
@@ -75,17 +127,12 @@ void hb_video_buffer_to_avframe(AVFrame *frame, hb_buffer_t * buf)
     frame->color_range     = buf->f.color_range;
     frame->chroma_location = buf->f.chroma_location;
 
-    for (int i = 0; i < buf->nb_side_data; i++)
+    if (buf->storage_type == AVFRAME)
     {
-        const AVFrameSideData *sd_src = buf->side_data[i];
-        AVBufferRef *ref = av_buffer_ref(sd_src->buf);
-        AVFrameSideData *sd_dst = av_frame_new_side_data_from_buf(frame, sd_src->type, ref);
-        if (!sd_dst)
-        {
-            av_buffer_unref(&ref);
-            wipe_avframe_side_data(frame);
-        }
+        hb_buffer_close(&buf);
     }
+
+    *buf_in = NULL;
 }
 
 void hb_avframe_set_video_buffer_flags(hb_buffer_t * buf, AVFrame *frame,
@@ -99,11 +146,11 @@ void hb_avframe_set_video_buffer_flags(hb_buffer_t * buf, AVFrame *frame,
     buf->s.start = av_rescale_q(frame->pts, time_base, (AVRational){1, 90000});
     buf->s.duration = frame->duration;
 
-    if (frame->top_field_first)
+    if (frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST)
     {
         buf->s.flags |= PIC_FLAG_TOP_FIELD_FIRST;
     }
-    if (!frame->interlaced_frame)
+    if (!(frame->flags & AV_FRAME_FLAG_INTERLACED))
     {
         buf->s.flags |= PIC_FLAG_PROGRESSIVE_FRAME;
     }
@@ -128,70 +175,109 @@ void hb_avframe_set_video_buffer_flags(hb_buffer_t * buf, AVFrame *frame,
     buf->f.chroma_location = frame->chroma_location;
 }
 
-hb_buffer_t * hb_avframe_to_video_buffer(AVFrame *frame, AVRational time_base)
+hb_buffer_t * hb_avframe_to_video_buffer(AVFrame *frame, AVRational time_base, int zero_copy)
 {
-    hb_buffer_t * buf;
+    hb_buffer_t *buf;
 
-    buf = hb_frame_buffer_init(frame->format, frame->width, frame->height);
-    if (buf == NULL)
+    if (zero_copy || frame->hw_frames_ctx)
     {
-        return NULL;
-    }
+        // Zero-copy path
+        buf = hb_buffer_wrapper_init();
 
-    hb_avframe_set_video_buffer_flags(buf, frame, time_base);
-
-    int pp;
-    for (pp = 0; pp <= buf->f.max_plane; pp++)
-    {
-        int yy;
-        int stride    = buf->plane[pp].stride;
-        int height    = buf->plane[pp].height;
-        int linesize  = frame->linesize[pp];
-        int size = linesize < stride ? ABS(linesize) : stride;
-        uint8_t * dst = buf->plane[pp].data;
-        uint8_t * src = frame->data[pp];
-
-#if HB_PROJECT_FEATURE_NVENC
-        if (frame->hw_frames_ctx)
-            continue;
-#endif
-
-        for (yy = 0; yy < height; yy++)
+        if (buf == NULL)
         {
-            memcpy(dst, src, size);
-            dst += stride;
-            src += linesize;
+            return NULL;
         }
-    }
 
-#if HB_PROJECT_FEATURE_NVENC
-    if (frame->hw_frames_ctx)
-    {
-        int ret = av_hwframe_get_buffer(frame->hw_frames_ctx, buf->hw_ctx.frame, 0);
-        if (ret)
+        AVFrame *frame_copy = av_frame_alloc();
+        if (frame_copy == NULL)
         {
             hb_buffer_close(&buf);
             return NULL;
         }
 
-        ret = av_hwframe_transfer_data(buf->hw_ctx.frame, frame, 0);
-        if (ret)
+        int ret;
+        ret = av_frame_ref(frame_copy, frame);
+
+        if (ret < 0)
         {
             hb_buffer_close(&buf);
+            av_frame_free(&frame_copy);
             return NULL;
         }
-    }
-#endif
 
-    for (int i = 0; i < frame->nb_side_data; i++)
-    {
-        const AVFrameSideData *sd_src = frame->side_data[i];
-        AVBufferRef *ref = av_buffer_ref(sd_src->buf);
-        AVFrameSideData *sd_dst = hb_buffer_new_side_data_from_buf(buf, sd_src->type, ref);
-        if (!sd_dst)
+        buf->storage_type = AVFRAME;
+        buf->storage = frame_copy;
+
+        buf->s.type = FRAME_BUF;
+        buf->f.width = frame_copy->width;
+        buf->f.height = frame_copy->height;
+        hb_avframe_set_video_buffer_flags(buf, frame_copy, time_base);
+
+        buf->side_data = (void **)frame_copy->side_data;
+        buf->nb_side_data = frame_copy->nb_side_data;
+
+        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(frame_copy->format);
+        for (int ii = 0; ii < desc->nb_components; ii++)
         {
-            av_buffer_unref(&ref);
-            hb_buffer_wipe_side_data(buf);
+            int pp = desc->comp[ii].plane;
+            if (pp > buf->f.max_plane)
+            {
+                buf->f.max_plane = pp;
+            }
+        }
+
+        for (int pp = 0; pp <= buf->f.max_plane; pp++)
+        {
+            buf->plane[pp].data          = frame_copy->data[pp];
+            buf->plane[pp].width         = hb_image_width(buf->f.fmt, buf->f.width, pp);
+            buf->plane[pp].height        = hb_image_height(buf->f.fmt, buf->f.height, pp);
+            buf->plane[pp].stride        = frame_copy->linesize[pp];
+            buf->plane[pp].height_stride = buf->plane[pp].height;
+            buf->plane[pp].size          = buf->plane[pp].stride * buf->plane[pp].height;
+
+            buf->size += buf->plane[pp].size;
+        }
+
+        return buf;
+    }
+    else
+    {
+        // Memcpy to a standard hb_buffer_t
+        buf = hb_frame_buffer_init(frame->format, frame->width, frame->height);
+        if (buf == NULL)
+        {
+            return NULL;
+        }
+
+        hb_avframe_set_video_buffer_flags(buf, frame, time_base);
+        int pp;
+        for (pp = 0; pp <= buf->f.max_plane; pp++)
+        {
+            int yy;
+            int stride    = buf->plane[pp].stride;
+            int height    = buf->plane[pp].height;
+            int linesize  = frame->linesize[pp];
+            int size = linesize < stride ? ABS(linesize) : stride;
+            uint8_t * dst = buf->plane[pp].data;
+            uint8_t * src = frame->data[pp];
+            for (yy = 0; yy < height; yy++)
+            {
+                memcpy(dst, src, size);
+                dst += stride;
+                src += linesize;
+            }
+        }
+        for (int i = 0; i < frame->nb_side_data; i++)
+        {
+            const AVFrameSideData *sd_src = frame->side_data[i];
+            AVBufferRef *ref = av_buffer_ref(sd_src->buf);
+            AVFrameSideData *sd_dst = hb_buffer_new_side_data_from_buf(buf, sd_src->type, ref);
+            if (!sd_dst)
+            {
+                av_buffer_unref(&ref);
+                hb_buffer_wipe_side_data(buf);
+            }
         }
     }
 

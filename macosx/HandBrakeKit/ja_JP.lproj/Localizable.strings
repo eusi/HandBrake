@@ -89,12 +89,6 @@
 /* Title description */
 "1 Foreign Language Search Pass - " = "1パス吹き替え字幕スキャン -";
 
-/* Title description */
-"2 Video Passes" = "2パスビデオ";
-
-/* Title description */
-"2 Video Passes First Turbo" = "2パスビデオ 1パス目高速";
-
 /* HBAudio -> Mixdown */
 "5.1 Channels" = "5.1 Channels";
 
@@ -163,7 +157,8 @@
 /* HBFilters -> filter display name */
 "Decomb" = "Decomb";
 
-/* Subtitles description */
+/* HBFilters -> default display name
+   Subtitles description */
 "Default" = "既定";
 
 /* Video description */
@@ -290,6 +285,12 @@
 
 /* HBAudio -> Mixdown */
 "Mono (Right Only)" = "モノラル(右のみ)";
+
+/* Title description */
+"Multi Passes" = "複数パス";
+
+/* Title description */
+"Multi Passes Turbo" = "複数パスターボ";
 
 /* HBStateFormatter -> pass display name */
 "Muxing…" = "結合中...";

@@ -199,10 +199,6 @@ change_font(GtkWidget *widget, gpointer data)
     //gtk_container_foreach((GtkContainer*)window, change_font, "sans 20");
 #endif
 
-extern G_MODULE_EXPORT void audio_list_selection_changed_cb(void);
-extern G_MODULE_EXPORT void audio_edit_clicked_cb(void);
-extern G_MODULE_EXPORT void audio_remove_clicked_cb(void);
-
 // Create and bind the tree model to the tree view for the audio track list
 // Also, connect up the signal that lets us know the selection has changed
 static void
@@ -257,16 +253,12 @@ bind_audio_tree_model(signal_user_data_t *ud)
     //gtk_tree_view_column_set_min_width(column, 24);
     gtk_tree_view_append_column(treeview, GTK_TREE_VIEW_COLUMN(column));
 
-    g_signal_connect(selection, "changed", audio_list_selection_changed_cb, ud);
-    g_signal_connect(edit_cell, "clicked", audio_edit_clicked_cb, ud);
-    g_signal_connect(delete_cell, "clicked", audio_remove_clicked_cb, ud);
+    g_signal_connect(selection, "changed", G_CALLBACK(audio_list_selection_changed_cb), ud);
+    g_signal_connect(edit_cell, "clicked", G_CALLBACK(audio_edit_clicked_cb), ud);
+    g_signal_connect(delete_cell, "clicked", G_CALLBACK(audio_remove_clicked_cb), ud);
 
     g_debug("Done");
 }
-
-extern G_MODULE_EXPORT void subtitle_list_selection_changed_cb(void);
-extern G_MODULE_EXPORT void subtitle_edit_clicked_cb(void);
-extern G_MODULE_EXPORT void subtitle_remove_clicked_cb(void);
 
 // Create and bind the tree model to the tree view for the subtitle track list
 // Also, connect up the signal that lets us know the selection has changed
@@ -320,16 +312,10 @@ bind_subtitle_tree_model(signal_user_data_t *ud)
                                     _(" "), delete_cell, "icon-name", 4, NULL);
     gtk_tree_view_append_column(treeview, GTK_TREE_VIEW_COLUMN(column));
 
-    g_signal_connect(selection, "changed", subtitle_list_selection_changed_cb, ud);
-    g_signal_connect(edit_cell, "clicked", subtitle_edit_clicked_cb, ud);
-    g_signal_connect(delete_cell, "clicked", subtitle_remove_clicked_cb, ud);
+    g_signal_connect(selection, "changed", G_CALLBACK(subtitle_list_selection_changed_cb), ud);
+    g_signal_connect(edit_cell, "clicked", G_CALLBACK(subtitle_edit_clicked_cb), ud);
+    g_signal_connect(delete_cell, "clicked", G_CALLBACK(subtitle_remove_clicked_cb), ud);
 }
-
-extern G_MODULE_EXPORT void presets_list_selection_changed_cb(void);
-extern G_MODULE_EXPORT void presets_drag_data_received_cb(void);
-extern G_MODULE_EXPORT void presets_drag_motion_cb(void);
-extern G_MODULE_EXPORT void preset_edited_cb(void);
-extern void presets_row_expanded_cb(void);
 
 #if GTK_CHECK_VERSION(4, 4, 0)
 static const char * presets_drag_entries[] = {
@@ -363,7 +349,7 @@ bind_presets_tree_model(signal_user_data_t *ud)
     column = gtk_tree_view_column_new_with_attributes(_("Preset Name"), cell,
         "text", 0, "weight", 1, "style", 2, "editable", 4, NULL);
 
-    g_signal_connect(cell, "edited", preset_edited_cb, ud);
+    g_signal_connect(cell, "edited", G_CALLBACK(preset_edited_cb), ud);
 
     gtk_tree_view_append_column(treeview, GTK_TREE_VIEW_COLUMN(column));
     gtk_tree_view_column_set_expand(column, TRUE);
@@ -386,11 +372,11 @@ bind_presets_tree_model(signal_user_data_t *ud)
                                            GDK_ACTION_MOVE);
 #endif
 
-    g_signal_connect(treeview, "drag_data_received", presets_drag_data_received_cb, ud);
-    g_signal_connect(treeview, "drag_motion", presets_drag_motion_cb, ud);
-    g_signal_connect(treeview, "row_expanded", presets_row_expanded_cb, ud);
-    g_signal_connect(treeview, "row_collapsed", presets_row_expanded_cb, ud);
-    g_signal_connect(selection, "changed", presets_list_selection_changed_cb, ud);
+    g_signal_connect(treeview, "drag_data_received", G_CALLBACK(presets_drag_data_received_cb), ud);
+    g_signal_connect(treeview, "drag_motion", G_CALLBACK(presets_drag_motion_cb), ud);
+    g_signal_connect(treeview, "row_expanded", G_CALLBACK(presets_row_expanded_cb), ud);
+    g_signal_connect(treeview, "row_collapsed", G_CALLBACK(presets_row_expanded_cb), ud);
+    g_signal_connect(selection, "changed", G_CALLBACK(presets_list_selection_changed_cb), ud);
     g_debug("Done");
 }
 
@@ -558,12 +544,6 @@ IoRedirect(signal_user_data_t *ud)
     ud->stderr_src_id =
         g_io_add_watch(channel, G_IO_IN, ghb_log_cb, (gpointer)ud );
 }
-
-typedef struct
-{
-    gchar *filename;
-    gchar *iconname;
-} icon_map_t;
 
 static gchar *dvd_device = NULL;
 static gchar *arg_preset = NULL;
@@ -884,14 +864,10 @@ static void map_actions(GApplication * app, signal_user_data_t * ud)
         { "dvd-open",              dvd_source_activate_cb, "s"     },
         { "hbfd",                  NULL,
           NULL, "false",           hbfd_action_cb                  },
-        { "show-presets",          NULL,
-          NULL, "false",           show_presets_action_cb          },
-        { "show-queue",            NULL,
-          NULL, "false",           show_queue_action_cb            },
-        { "show-preview",          NULL,
-          NULL, "false",           show_preview_action_cb          },
-        { "show-activity",         NULL,
-          NULL, "false",           show_activity_action_cb         },
+        { "show-presets",          show_presets_action_cb          },
+        { "show-queue",            show_queue_action_cb            },
+        { "show-preview",          show_preview_action_cb          },
+        { "show-activity",         show_activity_action_cb         },
         { "preset-save",           preset_save_action_cb           },
         { "preset-save-as",        preset_save_as_action_cb        },
         { "preset-rename",         preset_rename_action_cb         },
@@ -1341,9 +1317,9 @@ main(int argc, char *argv[])
         // Enable console logging
         if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()){
             close(STDOUT_FILENO);
-            freopen("CONOUT$", "w", stdout);
+            (void) freopen("CONOUT$", "w", stdout);
             close(STDERR_FILENO);
-            freopen("CONOUT$", "w", stderr);
+            (void) freopen("CONOUT$", "w", stderr);
         }
     }
     else

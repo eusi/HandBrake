@@ -192,7 +192,7 @@ static char *   preset_export_file   = NULL;
 static char *   preset_name          = NULL;
 static char *   queue_import_name    = NULL;
 static int      cfr           = -1;
-static int      mp4_optimize  = -1;
+static int      optimize      = -1;
 static int      ipod_atom     = -1;
 static int      color_matrix_code = -1;
 static int      preview_count = 10;
@@ -594,8 +594,10 @@ int main( int argc, char ** argv )
 
         hb_system_sleep_prevent(h);
 
-        hb_scan2(h, input, titleindex, preview_count, store_previews,
-                min_title_duration * 90000LL, crop_threshold_frames, crop_threshold_pixels);
+        hb_scan(h, input, titleindex, preview_count, store_previews,
+                min_title_duration * 90000LL,
+                crop_threshold_frames, crop_threshold_pixels,
+                NULL, hw_decode);
 
         EventLoop(h, preset_dict);
         hb_value_free(&preset_dict);
@@ -1385,8 +1387,8 @@ static void ShowHelp(void)
 "                           default: auto-detected from destination file name)\n"
 "   -m, --markers           Add chapter markers\n"
 "       --no-markers        Disable preset chapter markers\n"
-"   -O, --optimize          Optimize MP4 files for HTTP streaming (fast start,\n"
-"                           s.s. rewrite file to place MOOV atom at beginning)\n"
+"   -O, --optimize          Optimize files for HTTP streaming (fast start,\n"
+"                           s.s. rewrite file to place MOOV atom or cues at beginning)\n"
 "       --no-optimize       Disable preset 'optimize'\n"
 "   -I, --ipod-atom         Add iPod 5G compatibility atom to MP4 container\n"
 "       --no-ipod-atom      Disable iPod 5G atom\n"
@@ -1485,7 +1487,11 @@ static void ShowHelp(void)
 "                           If none of these flags are given, the default\n"
 "                           is --pfr when -r is given and --vfr otherwise\n"
 "   --enable-hw-decoding <string>                                        \n"
+#if defined( __APPLE_CC__ )
+"                           Use 'videotoolbox' to enable VideoToolbox    \n"
+#else
 "                           Use 'nvdec' to enable NVDec                  \n"
+#endif
 "   --disable-hw-decoding   Disable hardware decoding of the video track,\n"
 "                           forcing software decoding instead\n"
 
@@ -1501,7 +1507,7 @@ static void ShowHelp(void)
 "                           matching each language will be added to your\n"
 "                           output. Provide the language's ISO 639-2 code\n"
 "                           (e.g. fre, eng, spa, dut, et cetera)\n"
-"                           Use code 'und' (Unknown) to match all languages.\n"
+"                           Use code 'any' to match all languages.\n"
 "       --all-audio         Select all audio tracks matching languages in\n"
 "                           the specified language list (--audio-lang-list).\n"
 "                           Any language if list is not specified.\n"
@@ -2180,7 +2186,6 @@ static int ParseOptions( int argc, char ** argv )
     #define ENCODER_LEVEL_LIST   291
     #define NORMALIZE_MIX        293
     #define AUDIO_DITHER         294
-    #define QSV_BASELINE         295
     #define QSV_ASYNC_DEPTH      296
     #define QSV_ADAPTER          297
     #define QSV_IMPLEMENTATION   298
@@ -2229,7 +2234,6 @@ static int ParseOptions( int argc, char ** argv )
             { "no-dvdnav",   no_argument,       NULL,    DVDNAV },
 
 #if HB_PROJECT_FEATURE_QSV
-            { "qsv-baseline",         no_argument,       NULL,        QSV_BASELINE,       },
             { "qsv-async-depth",      required_argument, NULL,        QSV_ASYNC_DEPTH,    },
             { "qsv-adapter",          required_argument, NULL,        QSV_ADAPTER         },
             { "qsv-implementation",   required_argument, NULL,        QSV_IMPLEMENTATION, },
@@ -2243,7 +2247,7 @@ static int ParseOptions( int argc, char ** argv )
             { "input",       required_argument, NULL,    'i' },
             { "output",      required_argument, NULL,    'o' },
             { "optimize",    no_argument,       NULL,        'O' },
-            { "no-optimize", no_argument,       &mp4_optimize, 0 },
+            { "no-optimize", no_argument,       &optimize, 0 },
             { "ipod-atom",   no_argument,       NULL,        'I' },
             { "no-ipod-atom",no_argument,       &ipod_atom,    0 },
 
@@ -2523,7 +2527,7 @@ static int ParseOptions( int argc, char ** argv )
                 output = strdup( optarg );
                 break;
             case 'O':
-                mp4_optimize = 1;
+                optimize = 1;
                 break;
             case 'I':
                 ipod_atom = 1;
@@ -3075,6 +3079,10 @@ static int ParseOptions( int argc, char ** argv )
                 break;
             case PREVIEWS:
                 sscanf( optarg, "%i:%i", &preview_count, &store_previews );
+                if (preview_count < 1)
+                {
+                    preview_count = 1;
+                }
                 break;
             case START_AT_PREVIEW:
                 start_at_preview = atoi( optarg );
@@ -3169,9 +3177,6 @@ static int ParseOptions( int argc, char ** argv )
                 } 
                 break;
 #if HB_PROJECT_FEATURE_QSV
-            case QSV_BASELINE:
-                hb_qsv_force_workarounds();
-                break;
             case QSV_ASYNC_DEPTH:
                 qsv_async_depth = atoi(optarg);
                 break;
@@ -3185,8 +3190,22 @@ static int ParseOptions( int argc, char ** argv )
             case HW_DECODE:
                 if( optarg != NULL )
                 {
-                    if( !strcmp( optarg, "nvdec" ) ) {
-                        hw_decode = 4;
+                    if (!strcmp(optarg, "nvdec"))
+                    {
+                        hw_decode = HB_DECODE_SUPPORT_NVDEC;
+                    }
+                    else if (!strcmp(optarg, "videotoolbox"))
+                    {
+#if defined( __APPLE_CC__ )
+                        if (__builtin_available(macOS 13, *))
+                        {
+                            hw_decode = HB_DECODE_SUPPORT_VIDEOTOOLBOX;
+                        }
+                        else
+                        {
+                            fprintf( stderr, "videotoolbox hardware decoders require macOS 13 and later");
+                        }
+#endif
                     }
                     else
                     {
@@ -3696,9 +3715,9 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     {
         hb_dict_set(preset, "FileFormat", hb_value_string(format));
     }
-    if (mp4_optimize != -1)
+    if (optimize != -1)
     {
-        hb_dict_set(preset, "Mp4HttpOptimize", hb_value_bool(mp4_optimize));
+        hb_dict_set(preset, "Optimize", hb_value_bool(optimize));
     }
     if (ipod_atom != -1)
     {

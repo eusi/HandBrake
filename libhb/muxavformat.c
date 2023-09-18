@@ -7,6 +7,7 @@
    For full terms see the file COPYING file or visit http://www.gnu.org/licenses/gpl-2.0.html
  */
 
+#include <time.h>
 #include <ogg/ogg.h>
 #include "libavcodec/bsf.h"
 #include "libavformat/avformat.h"
@@ -185,7 +186,7 @@ static int avformatInit( hb_mux_object_t * m )
 
             av_dict_set(&av_opts, "brand", "mp42", 0);
             av_dict_set(&av_opts, "strict", "experimental", 0);
-            if (job->mp4_optimize)
+            if (job->optimize)
                 av_dict_set(&av_opts, "movflags", "faststart+disable_chpl+write_colr", 0);
             else
                 av_dict_set(&av_opts, "movflags", "+disable_chpl+write_colr", 0);
@@ -199,6 +200,10 @@ static int avformatInit( hb_mux_object_t * m )
             muxer_name = "matroska";
             meta_mux = META_MUX_MKV;
             av_dict_set(&av_opts, "default_mode", "passthrough", 0);
+            if (job->optimize)
+            {
+                av_dict_set(&av_opts, "cues_to_front", "1", 0);
+            }
             break;
 
         case HB_MUX_AV_WEBM:
@@ -209,6 +214,10 @@ static int avformatInit( hb_mux_object_t * m )
             muxer_name = "webm";
             meta_mux = META_MUX_WEBM;
             av_dict_set(&av_opts, "default_mode", "passthrough", 0);
+            if (job->optimize)
+            {
+                av_dict_set(&av_opts, "cues_to_front", "1", 0);
+            }
             break;
 
         default:
@@ -387,6 +396,7 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_SVT_AV1_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_AV1:
         case HB_VCODEC_FFMPEG_NVENC_AV1_10BIT:
+        case HB_VCODEC_FFMPEG_VCE_AV1:
             track->st->codecpar->codec_id = AV_CODEC_ID_AV1;
 
             if (job->config.extradata.length > 0)
@@ -438,7 +448,6 @@ static int avformatInit( hb_mux_object_t * m )
                 }
             }
         } break;
-
         case HB_VCODEC_THEORA:
         {
             track->st->codecpar->codec_id = AV_CODEC_ID_THEORA;
@@ -581,6 +590,19 @@ static int avformatInit( hb_mux_object_t * m )
                                     coll_data,
                                     sizeof(AVContentLightMetadata));
         }
+    }
+
+    if (job->ambient.ambient_illuminance.num && job->ambient.ambient_illuminance.den)
+    {
+        AVAmbientViewingEnvironment ambient = hb_ambient_hb_to_ff(job->ambient);
+
+        uint8_t *ambient_data = av_malloc(sizeof(AVAmbientViewingEnvironment));
+        memcpy(ambient_data, &ambient, sizeof(AVAmbientViewingEnvironment));
+
+        av_stream_add_side_data(track->st,
+                                AV_PKT_DATA_AMBIENT_VIEWING_ENVIRONMENT,
+                                ambient_data,
+                                sizeof(AVAmbientViewingEnvironment));
     }
 
     if (job->passthru_dynamic_hdr_metadata & DOVI)

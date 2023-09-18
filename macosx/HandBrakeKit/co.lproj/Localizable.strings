@@ -89,12 +89,6 @@
 /* Title description */
 "1 Foreign Language Search Pass - " = "1 passu di ricerca di lingua straniera - ";
 
-/* Title description */
-"2 Video Passes" = "2 passi video";
-
-/* Title description */
-"2 Video Passes First Turbo" = "2 passi video, u primu in modu Turbo";
-
 /* HBAudio -> Mixdown */
 "5.1 Channels" = "Canali 5.1";
 
@@ -163,7 +157,8 @@
 /* HBFilters -> filter display name */
 "Decomb" = "Dipettinera";
 
-/* Subtitles description */
+/* HBFilters -> default display name
+   Subtitles description */
 "Default" = "Predefinitu";
 
 /* Video description */
@@ -290,6 +285,12 @@
 
 /* HBAudio -> Mixdown */
 "Mono (Right Only)" = "Mono (Solu à diritta)";
+
+/* Title description */
+"Multi Passes" = "Parechji passi";
+
+/* Title description */
+"Multi Passes Turbo" = "Parechji passi in modu Turbo";
 
 /* HBStateFormatter -> pass display name */
 "Muxing…" = "Mischiu multiple…";

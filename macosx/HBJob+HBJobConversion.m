@@ -50,6 +50,15 @@
 
     hb_job_set_file(job, self.destinationURL.fileSystemRepresentation);
 
+    if (self.hwDecodeUsage == HBJobHardwareDecoderUsageFullPathOnly)
+    {
+        job->hw_decode = HB_DECODE_SUPPORT_VIDEOTOOLBOX;
+    }
+    else if (self.hwDecodeUsage == HBJobHardwareDecoderUsageAlways)
+    {
+        job->hw_decode = HB_DECODE_SUPPORT_VIDEOTOOLBOX | HB_DECODE_SUPPORT_FORCE_HW;
+    }
+
     // Title Angle for dvdnav
     job->angle = self.angle;
 
@@ -92,7 +101,7 @@
     job->mux = self.container;
     job->vcodec = self.video.encoder;
 
-    job->mp4_optimize = self.mp4HttpOptimize;
+    job->optimize = self.optimize;
 
     if (self.container & HB_MUX_MASK_MP4)
     {

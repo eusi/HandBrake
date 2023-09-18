@@ -10,16 +10,20 @@
 namespace HandBrakeWPF.ViewModels
 {
     using System;
+    using System.Collections.Generic;
     using System.ComponentModel;
     using System.Diagnostics;
     using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Windows;
+    using System.Windows.Documents;
     using System.Windows.Media;
 
     using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
+
+    using HandBrakeWPF.Commands;
     using HandBrakeWPF.Helpers;
     using HandBrakeWPF.Model;
     using HandBrakeWPF.Model.Options;
@@ -112,18 +116,18 @@ namespace HandBrakeWPF.ViewModels
         private bool enableQuickSyncLowPower;
         private int simultaneousEncodes;
         private bool enableQuickSyncHyperEncode;
-
         private bool enableNvDecSupport;
-
         private bool useIsoDateFormat;
+        private BindingList<string> excludedFileExtensions;
+        private bool recursiveFolderScan;
 
         public OptionsViewModel(
             IUserSettingService userSettingService,
-            IUpdateService updateService, 
-            IAboutViewModel aboutViewModel, 
-            IErrorService errorService, 
-            IPresetService presetService, 
-            INotificationService notificationService, 
+            IUpdateService updateService,
+            IAboutViewModel aboutViewModel,
+            IErrorService errorService,
+            IPresetService presetService,
+            INotificationService notificationService,
             ILog logService)
         {
             this.Title = "Options";
@@ -138,6 +142,7 @@ namespace HandBrakeWPF.ViewModels
 
             this.SelectedTab = OptionsTab.General;
             this.UpdateMessage = Resources.OptionsViewModel_CheckForUpdatesMsg;
+            this.RemoveExtensionCommand = new SimpleRelayCommand<string>(this.RemoveExcludedExtension);
         }
 
         public OptionsTab SelectedTab
@@ -581,6 +586,8 @@ namespace HandBrakeWPF.ViewModels
                     new PlaceHolderBucket { Name = Constants.EncoderBitDepth },
                     new PlaceHolderBucket { Name = Constants.StorageWidth },
                     new PlaceHolderBucket { Name = Constants.StorageHeight },
+                    new PlaceHolderBucket { Name = Constants.Codec },
+                    new PlaceHolderBucket { Name = Constants.Encoder },
                 };
             }
         }
@@ -880,7 +887,33 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        /* Video */ 
+        public BindingList<string> ExcludedFileExtensions
+        {
+            get => this.excludedFileExtensions;
+            set
+            {
+                if (Equals(value, this.excludedFileExtensions)) return;
+                this.excludedFileExtensions = value;
+                this.OnPropertyChanged();
+            }
+        }
+
+        public string NewExtension { get; set; }
+
+        public SimpleRelayCommand<string> RemoveExtensionCommand { get; set; }
+
+        public bool RecursiveFolderScan
+        {
+            get => this.recursiveFolderScan;
+            set
+            {
+                if (value == this.recursiveFolderScan) return;
+                this.recursiveFolderScan = value;
+                this.NotifyOfPropertyChange(() => this.RecursiveFolderScan);
+            }
+        }
+
+        /* Video */
         public bool EnableQuickSyncEncoding
         {
             get => this.enableQuickSyncEncoding && this.IsQuickSyncAvailable;
@@ -893,6 +926,7 @@ namespace HandBrakeWPF.ViewModels
 
                 this.enableQuickSyncEncoding = value;
                 this.NotifyOfPropertyChange(() => this.EnableQuickSyncEncoding);
+                this.NotifyOfPropertyChange(() => this.CanSetQsvDecForOtherEncodes);
             }
         }
 
@@ -940,6 +974,7 @@ namespace HandBrakeWPF.ViewModels
                 this.enableQuickSyncDecoding = value;
                 this.NotifyOfPropertyChange(() => this.EnableQuickSyncDecoding);
                 this.NotifyOfPropertyChange(() => this.IsUseQsvDecAvailable);
+                this.NotifyOfPropertyChange(() => this.CanSetQsvDecForOtherEncodes);
             }
         }
 
@@ -999,6 +1034,8 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
+        public bool CanSetQsvDecForOtherEncodes => this.EnableQuickSyncDecoding && this.IsQuickSyncAvailable && this.EnableQuickSyncEncoding;
+
         public BindingList<VideoScaler> ScalingOptions { get; } = new BindingList<VideoScaler>(EnumHelper<VideoScaler>.GetEnumList().ToList());
 
         public bool IsHardwareFallbackMode => HandBrakeUtils.IsInitNoHardware();
@@ -1054,7 +1091,6 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        /* Experimental */
         public bool RemoteServiceEnabled
         {
             get => this.remoteServiceEnabled;
@@ -1186,7 +1222,7 @@ namespace HandBrakeWPF.ViewModels
         public void ClearLogHistory()
         {
             MessageBoxResult result = this.errorService.ShowMessageBox(Resources.OptionsView_ClearLogDirConfirm, Resources.OptionsView_ClearLogs,
-                                                  MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                                                  MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result == MessageBoxResult.Yes)
             {
                 GeneralUtilities.ClearLogFiles(0);
@@ -1261,6 +1297,35 @@ namespace HandBrakeWPF.ViewModels
         public void ResetAutoNameFormat()
         {
             this.AutonameFormat = "{source}-{title}";
+        }
+
+        public void AddExcludedExtension()
+        {
+            if (!string.IsNullOrEmpty(NewExtension))
+            {
+                NewExtension = NewExtension.Replace(".", string.Empty);
+
+                if (this.ExcludedFileExtensions.Contains(NewExtension, StringComparer.OrdinalIgnoreCase))
+                {
+                    this.errorService.ShowMessageBox(Resources.Options_ExtensionExists, Resources.Error, MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                this.ExcludedFileExtensions.Add(this.NewExtension);
+                this.NewExtension = null;
+                this.NotifyOfPropertyChange(() => this.NewExtension);
+            }
+        }
+
+        public void RemoveExcludedExtension(string extension)
+        {
+            if (!string.IsNullOrEmpty(extension))
+            {
+                if (this.ExcludedFileExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+                {
+                    this.ExcludedFileExtensions.Remove(extension);
+                }
+            }
         }
 
         #endregion
@@ -1448,6 +1513,9 @@ namespace HandBrakeWPF.ViewModels
             this.PauseOnLowBattery = userSettingService.GetUserSetting<bool>(UserSettingConstants.PauseEncodingOnLowBattery);
             this.LowBatteryLevel = userSettingService.GetUserSetting<int>(UserSettingConstants.LowBatteryLevel);
 
+            this.ExcludedFileExtensions = new BindingList<string>(userSettingService.GetUserSetting<List<string>>(UserSettingConstants.ExcludedExtensions));
+            this.RecursiveFolderScan = userSettingService.GetUserSetting<bool>(UserSettingConstants.RecursiveFolderScan);
+
             // #############################
             // Safe Mode
             // #############################
@@ -1582,6 +1650,8 @@ namespace HandBrakeWPF.ViewModels
             this.userSettingService.SetUserSetting(UserSettingConstants.ClearCompletedFromQueue, this.ClearQueueOnEncodeCompleted);
             this.userSettingService.SetUserSetting(UserSettingConstants.PreviewScanCount, this.SelectedPreviewCount);
             this.userSettingService.SetUserSetting(UserSettingConstants.X264Step, double.Parse(this.SelectedGranularity, CultureInfo.InvariantCulture));
+            this.userSettingService.SetUserSetting(UserSettingConstants.ExcludedExtensions, new List<string>(this.ExcludedFileExtensions));
+            this.userSettingService.SetUserSetting(UserSettingConstants.RecursiveFolderScan, this.RecursiveFolderScan);
 
             int value;
             if (int.TryParse(this.MinLength.ToString(CultureInfo.InvariantCulture), out value))
@@ -1594,10 +1664,14 @@ namespace HandBrakeWPF.ViewModels
             this.userSettingService.SetUserSetting(UserSettingConstants.PauseEncodingOnLowBattery, this.PauseOnLowBattery);
             this.userSettingService.SetUserSetting(UserSettingConstants.LowBatteryLevel, this.LowBatteryLevel);
 
-            /* Experimental */
             this.userSettingService.SetUserSetting(UserSettingConstants.ProcessIsolationEnabled, this.RemoteServiceEnabled);
             this.userSettingService.SetUserSetting(UserSettingConstants.ProcessIsolationPort, this.RemoteServicePort);
             this.userSettingService.SetUserSetting(UserSettingConstants.SimultaneousEncodes, this.SimultaneousEncodes);
+        }
+
+        public void LaunchHelp()
+        {
+            Process.Start("explorer.exe", "https://handbrake.fr/docs/en/latest/technical/preferences.html");
         }
 
         private void UpdateCheckComplete(UpdateCheckInformation info)

@@ -98,7 +98,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
         self.container = hb_container_get_from_name([preset[@"FileFormat"] UTF8String]);
 
         // MP4 specifics options.
-        self.mp4HttpOptimize = [preset[@"Mp4HttpOptimize"] boolValue];
+        self.optimize = [preset[@"Optimize"] boolValue];
         self.mp4iPodCompatible = [preset[@"Mp4iPodCompatible"] boolValue];
 
         self.alignAVStart = [preset[@"AlignAVStart"] boolValue];
@@ -133,7 +133,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
     preset[@"FileFormat"] = @(hb_container_get_short_name(self.container));
 
     // MP4 specifics options.
-    preset[@"Mp4HttpOptimize"] = @(self.mp4HttpOptimize);
+    preset[@"Optimize"] = @(self.optimize);
     preset[@"AlignAVStart"] = @(self.alignAVStart);
     preset[@"Mp4iPodCompatible"] = @(self.mp4iPodCompatible);
 
@@ -262,13 +262,13 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
     self.range.title = title;
 }
 
-- (void)setMp4HttpOptimize:(BOOL)mp4HttpOptimize
+- (void)setOptimize:(BOOL)optimize
 {
-    if (mp4HttpOptimize != _mp4HttpOptimize)
+    if (optimize != _optimize)
     {
-        [[self.undo prepareWithInvocationTarget:self] setMp4HttpOptimize:_mp4HttpOptimize];
+        [[self.undo prepareWithInvocationTarget:self] setOptimize:_optimize];
     }
-    _mp4HttpOptimize = mp4HttpOptimize;
+    _optimize = optimize;
 
     [[NSNotificationCenter defaultCenter] postNotificationName:HBContainerChangedNotification object:self];
 }
@@ -393,7 +393,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
 
         copy->_container = _container;
         copy->_angle = _angle;
-        copy->_mp4HttpOptimize = _mp4HttpOptimize;
+        copy->_optimize = _optimize;
         copy->_mp4iPodCompatible = _mp4iPodCompatible;
         copy->_alignAVStart = _alignAVStart;
 
@@ -413,6 +413,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
         copy->_chapterTitles = [[NSArray alloc] initWithArray:_chapterTitles copyItems:YES];
 
         copy->_metadataPassthru = _metadataPassthru;
+        copy->_hwDecodeUsage = _hwDecodeUsage;
     }
 
     return copy;
@@ -461,7 +462,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
 
     encodeInt(_container);
     encodeInt(_angle);
-    encodeBool(_mp4HttpOptimize);
+    encodeBool(_optimize);
     encodeBool(_mp4iPodCompatible);
     encodeBool(_alignAVStart);
 
@@ -477,6 +478,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
     encodeObject(_chapterTitles);
 
     encodeBool(_metadataPassthru);
+    encodeInteger(_hwDecodeUsage);
 }
 
 - (instancetype)initWithCoder:(NSCoder *)decoder
@@ -500,7 +502,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
 
         decodeInt(_container); if (_container != HB_MUX_MP4 && _container != HB_MUX_MKV && _container != HB_MUX_WEBM) { goto fail; }
         decodeInt(_angle); if (_angle < 0) { goto fail; }
-        decodeBool(_mp4HttpOptimize);
+        decodeBool(_optimize);
         decodeBool(_mp4iPodCompatible);
         decodeBool(_alignAVStart);
 
@@ -521,6 +523,7 @@ NSString *HBChaptersChangedNotification  = @"HBChaptersChangedNotification";
         decodeCollectionOfObjectsOrFail(_chapterTitles, NSArray, HBChapter);
 
         decodeBool(_metadataPassthru);
+        decodeInteger(_hwDecodeUsage); if (_hwDecodeUsage != HBJobHardwareDecoderUsageNone && _hwDecodeUsage != HBJobHardwareDecoderUsageAlways && _hwDecodeUsage != HBJobHardwareDecoderUsageFullPathOnly) { goto fail; }
 
         return self;
     }

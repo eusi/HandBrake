@@ -49,7 +49,10 @@ namespace HandBrake.Interop.Interop.HbLib
         public static extern void hb_dvd_set_dvdnav(int enable);
 
         [DllImport("hb", EntryPoint = "hb_scan", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void hb_scan(IntPtr hbHandle, IntPtr path, int title_index, int preview_count, int store_previews, ulong min_duration);
+        public static extern void hb_scan(IntPtr hbHandle, IntPtr path, int title_index, int preview_count, int store_previews, ulong min_duration, int crop_auto_switch_threshold, int crop_median_threshold, IntPtr exclude_extensions, int hw_decode);
+
+        [DllImport("hb", EntryPoint = "hb_scan_list", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void hb_scan_list(IntPtr hbHandle, IntPtr paths, int title_index, int preview_count, int store_previews, ulong min_duration, int crop_auto_switch_threshold, int crop_median_threshold, IntPtr exclude_extensions, int hw_decode);
 
         [DllImport("hb", EntryPoint = "hb_scan_stop", CallingConvention = CallingConvention.Cdecl)]
         public static extern void hb_scan_stop(IntPtr hbHandle);
@@ -168,8 +171,8 @@ namespace HandBrake.Interop.Interop.HbLib
         [DllImport("hb", EntryPoint = "hb_audio_compression_get_default", CallingConvention = CallingConvention.Cdecl)]
         public static extern float hb_audio_compression_get_default(uint codec);
 
-        [DllImport("hb", EntryPoint = "hb_audio_can_apply_drc2", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int hb_audio_can_apply_drc2(IntPtr handle, int title_index, int audio_index, int encoder);
+        [DllImport("hb", EntryPoint = "hb_audio_can_apply_drc", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int hb_audio_can_apply_drc(uint codec, uint codec_param, int encoder);
 
         [DllImport("hb", EntryPoint = "hb_autopassthru_get_encoder", CallingConvention = CallingConvention.Cdecl)]
         public static extern int hb_autopassthru_get_encoder(int in_codec, int copy_mask, int fallback, int muxer);

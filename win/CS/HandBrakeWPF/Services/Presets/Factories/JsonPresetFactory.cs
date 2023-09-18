@@ -17,6 +17,7 @@ namespace HandBrakeWPF.Services.Presets.Factories
     using HandBrake.App.Core.Utilities;
     using HandBrake.Interop.Interop;
     using HandBrake.Interop.Interop.HbLib;
+    using HandBrake.Interop.Interop.Interfaces.Model;
     using HandBrake.Interop.Interop.Interfaces.Model.Encoders;
     using HandBrake.Interop.Interop.Interfaces.Model.Filters;
     using HandBrake.Interop.Interop.Interfaces.Model.Picture;
@@ -55,7 +56,7 @@ namespace HandBrakeWPF.Services.Presets.Factories
             // Step 1, Create the EncodeTask Object that can be loaded into the UI.
 
             /* Output Settings */
-            preset.Task.OptimizeMP4 = importedPreset.Mp4HttpOptimize;
+            preset.Task.Optimize = importedPreset.Optimize;
             preset.Task.IPod5GSupport = importedPreset.Mp4iPodCompatible;
             preset.Task.OutputFormat = GetFileFormat(importedPreset.FileFormat.Replace("file", string.Empty).Trim());
             preset.Task.AlignAVStart = importedPreset.AlignAVStart;
@@ -346,7 +347,7 @@ namespace HandBrakeWPF.Services.Presets.Factories
 
             if (importedPreset.AudioLanguageList != null)
             {
-                IList<string> names = LanguageUtilities.GetLanguageNames(importedPreset.AudioLanguageList);
+                IList<Language> names = HandBrakeLanguagesHelper.GetLanguageListByCode(importedPreset.AudioLanguageList);
                 foreach (var name in names)
                 {
                     preset.AudioTrackBehaviours.SelectedLanguages.Add(name);
@@ -406,8 +407,8 @@ namespace HandBrakeWPF.Services.Presets.Factories
             preset.SubtitleTrackBehaviours.AddForeignAudioScanTrack = importedPreset.SubtitleAddForeignAudioSearch;
             if (importedPreset.SubtitleLanguageList != null)
             {
-                IList<string> names = LanguageUtilities.GetLanguageNames(importedPreset.SubtitleLanguageList);
-                foreach (var name in names)
+                IList<Language> names = HandBrakeLanguagesHelper.GetLanguageListByCode(importedPreset.SubtitleLanguageList);
+                foreach (Language name in names)
                 {
                     preset.SubtitleTrackBehaviours.SelectedLanguages.Add(name);
                 }
@@ -503,7 +504,7 @@ namespace HandBrakeWPF.Services.Presets.Factories
             // Audio
             preset.AudioCopyMask = export.AudioTrackBehaviours.AllowedPassthruOptions.Select(s => s.ShortName).ToList();
             preset.AudioEncoderFallback = export.AudioTrackBehaviours.AudioFallbackEncoder.ShortName;
-            preset.AudioLanguageList = LanguageUtilities.GetLanguageCodes(export.AudioTrackBehaviours.SelectedLanguages);
+            preset.AudioLanguageList = HandBrakeLanguagesHelper.GetLanguageCodes(export.AudioTrackBehaviours.SelectedLanguages);
             preset.AudioTrackSelectionBehavior = EnumHelper<AudioBehaviourModes>.GetShortName(export.AudioTrackBehaviours.SelectedBehaviour);
             preset.AudioSecondaryEncoderMode = export.AudioTrackBehaviours.SelectedTrackDefaultBehaviour == AudioTrackDefaultsMode.FirstTrack; // 1 = First Track, 0 = All
             preset.AudioList = new List<AudioList>();
@@ -534,7 +535,7 @@ namespace HandBrakeWPF.Services.Presets.Factories
             preset.SubtitleBurnBDSub = false; // TODO not supported yet.
             preset.SubtitleBurnDVDSub = false; // TODO not supported yet.
             preset.SubtitleBurnBehavior = EnumHelper<SubtitleBurnInBehaviourModes>.GetShortName(export.SubtitleTrackBehaviours.SelectedBurnInBehaviour);
-            preset.SubtitleLanguageList = LanguageUtilities.GetLanguageCodes(export.SubtitleTrackBehaviours.SelectedLanguages);
+            preset.SubtitleLanguageList = HandBrakeLanguagesHelper.GetLanguageCodes(export.SubtitleTrackBehaviours.SelectedLanguages);
             preset.SubtitleTrackSelectionBehavior = EnumHelper<SubtitleBehaviourModes>.GetShortName(export.SubtitleTrackBehaviours.SelectedBehaviour);
 
             // Chapters
@@ -542,7 +543,7 @@ namespace HandBrakeWPF.Services.Presets.Factories
 
             // Output Settings
             preset.FileFormat = EnumHelper<OutputFormat>.GetShortName(export.Task.OutputFormat);
-            preset.Mp4HttpOptimize = export.Task.OptimizeMP4;
+            preset.Optimize = export.Task.Optimize;
             preset.Mp4iPodCompatible = export.Task.IPod5GSupport;
             preset.AlignAVStart = export.Task.AlignAVStart;
             preset.MetadataPassthrough = export.Task.MetaData?.PassthruMetadataEnabled ?? false;

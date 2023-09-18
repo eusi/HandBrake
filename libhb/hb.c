@@ -359,11 +359,18 @@ void hb_remove_previews( hb_handle_t * h )
     closedir( dir );
 }
 
-// We can remove this after we update all the UI's
 void hb_scan( hb_handle_t * h, const char * path, int title_index,
-              int preview_count, int store_previews, uint64_t min_duration )
+              int preview_count, int store_previews, uint64_t min_duration,
+              int crop_threshold_frames, int crop_threshold_pixels,
+              hb_list_t * exclude_extensions, int hw_decode)
 {
-    hb_scan2(h, path, title_index, preview_count, store_previews, min_duration, 0, 0);
+    // TODO: Compatibility later for the other UI's.  Remove when they are updated.
+    hb_list_t *file_paths = hb_list_init();
+    hb_list_add(file_paths, (char *)path);
+
+    hb_scan_list(h, file_paths, title_index, preview_count, store_previews, min_duration, crop_threshold_frames, crop_threshold_pixels, exclude_extensions, hw_decode);
+
+    hb_list_close(&file_paths);
 }
 
 /**
@@ -376,17 +383,28 @@ void hb_scan( hb_handle_t * h, const char * path, int title_index,
  * @param min_duration Ignore titles below a given threshold
  * @param crop_threshold_frames The number of frames to trigger smart crop
  * @param crop_threshold_pixels The variance in pixels detected that are allowed for.
+ * @param exclude_extensions A list of extensions to exclude for this scan.
+ * @param hw_decode  The preferred hardware decoder to use..
  */
-void hb_scan2( hb_handle_t * h, const char * path, int title_index,
+void hb_scan_list( hb_handle_t * h, hb_list_t * paths, int title_index,
               int preview_count, int store_previews, uint64_t min_duration,
-              int crop_threshold_frames, int crop_threshold_pixels)
+              int crop_threshold_frames, int crop_threshold_pixels,
+              hb_list_t * exclude_extensions, int hw_decode)
 {
     hb_title_t * title;
 
-    // Check if scanning is necessary.
-    if (h->title_set.path != NULL && !strcmp(h->title_set.path, path))
+    char *single_path = NULL;
+    int path_count = hb_list_count(paths);
+
+    if (path_count == 1)
     {
-        // Current title_set path matches requested path.
+        single_path = hb_list_item(paths, 0);
+    }
+    
+    // Check if scanning is necessary. Only works on Single Path.
+    if (single_path != NULL && h->title_set.path != NULL && !strcmp(h->title_set.path, single_path))
+    {
+        // Current title_set path matches requested single_path.
         // Check if the requested title has already been scanned.
         int ii;
         for (ii = 0; ii < hb_list_count(h->title_set.list_title); ii++)
@@ -448,11 +466,18 @@ void hb_scan2( hb_handle_t * h, const char * path, int title_index,
     }
 #endif
 
-    hb_log( "hb_scan: path=%s, title_index=%d", path, title_index );
-    h->scan_thread = hb_scan_init( h, &h->scan_die, path, title_index,
+    char *path_info = single_path;
+    if (path_count > 1)
+    {
+        path_info = "(multiple)";
+    }
+
+    hb_log( "hb_scan: path=%s, title_index=%d", path_info, title_index );
+    h->scan_thread = hb_scan_init( h, &h->scan_die, paths, title_index,
                                    &h->title_set, preview_count,
                                    store_previews, min_duration,
-                                   crop_threshold_frames, crop_threshold_pixels);
+                                   crop_threshold_frames, crop_threshold_pixels,
+                                   exclude_extensions, hw_decode);
 }
 
 void hb_force_rescan( hb_handle_t * h )
@@ -902,6 +927,7 @@ hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
     init.time_base.den = 90000;
     init.job = job;
     init.pix_fmt = AV_PIX_FMT_YUV420P;
+    init.hw_pix_fmt = AV_PIX_FMT_NONE;
     init.color_range = AVCOL_RANGE_MPEG;
 
     init.color_prim = title->color_prim;
@@ -1725,6 +1751,11 @@ void hb_add_filter2( hb_value_array_t * list, hb_dict_t * filter_dict )
 void hb_add_filter_dict( hb_job_t * job, hb_filter_object_t * filter,
                          const hb_dict_t * settings_in )
 {
+    if (filter == NULL)
+    {
+        hb_log("hb_add_filter_dict: filter is null");
+        return;
+    }
     hb_dict_t * settings;
 
     // Always set filter->settings to a valid hb_dict_t
@@ -1774,6 +1805,11 @@ void hb_add_filter_dict( hb_job_t * job, hb_filter_object_t * filter,
 void hb_add_filter( hb_job_t * job, hb_filter_object_t * filter,
                     const char * settings_in )
 {
+    if (filter == NULL)
+    {
+        hb_log("hb_add_filter: filter is null");
+        return;
+    }
     hb_dict_t * settings = hb_parse_filter_settings(settings_in);
     if (settings_in != NULL && settings == NULL)
     {
@@ -2198,10 +2234,6 @@ int hb_global_init()
         return -1;
     }
 
-#if HB_PROJECT_FEATURE_QSV
-    hb_param_configure_qsv();
-#endif
-
     /* libavcodec */
     hb_avcodec_init();
 
@@ -2235,6 +2267,7 @@ int hb_global_init()
 #if HB_PROJECT_FEATURE_QSV
     if (!disable_hardware)
     {
+        hb_qsv_available();
         hb_register(&hb_encqsv);
     }
 #endif
@@ -2458,6 +2491,7 @@ hb_interjob_t * hb_interjob_get( hb_handle_t * h )
     return h->interjob;
 }
 
-int is_hardware_disabled(void){
+int is_hardware_disabled(void)
+{
     return disable_hardware;
 }

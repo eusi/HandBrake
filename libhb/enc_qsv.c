@@ -206,8 +206,9 @@ static int log_encoder_params(const hb_work_private_t *pv, const mfxVideoParam *
     }
 
     // log code path and main output settings
-    hb_log("encqsvInit: using%s%s%s path",
-           pv->is_sys_mem ? " encode-only" : " full QSV",
+    hb_log("encqsvInit: using%s%s%s%s path",
+           hb_qsv_full_path_is_enabled(pv->job) ? " full QSV" : " encode-only",
+           hb_qsv_get_memory_type(pv->job) == MFX_IOPATTERN_OUT_VIDEO_MEMORY ? " via video memory" : " via system memory",
            videoParam->mfx.LowPower == MFX_CODINGOPTION_ON ? " (LowPower)" : "",
            extHyperModeOption != NULL ? hyper_encode_name(extHyperModeOption->Mode) : "");
     hb_log("encqsvInit: %s %s profile @ level %s",
@@ -1017,7 +1018,7 @@ int qsv_enc_init(hb_work_private_t *pv)
                 .Free   = hb_qsv_frame_free,
             };
 
-            if (hb_qsv_hw_filters_are_enabled(pv->job))
+            if (hb_qsv_hw_filters_via_video_memory_are_enabled(pv->job) || hb_qsv_hw_filters_via_system_memory_are_enabled(pv->job))
             {
                 frame_allocator.pthis = pv->job->qsv.ctx->hb_vpp_qsv_frames_ctx;
             }
@@ -1161,7 +1162,7 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     hb_work_private_t *pv = calloc(1, sizeof(hb_work_private_t));
     w->private_data       = pv;
 
-    pv->is_sys_mem         = hb_qsv_full_path_is_enabled(job) ? 0 : 1; // TODO: re-implement QSV VPP filtering support
+    pv->is_sys_mem         = (hb_qsv_get_memory_type(job) == MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
     pv->job                = job;
     pv->qsv_info           = hb_qsv_encoder_info_get(hb_qsv_get_adapter_index(), job->vcodec);
     pv->delayed_processing = hb_list_init();
@@ -1188,6 +1189,8 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     pv->param.videoParam->AsyncDepth = job->qsv.async_depth;
 
     // set and enable colorimetry (video signal information)
+    pv->param.videoSignalInfo.VideoFullRange = (pv->job->color_range == AVCOL_RANGE_JPEG);
+
     pv->param.videoSignalInfo.ColourPrimaries          = hb_output_color_prim(job);
     pv->param.videoSignalInfo.TransferCharacteristics  = hb_output_color_transfer(job);
     pv->param.videoSignalInfo.MatrixCoefficients       = hb_output_color_matrix(job);
@@ -1275,9 +1278,6 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
 #if defined(_WIN32) || defined(__MINGW32__)
     if (pv->is_sys_mem && hb_qsv_implementation_is_hardware(pv->qsv_info->implementation))
     {
-        // select the right hardware implementation based on dx index
-        if (!job->qsv.ctx->qsv_device)
-            hb_qsv_param_parse_dx_index(pv->job, hb_qsv_get_adapter_index());
         mfxIMPL hw_preference = MFX_IMPL_VIA_D3D11;
         pv->qsv_info->implementation = hb_qsv_dx_index_to_impl(job->qsv.ctx->dx_index) | hw_preference;
     }
@@ -1296,18 +1296,20 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
                       job->par.num, job->par.den, UINT16_MAX);
 
     // some encoding parameters are used by filters to configure their output
+    int align_width = 0, align_height = 0;
+
     switch (pv->qsv_info->codec_id)
     {
         case MFX_CODEC_HEVC:
         case MFX_CODEC_AV1:
-            job->qsv.enc_info.align_width  = HB_QSV_ALIGN32(job->width);
-            job->qsv.enc_info.align_height = HB_QSV_ALIGN32(job->height);
+            align_width  = HB_QSV_ALIGN32(job->width);
+            align_height = HB_QSV_ALIGN32(job->height);
             break;
 
         case MFX_CODEC_AVC:
         default:
-            job->qsv.enc_info.align_width  = HB_QSV_ALIGN16(job->width);
-            job->qsv.enc_info.align_height = HB_QSV_ALIGN16(job->height);
+            align_width  = HB_QSV_ALIGN16(job->width);
+            align_height = HB_QSV_ALIGN16(job->height);
             break;
     }
     if (pv->param.videoParam->mfx.FrameInfo.PicStruct != MFX_PICSTRUCT_PROGRESSIVE)
@@ -1316,15 +1318,13 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         switch (pv->qsv_info->codec_id)
         {
             case MFX_CODEC_AVC:
-                job->qsv.enc_info.align_height = HB_QSV_ALIGN32(job->qsv.enc_info.align_height);
+                align_height = HB_QSV_ALIGN32(align_height);
                 break;
 
             default:
                 break;
         }
     }
-    job->qsv.enc_info.pic_struct   = pv->param.videoParam->mfx.FrameInfo.PicStruct;
-    job->qsv.enc_info.is_init_done = 1;
 
     // set codec, profile/level and FrameInfo
     pv->param.videoParam->mfx.CodecId                 = pv->qsv_info->codec_id;
@@ -1340,9 +1340,8 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
     pv->param.videoParam->mfx.FrameInfo.CropY         = 0;
     pv->param.videoParam->mfx.FrameInfo.CropW         = job->width;
     pv->param.videoParam->mfx.FrameInfo.CropH         = job->height;
-    pv->param.videoParam->mfx.FrameInfo.PicStruct     = job->qsv.enc_info.pic_struct;
-    pv->param.videoParam->mfx.FrameInfo.Width         = job->qsv.enc_info.align_width;
-    pv->param.videoParam->mfx.FrameInfo.Height        = job->qsv.enc_info.align_height;
+    pv->param.videoParam->mfx.FrameInfo.Width         = align_width;
+    pv->param.videoParam->mfx.FrameInfo.Height        = align_height;
 
     // parse user-specified codec profile and level
     if (hb_qsv_profile_parse(&pv->param, pv->qsv_info, job->encoder_profile, job->vcodec))
@@ -1581,7 +1580,9 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
         {
             pv->param.videoParam->mfx.IdrInterval = 0;
         }
-        pv->param.videoParam->AsyncDepth = 60;
+        // sanitize some of the encoding parameters
+        pv->param.videoParam->mfx.GopPicSize = (int)(FFMIN(pv->param.gop.gop_pic_size, 60));
+        pv->param.videoParam->AsyncDepth = (int)(FFMAX(pv->param.videoParam->AsyncDepth, 30));
     }
     // sanitize some settings that affect memory consumption
     if (!pv->is_sys_mem)
@@ -1661,18 +1662,6 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
 
     /* MFXVideoENCODE_Init with desired encoding parameters */
     sts = MFXVideoENCODE_Init(session, pv->param.videoParam);
-// workaround for the early 15.33.x driver, should be removed later
-#define HB_DRIVER_FIX_33
-#ifdef  HB_DRIVER_FIX_33
-    int la_workaround = 0;
-    if (sts < MFX_ERR_NONE &&
-        pv->param.videoParam->mfx.RateControlMethod == MFX_RATECONTROL_LA)
-    {
-        pv->param.videoParam->mfx.RateControlMethod = MFX_RATECONTROL_CBR;
-        sts = MFXVideoENCODE_Init(session, pv->param.videoParam);
-        la_workaround = 1;
-    }
-#endif
     if (sts < MFX_ERR_NONE) // ignore warnings
     {
         hb_error("encqsvInit: MFXVideoENCODE_Init failed (%d)", sts);
@@ -1766,16 +1755,6 @@ int encqsvInit(hb_work_object_t *w, hb_job_t *job)
 
     /* We don't need this encode session once we have the header */
     MFXVideoENCODE_Close(session);
-
-#ifdef HB_DRIVER_FIX_33
-    if (la_workaround)
-    {
-        videoParam.mfx.RateControlMethod =
-        pv->param.videoParam->mfx.RateControlMethod = MFX_RATECONTROL_LA;
-        option2->LookAheadDepth = pv->param.codingOption2.LookAheadDepth;
-        hb_log("encqsvInit: using LookAhead workaround (\"early 33 fix\")");
-    }
-#endif
 
     // when using system memory, we re-use this same session
     if (pv->is_sys_mem)
@@ -1947,7 +1926,7 @@ static void compute_init_delay(hb_work_private_t *pv, mfxBitstream *bs)
         if (pv->bfrm_delay < 1 || pv->bfrm_delay > BFRM_DELAY_MAX)
         {
             hb_log("compute_init_delay: "
-                   "invalid delay %d (PTS: %"PRIu64", DTS: %"PRId64")",
+                   "invalid delay %d (PTS: %llu, DTS: %lld)",
                    pv->bfrm_delay, bs->TimeStamp, bs->DecodeTimeStamp);
 
             /* we have B-frames, the frame delay should be at least 1 */
@@ -2311,9 +2290,10 @@ int encqsvWork(hb_work_object_t *w, hb_buffer_t **buf_in, hb_buffer_t **buf_out)
     else
     {
         QSVMid *mid = NULL;
-        if (in->qsv_details.frame && in->qsv_details.frame->data[3])
+        AVFrame *frame = (AVFrame *)in->storage;
+        if (frame && frame->data[3])
         {
-            surface = ((mfxFrameSurface1*)in->qsv_details.frame->data[3]);
+            surface = ((mfxFrameSurface1*)frame->data[3]);
             frames_ctx = in->qsv_details.qsv_frames_ctx;
             hb_qsv_get_mid_by_surface_from_pool(frames_ctx, surface, &mid);
             hb_qsv_replace_surface_mid(frames_ctx, mid, surface);
@@ -2425,9 +2405,11 @@ int encqsvWork(hb_work_object_t *w, hb_buffer_t **buf_in, hb_buffer_t **buf_out)
         goto fail;
     }
 
-    if (in->qsv_details.frame)
+    if (in->storage)
     {
-        in->qsv_details.frame->data[3] = 0;
+        // FIXME: This looks weird
+        AVFrame *frame = (AVFrame *)in->storage;
+        frame->data[3] = 0;
     }
 
     *buf_out = hb_buffer_list_clear(&pv->encoded_frames);

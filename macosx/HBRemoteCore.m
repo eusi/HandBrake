@@ -121,7 +121,8 @@
     [self forwardError:@"XPC: Service did crash\n"];
 }
 
-- (void)updateState:(HBState)state {
+- (void)updateState:(HBState)state
+{
     dispatch_sync(dispatch_get_main_queue(), ^{
         self.state = state;
     });
@@ -149,7 +150,7 @@
     [_proxy preventSleep];
 }
 
-- (void)scanURL:(NSURL *)url titleIndex:(NSUInteger)index previews:(NSUInteger)previewsNum minDuration:(NSUInteger)seconds keepPreviews:(BOOL)keepPreviews progressHandler:(nonnull HBCoreProgressHandler)progressHandler completionHandler:(nonnull HBCoreCompletionHandler)completionHandler
+- (void)scanURL:(NSURL *)url titleIndex:(NSUInteger)index previews:(NSUInteger)previewsNum minDuration:(NSUInteger)seconds keepPreviews:(BOOL)keepPreviews hardwareDecoder:(BOOL)hardwareDecoder progressHandler:(nonnull HBCoreProgressHandler)progressHandler completionHandler:(nonnull HBCoreCompletionHandler)completionHandler
 {
     if (!_connection)
     {
@@ -173,7 +174,7 @@
 
     __weak HBRemoteCore *weakSelf = self;
 
-    [_proxy scanURL:url titleIndex:index previews:previewsNum minDuration:seconds keepPreviews:keepPreviews withReply:^(HBCoreResult result) {
+    [_proxy scanURL:url titleIndex:index previews:previewsNum minDuration:seconds keepPreviews:keepPreviews hardwareDecoder:(BOOL)hardwareDecoder withReply:^(HBCoreResult result) {
         dispatch_sync(dispatch_get_main_queue(), ^{
             HBCoreCompletionHandler handler = weakSelf.completionHandler;
             weakSelf.completionHandler = nil;
@@ -210,10 +211,16 @@
         }
     }
 
-    NSData *bookmark = [job.destinationFolderURL bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:NULL];
-    if (bookmark)
+    NSData *destinationBookmark = [job.destinationFolderURL bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:NULL];
+    if (destinationBookmark)
     {
-        [bookmarks addObject:bookmark];
+        [bookmarks addObject:destinationBookmark];
+    }
+
+    NSData *sourceBookmark = [job.fileURL bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:NULL];
+    if (sourceBookmark)
+    {
+        [bookmarks addObject:sourceBookmark];
     }
 
     [_proxy provideResourceAccessWithBookmarks:bookmarks];
@@ -245,13 +252,16 @@
     [_proxy cancelEncode];
 }
 
-- (void)updateProgress:(double)currentProgress hours:(int)hours minutes:(int)minutes seconds:(int)seconds state:(HBState)state info:(NSString *)info {
-
+- (void)updateProgress:(double)currentProgress hours:(int)hours minutes:(int)minutes seconds:(int)seconds state:(HBState)state info:(NSString *)info
+{
     __weak HBRemoteCore *weakSelf = self;
 
     dispatch_sync(dispatch_get_main_queue(), ^{
-        HBProgress progress = {currentProgress , hours, minutes, seconds};
-        weakSelf.progressHandler(state, progress, info);
+        if (weakSelf.progressHandler)
+        {
+            HBProgress progress = {currentProgress , hours, minutes, seconds};
+            weakSelf.progressHandler(state, progress, info);
+        }
     });
 }
 

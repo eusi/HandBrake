@@ -18,7 +18,6 @@ int            hb_qsv_available();
 
 // Public API
 int  hb_qsv_impl_set_preferred(const char *name);
-void hb_qsv_force_workarounds(); // for developers only
 
 #ifdef __LIBHB__
 // Private API
@@ -95,7 +94,6 @@ typedef struct hb_qsv_info_s
 int            hb_qsv_create_mfx_session(mfxIMPL implementation, int adapter_index, mfxVersion *pver, mfxSession *psession);
 hb_display_t * hb_qsv_display_init(const uint32_t dri_render_node);
 int            hb_qsv_video_encoder_is_enabled(int adapter_index, int encoder);
-int            hb_qsv_audio_encoder_is_enabled(int encoder);
 int            hb_qsv_info_init();
 void           hb_qsv_info_close();
 void           hb_qsv_info_print();
@@ -111,12 +109,6 @@ int            hb_qsv_implementation_is_hardware(mfxIMPL implementation);
 /* Intel Quick Sync Video DECODE utilities */
 const char* hb_qsv_decode_get_codec_name(enum AVCodecID codec_id);
 int hb_qsv_decode_is_enabled(hb_job_t *job);
-
-/*
- * mfxCoreInterface::CopyFrame had a bug preventing us from using it, but
- * it was fixed in newer drivers - we can use this to determine usability
- */
-int hb_qsv_copyframe_is_slow(int encoder);
 
 /* Media SDK parameters handling */
 enum
@@ -258,13 +250,16 @@ hb_qsv_context* hb_qsv_context_init();
 void hb_qsv_context_uninit(hb_job_t *job);
 int hb_qsv_sanitize_filter_list(hb_job_t *job);
 int hb_qsv_hw_frames_init(AVCodecContext *s);
-int hb_create_ffmpeg_pool(hb_job_t *job, int coded_width, int coded_height, enum AVPixelFormat sw_pix_fmt, int pool_size, int extra_hw_frames, AVBufferRef **out_hw_frames_ctx);
-int hb_qsv_hw_filters_are_enabled(hb_job_t *job);
+int hb_qsv_create_ffmpeg_pool(hb_job_t *job, int coded_width, int coded_height, enum AVPixelFormat sw_pix_fmt, int pool_size, int extra_hw_frames, AVBufferRef **out_hw_frames_ctx);
+int hb_qsv_create_ffmpeg_vpp_pool(hb_filter_init_t *init, int width, int height);
+int hb_qsv_hw_filters_via_system_memory_are_enabled(hb_job_t *job);
+int hb_qsv_hw_filters_via_video_memory_are_enabled(hb_job_t *job);
+int hb_qsv_get_memory_type(hb_job_t *job);
 int hb_qsv_full_path_is_enabled(hb_job_t *job);
 AVBufferRef *hb_qsv_create_mids(AVBufferRef *hw_frames_ref);
-int hb_qsv_attach_surface_to_video_buffer(hb_job_t *job, hb_buffer_t* buf, int is_vpp);
-int hb_qsv_copy_video_buffer_to_video_buffer(hb_job_t *job, hb_buffer_t* in, hb_buffer_t* out, int is_vpp);
-hb_buffer_t* hb_qsv_copy_avframe_to_video_buffer(hb_job_t *job, AVFrame *frame, int is_vpp);
+hb_buffer_t * hb_qsv_copy_video_buffer_to_hw_video_buffer(hb_job_t *job, hb_buffer_t *in, const int is_vpp);
+hb_buffer_t * hb_qsv_buffer_dup(hb_job_t *job, hb_buffer_t *in, const int is_vpp);
+hb_buffer_t * hb_qsv_copy_avframe_to_video_buffer(hb_job_t *job, AVFrame *frame, AVRational time_base, const int is_vpp);
 int hb_qsv_get_free_surface_from_pool(HBQSVFramesContext* hb_enc_qsv_frames_ctx, AVFrame* frame, QSVMid** out_mid);
 void hb_qsv_get_free_surface_from_pool_with_range(HBQSVFramesContext* hb_enc_qsv_frames_ctx, const int start_index, const int end_index, QSVMid** out_mid, mfxFrameSurface1** out_surface);
 int hb_qsv_get_mid_by_surface_from_pool(HBQSVFramesContext* hb_enc_qsv_frames_ctx, mfxFrameSurface1 *surface, QSVMid **out_mid);
@@ -272,7 +267,6 @@ int hb_qsv_replace_surface_mid(HBQSVFramesContext* hb_qsv_frames_ctx, const QSVM
 int hb_qsv_release_surface_from_pool_by_surface_pointer(HBQSVFramesContext* hb_enc_qsv_frames_ctx, const mfxFrameSurface1 *surface);
 int hb_qsv_get_buffer(AVCodecContext *s, AVFrame *frame, int flags);
 enum AVPixelFormat hb_qsv_get_format(AVCodecContext *s, const enum AVPixelFormat *pix_fmts);
-int hb_qsv_preset_is_zero_copy_enabled(const hb_dict_t *job_dict);
 void hb_qsv_uninit_dec(AVCodecContext *s);
 void hb_qsv_uninit_enc(hb_job_t *job);
 int hb_qsv_setup_job(hb_job_t *job);

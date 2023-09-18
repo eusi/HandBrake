@@ -47,6 +47,7 @@
 #include "libavfilter/buffersrc.h"
 #include "libavfilter/buffersink.h"
 #include "libavutil/hwcontext.h"
+#include "handbrake/hwaccel.h"
 #include "handbrake/lang.h"
 #include "handbrake/audio_resample.h"
 
@@ -54,10 +55,6 @@
 #include "libavutil/hwcontext_qsv.h"
 #include "handbrake/qsv_common.h"
 #include "handbrake/qsv_libav.h"
-#endif
-
-#if HB_PROJECT_FEATURE_NVENC
-#include "handbrake/nvenc_common.h"
 #endif
 
 static void compute_frame_duration( hb_work_private_t *pv );
@@ -157,6 +154,9 @@ struct hb_work_private_s
         const char       * codec_name;
     } qsv;
 #endif
+
+    AVFrame              * hw_frame;
+    enum AVPixelFormat     hw_pix_fmt;
 
     hb_list_t            * list_subtitle;
 };
@@ -568,6 +568,7 @@ static void closePrivData( hb_work_private_t ** ppv )
                     pv->context->codec->name, pv->nframes, pv->decode_errors);
         }
         av_frame_free(&pv->frame);
+        av_frame_free(&pv->hw_frame);
         close_video_filters(pv);
         if ( pv->parser )
         {
@@ -592,9 +593,7 @@ static void closePrivData( hb_work_private_t ** ppv )
             //if (!(pv->qsv.decode && pv->job != NULL && (pv->job->vcodec & HB_VCODEC_QSV_MASK)))
             hb_qsv_uninit_dec(pv->context);
 #endif
-            {
-                hb_avcodec_free_context(&pv->context);
-            }
+            hb_avcodec_free_context(&pv->context);
         }
         if ( pv->context )
         {
@@ -1151,23 +1150,14 @@ static hb_buffer_t *copy_frame( hb_work_private_t *pv )
 
 #if HB_PROJECT_FEATURE_QSV
     // no need to copy the frame data when decoding with QSV to opaque memory
-    if (pv->qsv.decode &&
-        pv->qsv.config.io_pattern == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
+    if (hb_qsv_full_path_is_enabled(pv->job) && hb_qsv_get_memory_type(pv->job) == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
     {
-        out = hb_qsv_copy_avframe_to_video_buffer(pv->job, pv->frame, 0);
+        out = hb_qsv_copy_avframe_to_video_buffer(pv->job, pv->frame, (AVRational){1,1}, 0);
     }
     else
 #endif
     {
-        out = hb_avframe_to_video_buffer(pv->frame, (AVRational){1,1});
-    }
-
-    // Make sure every frame is tagged.
-    if (out->f.color_prim == HB_COLR_PRI_UNDEF || out->f.color_transfer == HB_COLR_TRA_UNDEF || out->f.color_matrix == HB_COLR_MAT_UNDEF)
-    {
-        out->f.color_prim = pv->title->color_prim;
-        out->f.color_transfer = pv->title->color_transfer;
-        out->f.color_matrix = pv->title->color_matrix;
+        out = hb_avframe_to_video_buffer(pv->frame, (AVRational){1,1}, 1);
     }
 
     if (pv->frame->pts != AV_NOPTS_VALUE)
@@ -1328,8 +1318,12 @@ static hb_buffer_t *copy_frame( hb_work_private_t *pv )
         sd = av_frame_get_side_data(pv->frame, AV_FRAME_DATA_AMBIENT_VIEWING_ENVIRONMENT);
         if (sd != NULL && sd->size > 0)
         {
-            AVAmbientViewingEnvironment *ambient = (AVAmbientViewingEnvironment *)sd->data;
-            pv->title->ambient = hb_ambient_ff_to_hb(*ambient);
+            if (pv->title->ambient.ambient_illuminance.num == 0 &&
+                pv->title->ambient.ambient_illuminance.den == 0)
+            {
+                AVAmbientViewingEnvironment *ambient = (AVAmbientViewingEnvironment *)sd->data;
+                pv->title->ambient = hb_ambient_ff_to_hb(*ambient);
+            }
         }
     }
 
@@ -1349,6 +1343,20 @@ static const char * get_range_name(int color_range)
     return "limited";
 }
 
+static const char * get_range_name_cuda(int color_range)
+{
+    // Different names for totally no reason
+    switch (color_range)
+    {
+        case AVCOL_RANGE_UNSPECIFIED:
+        case AVCOL_RANGE_MPEG:
+            return "mpeg";
+        case AVCOL_RANGE_JPEG:
+            return "jpeg";
+    }
+    return "mpeg";
+}
+
 int reinit_video_filters(hb_work_private_t * pv)
 {
     int                orig_width;
@@ -1362,8 +1370,7 @@ int reinit_video_filters(hb_work_private_t * pv)
     memset((void*)&filter_init, 0, sizeof(filter_init));
 
 #if HB_PROJECT_FEATURE_QSV
-    if (pv->qsv.decode &&
-        pv->qsv.config.io_pattern == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
+    if (hb_qsv_full_path_is_enabled(pv->job))
     {
         // Can't use software filters when decoding with QSV opaque memory
         return 0;
@@ -1371,7 +1378,7 @@ int reinit_video_filters(hb_work_private_t * pv)
 #endif
     if (!pv->job)
     {
-        // HandBrake's video pipeline uses yuv420 color.  This means all
+        // HandBrake's preview pipeline uses yuv420 color.  This means all
         // dimensions must be even.  So we must adjust the dimensions
         // of incoming video if not even.
         orig_width = pv->context->width & ~1;
@@ -1392,7 +1399,7 @@ int reinit_video_filters(hb_work_private_t * pv)
             orig_width = pv->job->title->geometry.width;
             orig_height = pv->job->title->geometry.height;
         }
-        pix_fmt = pv->job->input_pix_fmt;
+        pix_fmt = pv->job->hw_pix_fmt != AV_PIX_FMT_NONE ? pv->job->hw_pix_fmt : pv->job->input_pix_fmt;
         color_range = pv->job->color_range;
     }
 
@@ -1414,6 +1421,12 @@ int reinit_video_filters(hb_work_private_t * pv)
         pv->video_filters.pix_fmt     == pv->frame->format)
     {
         // Current filter settings are good
+        return 0;
+    }
+
+    if (pv->job && pv->job->hw_pix_fmt == AV_PIX_FMT_VIDEOTOOLBOX)
+    {
+        // Filtering is done in a separate filter
         return 0;
     }
 
@@ -1440,7 +1453,7 @@ int reinit_video_filters(hb_work_private_t * pv)
     {
         settings = hb_dict_init();
 #if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
-        if (hb_qsv_hw_filters_are_enabled(pv->job))
+        if (hb_qsv_hw_filters_via_video_memory_are_enabled(pv->job) || hb_qsv_hw_filters_via_system_memory_are_enabled(pv->job))
         {
             hb_dict_set(settings, "w", hb_value_int(orig_width));
             hb_dict_set(settings, "h", hb_value_int(orig_height));
@@ -1448,19 +1461,21 @@ int reinit_video_filters(hb_work_private_t * pv)
         }
         else
 #endif
-#if HB_PROJECT_FEATURE_NVENC
-        if (pv->frame->hw_frames_ctx)
+        if (pv->frame->hw_frames_ctx && pv->job->hw_pix_fmt == AV_PIX_FMT_CUDA)
         {
+            if (color_range != pv->frame->color_range)
+            {
+                hb_dict_set_string(settings, "range", get_range_name_cuda(color_range));
+                hb_avfilter_append_dict(filters, "colorspace_cuda", settings);
+                settings = hb_dict_init();
+            }
             hb_dict_set(settings, "w", hb_value_int(orig_width));
             hb_dict_set(settings, "h", hb_value_int(orig_height));
             hb_dict_set(settings, "interp_algo", hb_value_string("lanczos"));
-            hb_dict_set(settings, "format", hb_value_string(av_get_pix_fmt_name(pix_fmt)));
+            hb_dict_set(settings, "format", hb_value_string(av_get_pix_fmt_name(pv->job->input_pix_fmt)));
             hb_avfilter_append_dict(filters, "scale_cuda", settings);
-            filter_init.nv_hw_ctx.hw_frames_ctx = pv->frame->hw_frames_ctx;
         }
-        else
-#endif
-        if ((pv->frame->width % 2) == 0 && (pv->frame->height % 2) == 0)
+        else if ((pv->frame->width % 2) == 0 && (pv->frame->height % 2) == 0)
         {
             hb_dict_set(settings, "pix_fmts", hb_value_string(av_get_pix_fmt_name(pix_fmt)));
             hb_avfilter_append_dict(filters, "format", settings);
@@ -1513,8 +1528,20 @@ int reinit_video_filters(hb_work_private_t * pv)
         }
     }
 
+    enum AVPixelFormat sw_pix_fmt = pv->frame->format;
+    enum AVPixelFormat hw_pix_fmt = AV_PIX_FMT_NONE;
+
+    AVHWFramesContext *frames_ctx = NULL;
+    if (pv->frame->hw_frames_ctx)
+    {
+        frames_ctx = (AVHWFramesContext *)pv->frame->hw_frames_ctx->data;
+        pix_fmt = frames_ctx->sw_format;
+        hw_pix_fmt = frames_ctx->format;
+    }
+
     filter_init.job               = pv->job;
-    filter_init.pix_fmt           = pv->frame->format;
+    filter_init.pix_fmt           = sw_pix_fmt;
+    filter_init.hw_pix_fmt        = hw_pix_fmt;
     filter_init.geometry.width    = pv->frame->width;
     filter_init.geometry.height   = pv->frame->height;
     filter_init.geometry.par.num  = pv->frame->sample_aspect_ratio.num;
@@ -1542,6 +1569,20 @@ fail:
 
 static void filter_video(hb_work_private_t *pv)
 {
+    // Make sure every frame is tagged
+    if (pv->frame->color_primaries == AVCOL_PRI_UNSPECIFIED ||
+        pv->frame->color_trc       == AVCOL_TRC_UNSPECIFIED ||
+        pv->frame->colorspace      == AVCOL_SPC_UNSPECIFIED)
+    {
+        pv->frame->color_primaries = pv->title->color_prim;
+        pv->frame->color_trc       = pv->title->color_transfer;
+        pv->frame->colorspace      = pv->title->color_matrix;
+    }
+    if (pv->frame->color_range == AVCOL_RANGE_UNSPECIFIED)
+    {
+        pv->frame->color_range = pv->title->color_range;
+    }
+
     reinit_video_filters(pv);
     if (pv->video_filters.graph != NULL)
     {
@@ -1578,6 +1619,12 @@ static int decodeFrame( hb_work_private_t * pv, packet_info_t * packet_info )
     int got_picture = 0, oldlevel = 0, ret;
     AVPacket *avp = pv->pkt;
     reordered_data_t * reordered;
+    AVFrame *recv_frame = pv->frame;
+
+    if (pv->hw_frame)
+    {
+        recv_frame = pv->hw_frame;
+    }
 
     if ( global_verbosity_level <= 1 )
     {
@@ -1637,7 +1684,7 @@ static int decodeFrame( hb_work_private_t * pv, packet_info_t * packet_info )
 
     do
     {
-        ret = avcodec_receive_frame(pv->context, pv->frame);
+        ret = avcodec_receive_frame(pv->context, recv_frame);
         if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)
         {
             ++pv->decode_errors;
@@ -1647,6 +1694,31 @@ static int decodeFrame( hb_work_private_t * pv, packet_info_t * packet_info )
             break;
         }
         got_picture = 1;
+
+        if (pv->hw_frame)
+        {
+            if (pv->hw_frame->hw_frames_ctx)
+            {
+                ret = av_hwframe_transfer_data(pv->frame, pv->hw_frame, 0);
+                av_frame_copy_props(pv->frame, pv->hw_frame);
+                av_frame_unref(pv->hw_frame);
+                if (ret < 0)
+                {
+                    hb_error("decavcodec: error transferring data to system memory");
+                    break;
+                }
+            }
+            else
+            {
+                // HWAccel falled back to the software decoder
+                av_frame_ref(pv->frame, pv->hw_frame);
+                av_frame_unref(pv->hw_frame);
+                if (ret < 0)
+                {
+                    hb_error("decavcodec: error hwaccel copying frame");
+                }
+            }
+        }
 
         // recompute the frame/field duration, because sometimes it changes
         compute_frame_duration( pv );
@@ -1683,7 +1755,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
     {
         pv->qsv.codec_name = hb_qsv_decode_get_codec_name(w->codec_param);
         pv->qsv.config.io_pattern = MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
-        if(hb_qsv_full_path_is_enabled(job))
+        if(hb_qsv_get_memory_type(job) == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
         {
             hb_qsv_info_t *info = hb_qsv_encoder_info_get(hb_qsv_get_adapter_index(), job->vcodec);
             if (info != NULL)
@@ -1751,25 +1823,23 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         return 1;
     }
 
-#if HB_PROJECT_FEATURE_NVENC
-    int use_hw_dec = 0;
-    if (hb_nvdec_is_enabled(job))
-    {
-        use_hw_dec = 1;
-    }
-#endif
-
     pv->context = avcodec_alloc_context3( pv->codec );
     pv->context->workaround_bugs = FF_BUG_AUTODETECT;
     pv->context->err_recognition = AV_EF_CRCCHECK;
     pv->context->error_concealment = FF_EC_GUESS_MVS|FF_EC_DEBLOCK;
 
-#if HB_PROJECT_FEATURE_NVENC
-    if (use_hw_dec)
+    if (w->hw_device_ctx)
     {
-        hb_nvdec_hw_ctx_init(pv->context, pv->job);
+        pv->context->get_format = hw_hwaccel_get_hw_format;
+        pv->context->opaque = job;
+        av_buffer_replace(&pv->context->hw_device_ctx, w->hw_device_ctx);
+
+        if (job == NULL ||
+            (job->hw_pix_fmt == AV_PIX_FMT_NONE && job->hw_decode & HB_DECODE_SUPPORT_FORCE_HW))
+        {
+            pv->hw_frame = av_frame_alloc();
+        }
     }
-#endif
 
     if ( pv->title->opaque_priv )
     {
@@ -1803,7 +1873,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
             if (pv->context->codec_id == AV_CODEC_ID_HEVC)
                 av_dict_set( &av_opts, "load_plugin", "hevc_hw", 0 );
 #if defined(_WIN32) || defined(__MINGW32__)
-            if (!hb_qsv_full_path_is_enabled(job))
+            if (hb_qsv_get_memory_type(job) == MFX_IOPATTERN_OUT_SYSTEM_MEMORY)
             {
                 hb_qsv_device_init(job);
                 pv->context->hw_device_ctx = av_buffer_ref(job->qsv.ctx->hb_hw_device_ctx);
@@ -1983,18 +2053,6 @@ static int decodePacket( hb_work_object_t * w )
             return HB_WORK_OK;
         }
 
-#if HB_PROJECT_FEATURE_NVENC
-        AVBufferRef *hw_device_ctx = NULL;
-        if (pv->context->hw_device_ctx)
-        {
-            int ret = av_buffer_replace(&hw_device_ctx, pv->context->hw_device_ctx);
-            if (ret < 0)
-            {
-                return HB_WORK_ERROR;
-            }
-        }
-#endif
-
         hb_avcodec_free_context(&pv->context);
         pv->context = context;
 
@@ -2002,17 +2060,14 @@ static int decodePacket( hb_work_object_t * w )
         pv->context->err_recognition   = AV_EF_CRCCHECK;
         pv->context->error_concealment = FF_EC_GUESS_MVS|FF_EC_DEBLOCK;
 
-#if HB_PROJECT_FEATURE_NVENC
-        if (hw_device_ctx)
+        if (w->hw_device_ctx)
         {
-            int ret = av_buffer_replace(&pv->context->hw_device_ctx, hw_device_ctx);
-            av_buffer_unref(&hw_device_ctx);
+            int ret = av_buffer_replace(&pv->context->hw_device_ctx, w->hw_device_ctx);
             if (ret < 0)
             {
                 return HB_WORK_ERROR;
             }
         }
-#endif
 
 #if HB_PROJECT_FEATURE_QSV
         if (pv->qsv.decode &&
@@ -2247,8 +2302,13 @@ static void compute_frame_duration( hb_work_private_t *pv )
     int64_t max_fps = 64LL;
 
     // context->time_base may be in fields, so set the max *fields* per second
-    if ( pv->context->ticks_per_frame > 1 )
-        max_fps *= pv->context->ticks_per_frame;
+    const AVCodecDescriptor *desc = avcodec_descriptor_get(pv->context->codec_id);
+    int ticks_per_frame = desc && (desc->props & AV_CODEC_PROP_FIELDS) ? 2 : 1;
+
+    if (ticks_per_frame > 1)
+    {
+        max_fps *= ticks_per_frame;
+    }
 
     if ( pv->title->opaque_priv )
     {
@@ -2269,12 +2329,17 @@ static void compute_frame_duration( hb_work_private_t *pv )
         // for raw demuxers.
         else if (ic->iformat->raw_codec_id == AV_CODEC_ID_NONE)
         {
+            AVRational *tb = NULL;
+            // Try r_frame_rate, which is usually set for cfr streams
+            if (st->r_frame_rate.num && st->r_frame_rate.den)
+            {
+                duration = (double)st->r_frame_rate.den / (double)st->r_frame_rate.num;
+            }
             // XXX We don't have a frame count or duration so try to use the
             // far less reliable time base info in the stream.
             // Because the time bases are so screwed up, we only take values
             // in the range 8fps - 64fps.
-            AVRational *tb = NULL;
-            if ( st->avg_frame_rate.den * 64LL > st->avg_frame_rate.num &&
+            else if ( st->avg_frame_rate.den * 64LL > st->avg_frame_rate.num &&
                  st->avg_frame_rate.num > st->avg_frame_rate.den * 8LL )
             {
                 tb = &(st->avg_frame_rate);
@@ -2293,11 +2358,11 @@ static void compute_frame_duration( hb_work_private_t *pv )
         {
             duration =  (double)pv->context->time_base.num /
                         (double)pv->context->time_base.den;
-            if ( pv->context->ticks_per_frame > 1 )
+            if ( ticks_per_frame > 1 )
             {
                 // for ffmpeg 0.5 & later, the H.264 & MPEG-2 time base is
                 // field rate rather than frame rate so convert back to frames.
-                duration *= pv->context->ticks_per_frame;
+                duration *= ticks_per_frame;
             }
         }
     }
@@ -2308,11 +2373,11 @@ static void compute_frame_duration( hb_work_private_t *pv )
         {
             duration =  (double)pv->context->time_base.num /
                             (double)pv->context->time_base.den;
-            if ( pv->context->ticks_per_frame > 1 )
+            if ( ticks_per_frame > 1 )
             {
                 // for ffmpeg 0.5 & later, the H.264 & MPEG-2 time base is
                 // field rate rather than frame rate so convert back to frames.
-                duration *= pv->context->ticks_per_frame;
+                duration *= ticks_per_frame;
             }
         }
     }
@@ -2333,9 +2398,9 @@ static void compute_frame_duration( hb_work_private_t *pv )
     }
 
     pv->field_duration = pv->duration;
-    if ( pv->context->ticks_per_frame > 1 )
+    if ( ticks_per_frame > 1 )
     {
-        pv->field_duration /= pv->context->ticks_per_frame;
+        pv->field_duration /= ticks_per_frame;
     }
 }
 
@@ -2376,14 +2441,6 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
         info->geometry.par.den = pv->context->sample_aspect_ratio.den;
     }
 
-    if (pv->context->codec_id == AV_CODEC_ID_AV1)
-    {
-        // Reset the PAR, AV1 doesn't have a way to store it in the
-        // bitstream, so the AVCodecContext values are always 1.
-        info->geometry.par.num = 0;
-        info->geometry.par.den = 0;
-    }
-
     compute_frame_duration( pv );
     info->rate.num = clock;
     info->rate.den = pv->duration * (clock / 90000.);
@@ -2392,7 +2449,7 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
     info->level = pv->context->level;
     info->name = pv->context->codec->name;
 
-    info->pix_fmt        = pv->context->pix_fmt;
+    info->pix_fmt        = pv->context->sw_pix_fmt;
     info->color_prim     = pv->context->color_primaries;
     info->color_transfer = pv->context->color_trc;
     info->color_matrix   = pv->context->colorspace;
@@ -2411,11 +2468,14 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
     }
 #endif
 
-#if HB_PROJECT_FEATURE_NVENC
-    if (hb_check_nvenc_available() && hb_nvdec_available(w->title->video_codec_param)){
+    if (pv->context->pix_fmt == AV_PIX_FMT_CUDA)
+    {
         info->video_decode_support |= HB_DECODE_SUPPORT_NVDEC;
     }
-#endif
+    else if (pv->context->pix_fmt == AV_PIX_FMT_VIDEOTOOLBOX)
+    {
+        info->video_decode_support |= HB_DECODE_SUPPORT_VIDEOTOOLBOX;
+    }
 
     return 1;
 }

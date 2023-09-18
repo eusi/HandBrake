@@ -89,12 +89,6 @@
 /* Title description */
 "1 Foreign Language Search Pass - " = "1 passe de recherche de langues étrangères - ";
 
-/* Title description */
-"2 Video Passes" = "Vidéo 2 passes";
-
-/* Title description */
-"2 Video Passes First Turbo" = "Vidéo en 2 passes, première passe en turbo";
-
 /* HBAudio -> Mixdown */
 "5.1 Channels" = "Canaux 5.1";
 
@@ -163,7 +157,8 @@
 /* HBFilters -> filter display name */
 "Decomb" = "Suppression du peigne";
 
-/* Subtitles description */
+/* HBFilters -> default display name
+   Subtitles description */
 "Default" = "Défaut";
 
 /* Video description */
@@ -290,6 +285,12 @@
 
 /* HBAudio -> Mixdown */
 "Mono (Right Only)" = "Mono (à droite seulement)";
+
+/* Title description */
+"Multi Passes" = "Multi-passe";
+
+/* Title description */
+"Multi Passes Turbo" = "Multi-passe turbo";
 
 /* HBStateFormatter -> pass display name */
 "Muxing…" = "Multiplexage…";

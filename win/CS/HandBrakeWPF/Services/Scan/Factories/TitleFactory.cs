@@ -10,6 +10,7 @@
 namespace HandBrakeWPF.Services.Scan.Factories
 {
     using System;
+    using System.IO;
 
     using HandBrake.App.Core.Model;
     using HandBrake.App.Core.Utilities;
@@ -37,6 +38,15 @@ namespace HandBrakeWPF.Services.Scan.Factories
                         break;
                     }
                 }
+
+                if (string.IsNullOrEmpty(driveLabel))
+                {
+                    driveLabel = Path.GetFileNameWithoutExtension(title.Path) ?? title.Path;
+                }
+            }
+            else if (title.Type == 0 || title.Type == 1)
+            {
+                driveLabel = Path.GetFileNameWithoutExtension(title.Path) ?? title.Path;
             }
 
             Title converted = new Title
@@ -61,7 +71,7 @@ namespace HandBrakeWPF.Services.Scan.Factories
                     Right = title.LooseCrop[3]
                 },
                 Fps = ((double)title.FrameRate.Num) / title.FrameRate.Den,
-                SourceName = title.Path,
+                SourcePath = title.Path,
                 DriveLabel = driveLabel,
                 MainTitle = mainFeature == title.Index,
                 Playlist = title.Type == 1 ? string.Format(" {0:d5}.MPLS", title.Playlist).Trim() : null,

@@ -2032,7 +2032,7 @@ static void pes_add_subtitle_to_title(
     }
 
     lang = lang_for_code( pes->lang_code );
-    snprintf(subtitle->lang, sizeof( subtitle->lang ), "%s [%s]",
+    snprintf(subtitle->lang, sizeof( subtitle->lang ), "%s (%s)",
              strlen(lang->native_name) ? lang->native_name : lang->eng_name,
              hb_subsource_name(subtitle->source));
     snprintf(subtitle->iso639_2, sizeof( subtitle->iso639_2 ), "%s",
@@ -4055,6 +4055,7 @@ static int probe_dts_profile( hb_stream_t *stream, hb_pes_stream_t *pes )
         case FF_PROFILE_DTS:
         case FF_PROFILE_DTS_ES:
         case FF_PROFILE_DTS_96_24:
+        case FF_PROFILE_DTS_EXPRESS:
             pes->codec = HB_ACODEC_DCA;
             pes->stream_type = 0x82;
             pes->stream_kind = A;
@@ -4062,6 +4063,8 @@ static int probe_dts_profile( hb_stream_t *stream, hb_pes_stream_t *pes )
 
         case FF_PROFILE_DTS_HD_HRA:
         case FF_PROFILE_DTS_HD_MA:
+        case FF_PROFILE_DTS_HD_MA_X:
+        case FF_PROFILE_DTS_HD_MA_X_IMAX:
             pes->stream_type = 0;
             pes->stream_kind = A;
             break;
@@ -5231,9 +5234,9 @@ static int ffmpeg_open( hb_stream_t *stream, hb_title_t *title, int scan )
     }
     av_dict_free( &av_opts );
 
-    if (title->color_prim     == -1 &&
-        title->color_transfer == -1 &&
-        title->color_matrix   == -1)
+    if (title->color_prim     == HB_COLR_PRI_UNSET &&
+        title->color_transfer == HB_COLR_TRA_UNSET &&
+        title->color_matrix   == HB_COLR_MAT_UNSET)
     {
         // Read the video track color info
         // before it's overwritten with the stream info
@@ -5411,11 +5414,14 @@ static void add_ffmpeg_audio(hb_title_t *title, hb_stream_t *stream, int id)
                 case FF_PROFILE_DTS:
                 case FF_PROFILE_DTS_ES:
                 case FF_PROFILE_DTS_96_24:
+                case FF_PROFILE_DTS_EXPRESS:
                     audio->config.in.codec = HB_ACODEC_DCA;
                     break;
 
                 case FF_PROFILE_DTS_HD_MA:
                 case FF_PROFILE_DTS_HD_HRA:
+                case FF_PROFILE_DTS_HD_MA_X:
+                case FF_PROFILE_DTS_HD_MA_X_IMAX:
                     audio->config.in.codec = HB_ACODEC_DCA_HD;
                     break;
 
@@ -5674,7 +5680,7 @@ static void add_ffmpeg_subtitle( hb_title_t *title, hb_stream_t *stream, int id 
             return;
     }
 
-    snprintf(subtitle->lang, sizeof( subtitle->lang ), "%s [%s]",
+    snprintf(subtitle->lang, sizeof( subtitle->lang ), "%s (%s)",
              strlen(lang->native_name) ? lang->native_name : lang->eng_name,
              hb_subsource_name(subtitle->source));
     strncpy(subtitle->iso639_2, lang->iso639_2, 3);
@@ -5885,6 +5891,12 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
                         AVContentLightMetadata *coll = (AVContentLightMetadata *)sd.data;
                         title->coll.max_cll = coll->MaxCLL;
                         title->coll.max_fall = coll->MaxFALL;
+                        break;
+                    }
+                    case AV_PKT_DATA_AMBIENT_VIEWING_ENVIRONMENT:
+                    {
+                        AVAmbientViewingEnvironment *ambient = (AVAmbientViewingEnvironment *)sd.data;
+                        title->ambient = hb_ambient_ff_to_hb(*ambient);
                         break;
                     }
                     case AV_PKT_DATA_DOVI_CONF:

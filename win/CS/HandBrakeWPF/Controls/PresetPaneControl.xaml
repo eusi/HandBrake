@@ -92,6 +92,7 @@
                             <Separator />
                             <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetSetDefault" Header="{x:Static Properties:Resources.ManagePresetView_SetDefault}" />
                             <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetManage" Header="{x:Static Properties:Resources.MainView_PresetManage}" />
+                            <MenuItem Command="{Binding PresetClone}" CommandParameter="{Binding}" Header="{x:Static Properties:Resources.MainView_PresetClone}" />
                             <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetRemoveSelected" Header="{x:Static Properties:Resources.PresetManagerView_Delete}" />
                             <Separator />
                             <MenuItem Command="{Binding RelayCommand}" CommandParameter="PresetReset" Header="{x:Static Properties:Resources.MainView_ResetPresets}" />
@@ -135,6 +136,7 @@
                         <MenuItem Header="{x:Static Properties:Resources.MainView_SetDefault}" Command="{Binding RelayCommand}" CommandParameter="PresetSetDefault" />
                         <Separator />
                         <MenuItem Header="{x:Static Properties:Resources.MainView_PresetManage}" x:Name="editPresetMenuItem" Command="{Binding RelayCommand}" CommandParameter="PresetManage" />
+                        <MenuItem Command="{Binding PresetClone}" CommandParameter="{Binding}" Header="{x:Static Properties:Resources.MainView_PresetClone}" />
                         <MenuItem Header="{x:Static Properties:Resources.PresetManagerView_Delete}" Click="Delete_OnClick" InputGestureText="Del" />
                         <Separator />
                         <MenuItem Header="{x:Static Properties:Resources.Preset_Import}" Command="{Binding RelayCommand}" CommandParameter="PresetImport" />
@@ -142,6 +144,11 @@
                         <Separator />
                         <MenuItem Header="{x:Static Properties:Resources.MainView_ResetBuiltInPresets}" Command="{Binding RelayCommand}" CommandParameter="PresetReset" />
                         <MenuItem Header="{x:Static Properties:Resources.ManagePresetView_DeleteBuiltIn}" Command="{Binding RelayCommand}" CommandParameter="PresetDeleteBuildIn" />
+                        <Separator x:Name="moveSplitter" />
+                        <MenuItem Header="{x:Static Properties:Resources.PresetPane_MoveUp}" x:Name="moveUp" Command="{Binding PresetMove}" CommandParameter="up" />
+                        <MenuItem Header="{x:Static Properties:Resources.PresetPane_MoveDown}" x:Name="moveDown" Command="{Binding PresetMove}" CommandParameter="down" />
+                        <MenuItem Header="{x:Static Properties:Resources.PresetPane_MoveToTop}" x:Name="moveTop" Command="{Binding PresetMove}" CommandParameter="top" />
+                        <MenuItem Header="{x:Static Properties:Resources.PresetPane_MoveToBottom}" x:Name="moveBottom" Command="{Binding PresetMove}" CommandParameter="bottom" />
                     </ContextMenu>
                 </TreeView.ContextMenu>
             </TreeView>

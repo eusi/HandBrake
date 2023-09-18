@@ -89,12 +89,6 @@
 /* Title description */
 "1 Foreign Language Search Pass - " = "1 外语搜索 Pass - ";
 
-/* Title description */
-"2 Video Passes" = "2 Video Passes";
-
-/* Title description */
-"2 Video Passes First Turbo" = "2 Video Passes 首次加速";
-
 /* HBAudio -> Mixdown */
 "5.1 Channels" = "5.1 声道";
 
@@ -163,7 +157,8 @@
 /* HBFilters -> filter display name */
 "Decomb" = "去梳状纹理";
 
-/* Subtitles description */
+/* HBFilters -> default display name
+   Subtitles description */
 "Default" = "默认";
 
 /* Video description */
@@ -290,6 +285,12 @@
 
 /* HBAudio -> Mixdown */
 "Mono (Right Only)" = "单声道（仅右声道）";
+
+/* Title description */
+"Multi Passes" = "Multi Passes";
+
+/* Title description */
+"Multi Passes Turbo" = "Multi Passes Turbo";
 
 /* HBStateFormatter -> pass display name */
 "Muxing…" = "Muxing…";
