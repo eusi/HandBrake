@@ -7,7 +7,7 @@
              xmlns:helpers="clr-namespace:HandBrakeWPF.Helpers"
              xmlns:subtitles="clr-namespace:HandBrakeWPF.Converters.Subtitles"
              xmlns:Properties="clr-namespace:HandBrakeWPF.Properties"
-             d:DesignHeight="385"
+             d:DesignHeight="440"
              d:DesignWidth="550"
              MinWidth="620"
              Width="620"
@@ -48,6 +48,7 @@
         <!-- Row 0 -->
         <Grid Grid.Row="1" Grid.Column="0"  Margin="10,15,0,0">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -115,11 +116,15 @@
                           HorizontalAlignment="Left" IsChecked="{Binding SubtitleBehaviours.AddClosedCaptions}"/>
             <CheckBox Content="{x:Static Properties:Resources.SubtitlesView_AddForeignAudioSearch}"  Grid.Column="1" Grid.Row="4" Margin="0,5,0,0" 
                           HorizontalAlignment="Left" IsChecked="{Binding SubtitleBehaviours.AddForeignAudioScanTrack}"/>
-
+            <!--- Default Subtitle pattern -->
+            <TextBlock Text="Default Subtitle Name:" Grid.Row="5" Grid.Column="0" Margin="0,5,0,0" VerticalAlignment="Center" HorizontalAlignment="Left" />
+            <TextBox Text="{Binding SubtitleBehaviours.SubtitleDefaultKeyword, UpdateSourceTrigger=PropertyChanged}" 
+                             Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,15,10,2" HorizontalAlignment="Stretch" >
+            </TextBox>
 
             <!-- Burn In Behaviour -->
             <TextBlock Text="{x:Static Properties:Resources.SubtitlesView_BurnInBehaviour}"  Grid.Column="0" Grid.Row="5" Margin="0,15,5,0" HorizontalAlignment="Left" VerticalAlignment="Center" />
-            <ComboBox Name="burninBehaviour"  Grid.Column="2" Grid.Row="5" HorizontalAlignment="Left"
+            <ComboBox Name="burninBehaviour"  Grid.Column="2" Grid.Row="6" HorizontalAlignment="Left"
                           ItemsSource="{Binding SubtitleBurnInBehaviourModeList, Converter={StaticResource subtitleBurnInBehaviourConverter}}" 
                           SelectedItem="{Binding SubtitleBehaviours.SelectedBurnInBehaviour, Converter={StaticResource subtitleBurnInBehaviourConverter}}" Width="210" Margin="0,15,5,0">
                 <ComboBox.ToolTip>
