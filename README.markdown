@@ -1,3 +1,15 @@
+This fork just contains a small update to the subtitle behavior: 
+
+In the settings you can add a "Track Name", which should be the "Default" subtitle (e.g. "forced") and if such one is found it is set as default. 
+
+![Screenshot](https://user-images.githubusercontent.com/5718902/87653904-81fa4980-c756-11ea-8be6-91605dc11ed0.jpg)
+
+Discussed: https://github.com/HandBrake/HandBrake/issues/2921
+
+
+-------------------------
+
+
 # HandBrake [![macOS Build](https://github.com/HandBrake/HandBrake/workflows/macOS%20build/badge.svg)](https://github.com/HandBrake/HandBrake/actions?query=workflow%3A%22macOS+build%22) [![Windows Build](https://github.com/HandBrake/HandBrake/workflows/Windows%20Build/badge.svg)](https://github.com/HandBrake/HandBrake/actions?query=workflow%3A%22Windows+Build%22) [![Linux Build](https://github.com/HandBrake/HandBrake/workflows/Linux%20Build/badge.svg)](https://github.com/HandBrake/HandBrake/actions?query=workflow%3A%22Linux+Build%22)
 
 
