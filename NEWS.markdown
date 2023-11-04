@@ -14,7 +14,6 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 
 - Miscellaneous bug fixes and improvements
 - Slightly improved conversion speed by removing unneeded frame copies
-- Expanded the Optimize option to move MKV and WebM the cues to front
 - Added VideoToolbox presets
 
 #### Video
@@ -27,13 +26,16 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
     - 8.4
   - HDR10+ is supported on both x265 10bit and SVT-AV1 encoders
 - Support for SVT-AV1 multi-pass ABR mode
+- 4x speedup when using SVT-AV1 on Apple Silicon and arm64 CPUs
 - Added NVENC AV1 encoder
+- Added VCN AV1 encoder
 - Preserve the ambient viewing enviroment metadata
 - Removed an artificial bitrate limit on VP9 CQ mode
 - Fixed an issue when scaling video content that is not mod2.
 - Fixed an issue with QSV that could result in the output video being a green screen (#4842)
 - Fixed a green video issue with QuickSync (#4876)
 - Fixed a pixel format conversion issue that could result is slightly different colors when using a 10-bit hardware encoder (#5011)
+- Fixed an issue that prevented the VideoToolbox "speed" preset from being used
 - Various fixes and library updates for QuickSync to improve support on Linux (#4958)
 - Switch to using swscale instead of zscale when the resolution isn't mod2. Should fix scan failures in this condition
 - Fixed PAR when reading from a AV1 anamorphic video track
@@ -53,32 +55,43 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 - Fixed a locale issue that could result in the wrong decimal separator in SSA headers
 - Fixed an issue that caused issues with 0 length subtitles when using SSA.
 
+#### Build System
+
+- Use Meson build system for the Linux GUI
+
 #### Third-party libraries
 
 - Updated libraries
-  - AMF 1.4.29 (AMD VCN encoding)
+  - AMF 1.4.30 (AMD VCN encoding)
   - FFmpeg 6.x (decoding and filters)
     - Faster HEVC decoding on arm64
     - 30% faster bwdif filter on arm64
+  - FreeType 2.13.2 (subtitles)
+  - Fribidi 1.0.13 (subtitles)
+  - HarfBuzz 8.2.0 (subtitles)
   - libass 0.17.1 (subtitles)
-  - libdav1d 1.2.1 (AV1 decoding)
+  - libdav1d 1.3.0 (AV1 decoding)
+  - liblzma (xz) 5.4.4 (LZMA video decoding, e.g. TIFF)
   - libopus 1.4 (Opus audio encoding)
-  - libvpx 1.13.0 (VP8/VP9 video encoding)
+  - libjpeg-turbo 3.0.0 (preview image compression)
+  - libvpx 1.13.1 (VP8/VP9 video encoding)
   - libxml 2.11.4 (general)
-  - SVT-AV1 1.6 (AV1 encoding)
+  - oneVPL 2023.3.1 (Intel QSV encoding/decoding)
+  - SVT-AV1 1.7 (AV1 encoding)
+  - x264 164 r3107 (H.264/AVC video encoding)
   - x265 r12776 (H.265/HEVC video encoding)
-  - zimg 3.0.4 (color conversion)
-  - libjpeg-turbo 3.0.0 (preview image compression)  
+  - zimg 3.0.5 (color conversion)
+  - zlib 1.3 (general)
 
 - New libraries
   - libdovi (Dolby Vision metadata)
   
 ### Mac
 
-- Added support for VideoToolbox HEVC, H.265, and ProRes hardware decoders on macOS 13 and later
+- Added support for VideoToolbox HEVC, H.264, and ProRes hardware decoders on macOS 13 and later
   - They can be enabled in the Advanced preferences tab: either for the full path or always
   - Depending on your computer capabilities, they could decrease CPU usage and speed up the conversion
-- Added GPU accelerated Crop & Scale and Rotate filters
+- Added GPU accelerated Crop & Scale, Rotate, Pad, Yadif, Bwdif, Chroma Smooth, Unsharp, Lasharp, Grayscale filters
 - Improved File Input Handling
   - You can now multi-select files in the open panel
   - You can now drag/drop multiple files to scan
@@ -90,10 +103,24 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 - Fixed an issue with the Deblock Filter custom string field
 - Fixed the file size display on the queue statistics window when file size info is not available
 - Miscellaneous bug fixes and improvements
+- Added new translations
+ - Korean
+ - Bulgarian
+- Updated existing translations
 
 ### Linux
 
+- Added support for native file choosers via xdg-desktop-portal
+- Added drag and drop support for video scanning
+- Added XML chapter import and export
+- Option to pause encoding when switching to battery power or when power save mode is activated
+- Added Queue > Add All menu option
+- Added bit-depth and HDR information to video summary
+- Added Auto naming options: {codec} {bit-depth} {width} {height} {modification-date} {modification-time}
+- Queue, Activity and Presets windows no longer stay on top of the main window
+- Removed obsolete update checker
 - Miscellaneous bug fixes and improvements
+- Update existing translations
 
 ### Windows
 
@@ -121,6 +148,13 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 - Fixed an issue where windows notifications could cause the app to crash on startup where issues exist on the system. (#5097)
 - Some reliability improvements in the Process Isolation Feature.
 - Miscellaneous bug fixes and improvements
+- Added new translations
+ - Czech (česky) (partially)
+ - Greek (Ελληνικά) (partially)
+ - Estonian (Eesti) (partially)
+ - Basque (Euskara)
+ - Finnish (Suomi) (partially)
+- Updated existing translations
 
 
 ## HandBrake 1.6.1
@@ -2835,3 +2869,4 @@ The Universal preset is designed to play on all modern iPods (anything newer tha
 ## HandBrake 0.1-alpha
 
 - First version.
+
