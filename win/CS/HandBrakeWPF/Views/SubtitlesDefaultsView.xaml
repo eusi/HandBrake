@@ -123,7 +123,7 @@
             </TextBox>
 
             <!-- Burn In Behaviour -->
-            <TextBlock Text="{x:Static Properties:Resources.SubtitlesView_BurnInBehaviour}"  Grid.Column="0" Grid.Row="5" Margin="0,15,5,0" HorizontalAlignment="Left" VerticalAlignment="Center" />
+            <TextBlock Text="{x:Static Properties:Resources.SubtitlesView_BurnInBehaviour}"  Grid.Column="0" Grid.Row="6" Margin="0,15,5,0" HorizontalAlignment="Left" VerticalAlignment="Center" />
             <ComboBox Name="burninBehaviour"  Grid.Column="2" Grid.Row="6" HorizontalAlignment="Left"
                           ItemsSource="{Binding SubtitleBurnInBehaviourModeList, Converter={StaticResource subtitleBurnInBehaviourConverter}}" 
                           SelectedItem="{Binding SubtitleBehaviours.SelectedBurnInBehaviour, Converter={StaticResource subtitleBurnInBehaviourConverter}}" Width="210" Margin="0,15,5,0">
