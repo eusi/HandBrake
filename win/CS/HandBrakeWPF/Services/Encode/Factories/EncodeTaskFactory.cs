@@ -96,12 +96,27 @@ namespace HandBrakeWPF.Services.Encode.Factories
                     break;
             }
 
+            bool nvdec = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvDecSupport);
+
+            int hwDecode = 0;
+            if (nvdec)
+            {
+                hwDecode = (int)NativeConstants.HB_DECODE_SUPPORT_NVDEC;
+            }
+
+            bool qsv = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncDecoding);
+            if (qsv)
+            {
+                hwDecode |= (int)NativeConstants.HB_DECODE_SUPPORT_QSV;
+            }
+
             Source source = new Source
             {
                 Title = job.Title,
                 Range = range,
                 Angle = job.Angle,
                 Path = job.Source,
+                HWDecode = hwDecode
             };
             return source;
         }

@@ -223,7 +223,7 @@ namespace HandBrake.Interop.Interop
 
             // Copy the filled image buffer to a managed array.
             int stride_width = image.plane[0].stride;
-            int stride_height = image.plane[0].height_stride;
+            int stride_height = image.plane[0].height;
             int imageBufferSize = stride_width * stride_height;
 
             byte[] managedBuffer = new byte[imageBufferSize];
@@ -299,6 +299,14 @@ namespace HandBrake.Interop.Interop
         /// </summary>
         public void StopEncode()
         {
+            JsonState state = GetProgress();
+            TaskState taskState = TaskState.FromRepositoryValue(state?.State);
+            if (taskState == TaskState.WorkDone)
+            {
+                // We got the stop event at a bad time. Don't do anything.
+                return;
+            }
+
             HBFunctions.hb_stop(this.Handle);
 
             // Also remove all jobs from the queue (in case we stopped a 2-pass encode)
@@ -324,9 +332,9 @@ namespace HandBrake.Interop.Interop
         /// </returns>
         public JsonState GetProgress()
         {
-            lock (this.lastProgressJson)
+            lock (this.progressJsonLockObj)
             {
-                return this.lastProgressJson ?? null;
+                return this.lastProgressJson ?? JsonState.CreateDummy();
             }
         }
 

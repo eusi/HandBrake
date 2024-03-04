@@ -1,6 +1,6 @@
 /* fifo.c
 
-   Copyright (c) 2003-2023 HandBrake Team
+   Copyright (c) 2003-2024 HandBrake Team
    Copyright 2022 NVIDIA Corporation
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
@@ -661,15 +661,15 @@ static void copy_avframe_to_video_buffer(const AVFrame *frame, hb_buffer_t *buf)
         }
         else
         {
-            const int width     = buf->plane[pp].width;
-            const int height    = buf->plane[pp].height;
             const int stride    = buf->plane[pp].stride;
+            const int height    = buf->plane[pp].height;
             const int linesize  = frame->linesize[pp];
+            const int size = linesize < stride ? ABS(linesize) : stride;
             uint8_t *dst = buf->plane[pp].data;
             uint8_t *src = frame->data[pp];
             for (int yy = 0; yy < height; yy++)
             {
-                memcpy(dst, src, width);
+                memcpy(dst, src, size);
                 dst += stride;
                 src += linesize;
             }
@@ -710,12 +710,21 @@ hb_buffer_t * hb_buffer_dup(const hb_buffer_t *src)
         // into another hardware AVFrame.
         if (frame->hw_frames_ctx)
         {
-            buf = hb_buffer_wrapper_init();
-            if (buf)
+#ifdef __APPLE__
+            if (frame->format == AV_PIX_FMT_VIDEOTOOLBOX)
             {
-                buf->f = src->f;
-                hb_buffer_copy_props(buf, src);
-                copy_hwframe_to_video_buffer(frame, buf);
+                buf = hb_vt_buffer_dup(src);
+            }
+            else
+#endif
+            {
+                buf = hb_buffer_wrapper_init();
+                if (buf)
+                {
+                    buf->f = src->f;
+                    hb_buffer_copy_props(buf, src);
+                    copy_hwframe_to_video_buffer(frame, buf);
+                }
             }
         }
         // If not, copy the content to a standard hb_buffer
@@ -773,12 +782,10 @@ void hb_buffer_init_planes(hb_buffer_t * b)
     {
         b->plane[pp].data = data;
         b->plane[pp].stride        = hb_image_stride(b->f.fmt, b->f.width, pp);
-        b->plane[pp].height_stride = hb_image_height_stride(b->f.fmt,
-                                                            b->f.height, pp);
         b->plane[pp].width         = hb_image_width(b->f.fmt, b->f.width, pp);
         b->plane[pp].height        = hb_image_height(b->f.fmt, b->f.height, pp);
         b->plane[pp].size          = b->plane[pp].stride *
-                                     b->plane[pp].height_stride;
+                                     b->plane[pp].height;
         data                      += b->plane[pp].size;
     }
 }
@@ -809,7 +816,7 @@ hb_buffer_t * hb_frame_buffer_init( int pix_fmt, int width, int height )
         {
             has_plane[pp] = 1;
             size += hb_image_stride( pix_fmt, width, pp ) *
-                    hb_image_height_stride( pix_fmt, height, pp );
+                    hb_image_height( pix_fmt, height, pp );
         }
     }
 
@@ -832,7 +839,7 @@ hb_buffer_t * hb_frame_buffer_init( int pix_fmt, int width, int height )
 void hb_frame_buffer_blank_stride(hb_buffer_t * buf)
 {
     uint8_t * data;
-    int       pp, yy, width, height, stride, height_stride;
+    int       pp, yy, width, height, stride;
 
     for (pp = 0; pp <= buf->f.max_plane; pp++)
     {
@@ -840,7 +847,6 @@ void hb_frame_buffer_blank_stride(hb_buffer_t * buf)
         width         = buf->plane[pp].width;
         height        = buf->plane[pp].height;
         stride        = buf->plane[pp].stride;
-        height_stride = buf->plane[pp].height_stride;
 
         if (data != NULL)
         {
@@ -849,58 +855,60 @@ void hb_frame_buffer_blank_stride(hb_buffer_t * buf)
             {
                 memset(data + yy * stride + width, 0x80, stride - width);
             }
-            // Blank bottom margin
-            for (yy = height; yy < height_stride; yy++)
-            {
-                memset(data + yy * stride, 0x80, stride);
-            }
         }
     }
 }
 
+#define DEF_MIRROR_STRIDE_FUNC(name, nbits)                                  \
+static void name##_##nbits(uint8_t *data, int width, int height, int stride) \
+{                                                                            \
+    int pos, margin, margin_front, margin_back, bps;                         \
+    uint##nbits##_t *data_in = (uint##nbits##_t *)data;                      \
+                                                                             \
+    bps = nbits > 8 ? 2 : 1;                                                 \
+    stride      /= bps;                                                      \
+    margin       = stride - width;                                           \
+    margin_front = margin / 2;                                               \
+    margin_back  = margin - margin_front;                                    \
+    for (int yy = 0; yy < height; yy++)                                      \
+    {                                                                        \
+        /* Mirror final row pixels into front of stride region */            \
+        pos = yy * stride + width;                                           \
+        for (int ii = 0; ii < margin_back; ii++)                             \
+        {                                                                    \
+            *(data_in + pos + ii) = *(data_in + pos - ii - 1);               \
+        }                                                                    \
+        /* Mirror start of next row into end of stride region */             \
+        pos = (yy + 1) * stride - 1;                                         \
+        for (int ii = 0; ii < margin_front; ii++)                            \
+        {                                                                    \
+            *(data_in + pos - ii) = *(data_in + pos + ii + 1);               \
+        }                                                                    \
+    }                                                                        \
+}                                                                            \
+
+DEF_MIRROR_STRIDE_FUNC(mirror_stride, 16)
+DEF_MIRROR_STRIDE_FUNC(mirror_stride, 8)
+
 void hb_frame_buffer_mirror_stride(hb_buffer_t * buf)
 {
-    const AVPixFmtDescriptor * desc = av_pix_fmt_desc_get(buf->f.fmt);
-    uint8_t * data;
-    int       pp, ii, yy, width, height, stride, height_stride;
-    int       bps, pos, margin, margin_front, margin_back;
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(buf->f.fmt);
+    int   depth = desc->comp[0].depth > 8 ? 2 : 1;
 
-    bps = desc->comp[0].depth > 8 ? 2 : 1;
-
-    for (pp = 0; pp <= buf->f.max_plane; pp++)
+    for (int pp = 0; pp <= buf->f.max_plane; pp++)
     {
-        data          = buf->plane[pp].data;
-        width         = buf->plane[pp].width;
-        height        = buf->plane[pp].height;
-        stride        = buf->plane[pp].stride;
-        height_stride = buf->plane[pp].height_stride;
-        if (data != NULL)
+        if (buf->plane[pp].data != NULL)
         {
-            margin       = stride / bps - width;
-            margin_front = margin / 2;
-            margin_back  = margin - margin_front;
-            width       *= bps;
-            for (yy = 0; yy < height; yy++)
+            switch (depth)
             {
-                // Mirror final row pixels into front of stride region
-                pos = yy * stride + width;
-                for (ii = 0; ii < margin_back; ii++)
-                {
-                    *(data + pos + ii) = *(data + pos - ii - 1);
-                }
-                // Mirror start of next row into end of stride region
-                pos = (yy + 1) * stride - 1;
-                for (ii = 0; ii < margin_front; ii++)
-                {
-                    *(data + pos - ii) = *(data + pos + ii + 1);
-                }
-            }
-            // Mirror bottom rows into height_stride
-            pos = height * stride;
-            for (ii = 0; ii < height_stride - height; ii++)
-            {
-                memcpy(data + pos + ii * stride,
-                       data + pos - ((ii + 1) * stride), stride);
+                case 8:
+                    mirror_stride_8(buf->plane[pp].data, buf->plane[pp].width,
+                                    buf->plane[pp].height, buf->plane[pp].stride);
+                    break;
+                default:
+                    mirror_stride_16(buf->plane[pp].data, buf->plane[pp].width,
+                                     buf->plane[pp].height, buf->plane[pp].stride);
+                    break;
             }
         }
     }
@@ -932,7 +940,7 @@ void hb_video_buffer_realloc( hb_buffer_t * buf, int width, int height )
         {
             has_plane[pp] = 1;
             size += hb_image_stride(buf->f.fmt, width, pp) *
-                    hb_image_height_stride(buf->f.fmt, height, pp );
+                    hb_image_height(buf->f.fmt, height, pp );
         }
     }
 
@@ -1088,7 +1096,7 @@ hb_image_t * hb_image_init(int pix_fmt, int width, int height)
         {
             has_plane[pp] = 1;
             size += hb_image_stride( pix_fmt, width, pp ) *
-                    hb_image_height_stride( pix_fmt, height, pp );
+                    hb_image_height( pix_fmt, height, pp );
         }
     }
 
@@ -1108,12 +1116,10 @@ hb_image_t * hb_image_init(int pix_fmt, int width, int height)
     {
         image->plane[pp].data   = data;
         image->plane[pp].stride = hb_image_stride(pix_fmt, width, pp);
-        image->plane[pp].height_stride =
-                                hb_image_height_stride(pix_fmt, height, pp);
         image->plane[pp].width  = hb_image_width(pix_fmt, width, pp);
         image->plane[pp].height = hb_image_height(pix_fmt, height, pp);
         image->plane[pp].size   = image->plane[pp].stride *
-                                  image->plane[pp].height_stride;
+                                  image->plane[pp].height;
         data                   += image->plane[pp].size;
     }
     return image;
@@ -1145,7 +1151,6 @@ hb_image_t * hb_buffer_to_image(hb_buffer_t *buf)
         image->plane[p].width = buf->plane[p].width;
         image->plane[p].height = buf->plane[p].height;
         image->plane[p].stride = buf->plane[p].stride;
-        image->plane[p].height_stride = buf->plane[p].height_stride;
         image->plane[p].size = buf->plane[p].size;
 
         memcpy(image->plane[p].data, buf->plane[p].data, buf->plane[p].size);

@@ -1,24 +1,27 @@
+# Copyright (C) 2023-2024 HandBrake Team
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (c) 2023 HandBrake Team
 
 # Project sources
 ghb_src = files(
+  'application.c',
   'audiohandler.c',
   'callbacks.c',
   'chapters.c',
   'color-scheme.c',
-  'ghb-dvd.c',
-  'ghbcompat.c',
+  'compat.c',
+  'ghb-button.c',
+  'ghb-chapter-row.c',
+  'ghb-file-button.c',
+  'ghb-queue-row.c',
   'hb-backend.c',
-  'icons.c',
+  'hb-dvd.c',
   'jobdict.c',
   'main.c',
-  'plist.c',
+  'notifications.c',
   'power-manager.c',
   'presets.c',
   'preview.c',
   'queuehandler.c',
-  'renderer_button.c',
   'resources.c',
   'settings.c',
   'subtitlehandler.c',
@@ -26,13 +29,6 @@ ghb_src = files(
   'titledict.c',
   'values.c',
   'videohandler.c',
-)
-
-ui_dir = get_option('gtk4') ? 'ui-gtk4' : 'ui-gtk3'
-
-ui_files = files(
-  ui_dir / 'menu.ui',
-  ui_dir / 'ghb.ui',
 )
 
 config_h = configuration_data()
@@ -50,15 +46,13 @@ configure_file(configuration: config_h, output: 'config.h')
 
 # Generated files
 
-ui = gnome.compile_resources('ui_res', 'ui_res.gresource.xml',
-  dependencies: ui_files,
-  source_dir: ui_dir,
-  extra_args: '--manual-register',
+ui = gnome.compile_resources('ui_res', 'ui/ui_res.gresource.xml',
+  source_dir: 'ui',
   c_name: 'ghb_ui')
 
 # Build targets
 executable('ghb',
-  sources: [ghb_src, data, icons, ui, marshalers],
+  sources: [ghb_src, data, icons, ui],
   dependencies: ghb_deps,
   include_directories: hb_incdirs,
   link_language: 'cpp',

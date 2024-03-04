@@ -1,6 +1,6 @@
 /* stream.c
 
-   Copyright (c) 2003-2023 HandBrake Team
+   Copyright (c) 2003-2024 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -2505,7 +2505,7 @@ static inline void bits_init(bitbuf_t *bb, uint8_t* buf, int bufsize, int clear)
     bb->pos = 0;
     bb->buf = buf;
     bb->size = bufsize;
-    bb->val = (bb->buf[0] << 24) | (bb->buf[1] << 16) |
+    bb->val = ((uint32_t)bb->buf[0] << 24) | (bb->buf[1] << 16) |
               (bb->buf[2] << 8) | bb->buf[3];
     if (clear)
         memset(bb->buf, 0, bufsize);
@@ -2570,7 +2570,7 @@ static inline unsigned int bits_get(bitbuf_t *bb, int bits)
         bits -= left;
 
         int pos = bb->pos >> 3;
-        bb->val = (bb->buf[pos] << 24) | (bb->buf[pos + 1] << 16) | (bb->buf[pos + 2] << 8) | bb->buf[pos + 3];
+        bb->val = ((uint32_t)bb->buf[pos] << 24) | (bb->buf[pos + 1] << 16) | (bb->buf[pos + 2] << 8) | bb->buf[pos + 3];
 
         if (bits > 0)
         {
@@ -5306,7 +5306,8 @@ static int ffmpeg_open( hb_stream_t *stream, hb_title_t *title, int scan )
     return 1;
 
   fail:
-    if ( info_ic ) avformat_close_input( &info_ic );
+    avformat_close_input(&info_ic);
+    av_packet_free(&stream->ffmpeg_pkt);
     return 0;
 }
 
@@ -5811,12 +5812,15 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
     if (dot_term)
         *dot_term = '\0';
 
-    uint64_t dur = ic->duration * 90000 / AV_TIME_BASE;
-    title->duration = dur;
-    dur /= 90000;
-    title->hours    = dur / 3600;
-    title->minutes  = ( dur % 3600 ) / 60;
-    title->seconds  = dur % 60;
+    if (ic->duration > 0)
+    {
+        uint64_t dur = ic->duration * 90000 / AV_TIME_BASE;
+        title->duration = dur;
+        dur /= 90000;
+        title->hours    = dur / 3600;
+        title->minutes  = ( dur % 3600 ) / 60;
+        title->seconds  = dur % 60;
+    }
 
     // set the title to decode the first video stream in the file
     title->demuxer = HB_NULL_DEMUXER;

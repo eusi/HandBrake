@@ -1,6 +1,6 @@
 /* cv_utils.c
 
-   Copyright (c) 2003-2023 HandBrake Team
+   Copyright (c) 2003-2024 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -211,6 +211,19 @@ CFStringRef hb_cv_colr_mat_xlat(int color_matrix)
             return kCMFormatDescriptionYCbCrMatrix_ITU_R_601_4;
         case HB_COLR_MAT_SMPTE240M:
             return kCMFormatDescriptionYCbCrMatrix_SMPTE_240M_1995;
+        default:
+            return NULL;
+    }
+}
+
+CFStringRef hb_cv_colr_range_xlat(int color_range)
+{
+    switch (color_range)
+    {
+        case HB_COLR_RANGE_LIMITED:
+            return kCVPixelFormatComponentRange_VideoRange;
+        case HB_COLR_RANGE_FULL:
+            return kCVPixelFormatComponentRange_FullRange;
         default:
             return NULL;
     }

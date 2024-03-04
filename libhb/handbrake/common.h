@@ -1,6 +1,6 @@
 /* common.h
 
-   Copyright (c) 2003-2023 HandBrake Team
+   Copyright (c) 2003-2024 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -250,9 +250,12 @@ static inline hb_rational_t hb_make_q(int num, int den)
     return r;
 }
 
-static inline double hb_q2d(hb_rational_t a){
+static inline double hb_q2d(hb_rational_t a)
+{
     return a.num / (double) a.den;
 }
+
+int64_t hb_rescale_rational(hb_rational_t q, int b);
 
 struct hb_geometry_s
 {
@@ -314,7 +317,6 @@ struct hb_image_s
         int width;
         int height;
         int stride;
-        int height_stride;
         int size;
     } plane[4];
 };
@@ -733,6 +735,9 @@ struct hb_job_s
 #define HB_COLR_MAT_CD_CL        13 // chromaticity derived constant lum
 #define HB_COLR_MAT_ICTCP        14 // ITU-R BT.2100-0, ICtCp
 // 0, 3-5, 8, 11-65535: reserved/not implemented
+#define HB_COLR_RANGE_UNSET     -1
+#define HB_COLR_RANGE_LIMITED    1
+#define HB_COLR_RANGE_FULL       2
 
     hb_mastering_display_metadata_t mastering;
     hb_content_light_metadata_t coll;
@@ -857,7 +862,7 @@ struct hb_job_s
 };
 
 /* Audio starts here */
-/* Audio Codecs: Update win/CS/HandBrake.Interop/HandBrakeInterop/HbLib/NativeConstants.cs when changing these consts */
+/* Audio Codecs: Update win/CS/HandBrake.Interop/Interop/HbLib/NativeConstants.cs when changing these consts */
 #define HB_ACODEC_INVALID   0x00000000
 #define HB_ACODEC_NONE      0x00000001
 #define HB_ACODEC_MASK      0x0FFFFF01
@@ -1479,6 +1484,20 @@ struct hb_filter_object_s
 #endif
 };
 
+struct hb_motion_metric_object_s
+{
+    char                * name;
+
+#ifdef __LIBHB__
+    int                (* init)       ( hb_motion_metric_object_t *, hb_filter_init_t * );
+    float              (* work)       ( hb_motion_metric_object_t *,
+                                        hb_buffer_t *, hb_buffer_t * );
+    void               (* close)      ( hb_motion_metric_object_t * );
+
+    hb_motion_metric_private_t * private_data;
+#endif
+};
+
 // Update win/CS/HandBrake.Interop/HandBrakeInterop/HbLib/hb_filter_ids.cs when changing this enum
 enum
 {
@@ -1489,6 +1508,7 @@ enum
     // First, filters that may change the framerate (drop or dup frames)
     HB_FILTER_DETELECINE,
     HB_FILTER_COMB_DETECT,
+    HB_FILTER_COMB_DETECT_VT,
     HB_FILTER_DECOMB,
     HB_FILTER_YADIF,
     HB_FILTER_YADIF_VT,

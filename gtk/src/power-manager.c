@@ -1,9 +1,29 @@
-/* Copyright (C) 2023 HandBrake Team
- * SPDX-License-Identifier: GPL-2.0-or-later */
+/* notifications.c
+ *
+ * Copyright (C) 2023-2024 HandBrake Team
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 
 #include "power-manager.h"
-#include "queuehandler.h"
+
+#include "application.h"
 #include "callbacks.h"
+#include "notifications.h"
+#include "queuehandler.h"
 
 #define UPOWER_PATH "org.freedesktop.UPower"
 #define UPOWER_OBJECT "/org/freedesktop/UPower"
@@ -38,17 +58,15 @@ static GPowerProfileMonitor *power_monitor;
 #endif
 
 static void
-show_power_widgets (const char *widgets[], signal_user_data_t *ud)
+show_power_widgets (const char *widgets[])
 {
     GtkWidget *widget;
 
-    if (ud->builder == NULL)
-        return;
-
     for (int i = 0; widgets[i] != NULL; i++)
     {
-        widget = GHB_WIDGET(ud->builder, widgets[i]);
-        gtk_widget_set_visible(widget, TRUE);
+        widget = ghb_builder_widget(widgets[i]);
+        if (widget)
+            gtk_widget_set_visible(widget, TRUE);
     }
 }
 
@@ -88,6 +106,7 @@ battery_level_cb (GDBusProxy *proxy, GVariant *changed_properties,
     {
         power_state = GHB_POWER_PAUSED_LOW_BATTERY;
         ghb_log("Battery level %d%%: pausing encode", battery_level);
+        ghb_send_notification(GHB_NOTIFY_PAUSED_LOW_BATTERY, 0, ud);
         ghb_pause_queue();
     }
     else if (battery_level > low_battery_level
@@ -98,6 +117,7 @@ battery_level_cb (GDBusProxy *proxy, GVariant *changed_properties,
         {
             ghb_resume_queue();
             ghb_log("Battery level %d%%: resuming encode", battery_level);
+            ghb_withdraw_notification(GHB_NOTIFY_PAUSED_LOW_BATTERY);
         }
         power_state = GHB_POWER_OK;
     }
@@ -120,7 +140,7 @@ battery_proxy_new_cb (GObject *source, GAsyncResult *result,
         {
             g_signal_connect(proxy, "g-properties-changed",
                          G_CALLBACK(battery_level_cb), ud);
-            show_power_widgets(battery_widgets, ud);
+            show_power_widgets(battery_widgets);
             battery_proxy = proxy;
         }
         else
@@ -165,6 +185,7 @@ upower_status_cb (GDBusProxy *proxy, GVariant *changed_properties,
     {
         power_state = GHB_POWER_PAUSED_ON_BATTERY;
         ghb_log("Charger disconnected: pausing encode");
+        ghb_send_notification(GHB_NOTIFY_PAUSED_ON_BATTERY, 0, ud);
         ghb_pause_queue();
     }
     else if (!on_battery && (power_state == GHB_POWER_PAUSED_ON_BATTERY))
@@ -173,6 +194,7 @@ upower_status_cb (GDBusProxy *proxy, GVariant *changed_properties,
         {
             ghb_resume_queue();
             ghb_log("Charger connected: resuming encode");
+            ghb_withdraw_notification(GHB_NOTIFY_PAUSED_ON_BATTERY);
         }
         power_state = GHB_POWER_OK;
     }
@@ -225,6 +247,7 @@ power_save_cb (GPowerProfileMonitor *monitor, GParamSpec *pspec,
         power_state = GHB_POWER_PAUSED_POWER_SAVE;
         ghb_log("Power saver enabled: pausing encode");
         ghb_pause_queue();
+        ghb_send_notification(GHB_NOTIFY_PAUSED_POWER_SAVE, 0, ud);
     }
     else if (!power_save && (power_state == GHB_POWER_PAUSED_POWER_SAVE))
     {
@@ -232,6 +255,7 @@ power_save_cb (GPowerProfileMonitor *monitor, GParamSpec *pspec,
         {
             ghb_resume_queue();
             ghb_log("Power saver disabled: resuming encode");
+            ghb_withdraw_notification(GHB_NOTIFY_PAUSED_POWER_SAVE);
         }
         power_state = GHB_POWER_OK;
     }
@@ -248,7 +272,7 @@ power_monitor_new (signal_user_data_t *ud)
     {
         g_signal_connect(monitor, "notify::power-saver-enabled",
                          G_CALLBACK(power_save_cb), ud);
-        show_power_widgets(power_save_widgets, ud);
+        show_power_widgets(power_save_widgets);
     }
     else
     {

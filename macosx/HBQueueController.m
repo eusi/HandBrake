@@ -15,6 +15,8 @@
 #import "HBQueueInfoViewController.h"
 #import "HBQueueMultiSelectionViewController.h"
 
+#import "HBQueueToolbarDelegate.h"
+
 #import "HBPreferencesKeys.h"
 #import "NSArray+HBAdditions.h"
 
@@ -32,6 +34,8 @@
 /// Whether the window is visible or occluded,
 /// useful to avoid updating the UI needlessly
 @property (nonatomic) BOOL visible;
+
+@property (nonatomic) HBQueueToolbarDelegate *toolbarDelegate;
 
 @property (nonatomic) IBOutlet NSToolbarItem *ripToolbarItem;
 @property (nonatomic) IBOutlet NSToolbarItem *pauseToolbarItem;
@@ -100,6 +104,16 @@
         self.window.titlebarSeparatorStyle = NSTitlebarSeparatorStyleLine;
     }
 
+    // Set up toolbar
+    self.toolbarDelegate = [[HBQueueToolbarDelegate alloc] init];
+
+    NSToolbar *toolbar = [[NSToolbar alloc] initWithIdentifier:@"HBQueueWindowToolbar2"];
+    toolbar.delegate = self.toolbarDelegate;
+    toolbar.allowsUserCustomization = YES;
+    toolbar.autosavesConfiguration = YES;
+    toolbar.displayMode = NSToolbarDisplayModeIconAndLabel;
+    self.window.toolbar = toolbar;
+
     // Set up the child view controllers
     _splitViewController = [[NSSplitViewController alloc] init];
     _splitViewController.view.wantsLayer = YES;
@@ -140,7 +154,7 @@
 
 - (void)updateUI
 {
-    [self updateToolbarButtonsState];
+    [self.toolbarDelegate updateToolbarButtonsState:self.queue toolbar:self.window.toolbar];
     [self.window.toolbar validateVisibleItems];
 
     [self _touchBar_updateButtonsState];
@@ -176,35 +190,6 @@
 }
 
 #pragma mark Toolbar
-
-- (void)updateToolbarButtonsState
-{
-    if (self.queue.canResume)
-    {
-        _pauseToolbarItem.image = [NSImage imageNamed: @"encode"];
-        _pauseToolbarItem.label = NSLocalizedString(@"Resume", @"Toolbar Pause Item");
-        _pauseToolbarItem.toolTip = NSLocalizedString(@"Resume Encoding", @"Toolbar Pause Item");
-    }
-    else
-    {
-        _pauseToolbarItem.image = [NSImage imageNamed:@"pauseencode"];
-        _pauseToolbarItem.label = NSLocalizedString(@"Pause", @"Toolbar Pause Item");
-        _pauseToolbarItem.toolTip = NSLocalizedString(@"Pause Encoding", @"Toolbar Pause Item");
-
-    }
-    if (self.queue.isEncoding)
-    {
-        _ripToolbarItem.image = [NSImage imageNamed:@"stopencode"];
-        _ripToolbarItem.label = NSLocalizedString(@"Stop", @"Toolbar Start/Stop Item");
-        _ripToolbarItem.toolTip = NSLocalizedString(@"Stop Encoding", @"Toolbar Start/Stop Item");
-    }
-    else
-    {
-        _ripToolbarItem.image = [NSImage imageNamed: @"encode"];
-        _ripToolbarItem.label = NSLocalizedString(@"Start", @"Toolbar Start/Stop Item");
-        _pauseToolbarItem.toolTip = NSLocalizedString(@"Start Encoding", @"Toolbar Start/Stop Item");
-    }
-}
 
 - (BOOL)validateMenuItem:(NSMenuItem *)menuItem
 {
@@ -268,13 +253,18 @@
         return self.queue.canPause || self.queue.canResume;
     }
 
+    if (action == @selector(toggleDetails:) ||
+        action == @selector(toggleQuickLook:))
+    {
+        return YES;
+    }
+
     return NO;
 }
 
 - (BOOL)validateToolbarItem:(NSToolbarItem *)theItem
 {
-    SEL action = theItem.action;
-    return [self validateUserIterfaceItemForAction:action];
+    return [self validateUserIterfaceItemForAction:theItem.action];
 }
 
 - (void)windowDidChangeOcclusionState:(NSNotification *)notification
@@ -426,9 +416,12 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
     notification.title = title;
     notification.informativeText = description;
     notification.soundName = playSound ? NSUserNotificationDefaultSoundName : nil;
-    notification.hasActionButton = YES;
-    notification.actionButtonTitle = NSLocalizedString(@"Show", @"Notification -> Show in Finder");
-    notification.userInfo = @{ HBQueueItemNotificationPathKey: fileURL.path };
+    if (fileURL)
+    {
+        notification.hasActionButton = YES;
+        notification.actionButtonTitle = NSLocalizedString(@"Show", @"Notification -> Show in Finder");
+        notification.userInfo = @{ HBQueueItemNotificationPathKey: fileURL.path };
+    }
 
     [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
 }
@@ -484,13 +477,8 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
 {
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
 
-    // Both the Notification and Sending to tagger can be done as encodes roll off the queue
-    if ([ud integerForKey:HBAlertWhenDone] == HBDoneActionNotification ||
-        [ud integerForKey:HBAlertWhenDone] == HBDoneActionAlertAndNotification)
+    if ([ud boolForKey:HBQueueNotificationWhenJobDone])
     {
-        // If Play System Alert has been selected in Preferences
-        bool playSound = [ud boolForKey:HBAlertWhenDoneSound];
-
         NSString *title;
         NSString *description;
         if (item.state == HBQueueItemStateCompleted)
@@ -507,6 +495,8 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
                            item.destinationFileName];
         }
 
+        bool playSound = [ud boolForKey:HBQueueNotificationPlaySound];
+
         [self showNotificationWithTitle:title
                             description:description
                                     url:item.destinationURL
@@ -520,35 +510,27 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
 - (void)queueCompletedAlerts
 {
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
-    // If Play System Alert has been selected in Preferences
-    if ([ud boolForKey:HBAlertWhenDoneSound] == YES)
-    {
-        NSBeep();
-    }
 
-    // If Alert Window or Window and Notification has been selected
-    if ([ud integerForKey:HBAlertWhenDone] == HBDoneActionAlert ||
-        [ud integerForKey:HBAlertWhenDone] == HBDoneActionAlertAndNotification)
+    if ([ud boolForKey:HBQueueNotificationWhenDone])
     {
-        // On Screen Notification
-        NSAlert *alert = [[NSAlert alloc] init];
-        [alert setMessageText:NSLocalizedString(@"Put down that cocktail…", @"Queue done alert message")];
-        [alert setInformativeText:NSLocalizedString(@"Your HandBrake queue is done!", @"Queue done alert informative text")];
-        [NSApp requestUserAttention:NSCriticalRequest];
-        [alert runModal];
+        bool playSound = [ud boolForKey:HBQueueNotificationPlaySound];
+
+        [self showNotificationWithTitle:NSLocalizedString(@"Put down that cocktail…", @"Queue notification alert message")
+                            description:NSLocalizedString(@"Your queue is done!", @"Queue done notification message")
+                                    url:nil
+                              playSound:playSound];
     }
 
     // If sleep has been selected
-    if ([ud integerForKey:HBAlertWhenDone] == HBDoneActionSleep)
+    if ([ud integerForKey:HBQueueDoneAction] == HBDoneActionSleep)
     {
         // Sleep
-        NSAppleScript *scriptObject = [[NSAppleScript alloc] initWithSource:
-                                       @"tell application \"System Events\" to sleep"];
+        NSAppleScript *scriptObject = [[NSAppleScript alloc] initWithSource:@"tell application \"System Events\" to sleep"];
         [scriptObject executeAndReturnError:NULL];
     }
 
     // If Shutdown has been selected
-    if ([ud integerForKey:HBAlertWhenDone] == HBDoneActionShutDown)
+    if ([ud integerForKey:HBQueueDoneAction] == HBDoneActionShutDown)
     {
         // Shut Down
         NSAppleScript *scriptObject = [[NSAppleScript alloc] initWithSource:@"tell application \"System Events\" to shut down"];
@@ -556,7 +538,7 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
     }
 
     // If Quit HB has been selected
-    if ([ud integerForKey:HBAlertWhenDone] == HBDoneActionQuit)
+    if ([ud integerForKey:HBQueueDoneAction] == HBDoneActionQuit)
     {
         [NSApp terminate:self];
     }
@@ -575,7 +557,7 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
 {
     NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
 
-    if ([ud integerForKey:HBAlertWhenDone] == HBDoneActionSleep)
+    if ([ud integerForKey:HBQueueDoneAction] == HBDoneActionSleep)
     {
         // Warn that computer will sleep after encoding
         NSBeep();
@@ -595,7 +577,7 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
 
         [self promptForAppleEventAuthorization];
     }
-    else if ([ud integerForKey:HBAlertWhenDone] == HBDoneActionShutDown)
+    else if ([ud integerForKey:HBQueueDoneAction] == HBDoneActionShutDown)
     {
         // Warn that computer will shut down after encoding
         NSBeep();
@@ -668,13 +650,13 @@ NSString * const HBQueueItemNotificationPathKey = @"HBQueueItemNotificationPathK
     [alert addButtonWithTitle:NSLocalizedString(@"Skip Current Job", @"Queue Alert -> cancel rip second button")];
     if (@available(macOS 11, *))
     {
-        alert.buttons.lastObject.hasDestructiveAction = true;
+        alert.buttons.lastObject.hasDestructiveAction = YES;
     }
     [alert addButtonWithTitle:NSLocalizedString(@"Stop After Current Job", @"Queue Alert -> cancel rip third button")];
     [alert addButtonWithTitle:NSLocalizedString(@"Stop All", @"Queue Alert -> cancel rip fourth button")];
     if (@available(macOS 11, *))
     {
-        alert.buttons.lastObject.hasDestructiveAction = true;
+        alert.buttons.lastObject.hasDestructiveAction = YES;
     }
     [alert setAlertStyle:NSAlertStyleCritical];
 
