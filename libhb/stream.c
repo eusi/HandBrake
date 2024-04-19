@@ -14,6 +14,7 @@
 #include "handbrake/handbrake.h"
 #include "handbrake/hbffmpeg.h"
 #include "handbrake/lang.h"
+#include "handbrake/extradata.h"
 #include "libbluray/bluray.h"
 
 #define min(a, b) a < b ? a : b
@@ -2001,10 +2002,9 @@ static void pes_add_subtitle_to_title(
                     subtitle->config.dest = RENDERSUB;
                     if (pes->extradata != NULL)
                     {
-                        subtitle->extradata = malloc(pes->extradata_size);
-                        subtitle->extradata_size = pes->extradata_size;
-                        memcpy(subtitle->extradata, pes->extradata,
-                                                    pes->extradata_size);
+                        hb_set_extradata(&subtitle->extradata,
+                                         pes->extradata,
+                                         pes->extradata_size);
                     }
                     break;
                 case AV_CODEC_ID_HDMV_PGS_SUBTITLE:
@@ -2096,15 +2096,48 @@ static void pes_add_subtitle_to_title(
     }
 }
 
+// Fix up title.list_audio indexes since audio can be inserted
+// out of order in pes_add_audio_to_title
+static void pes_set_audio_indices(hb_title_t * title)
+{
+    int ii, jj, count;
+
+    count = hb_list_count( title->list_audio );
+
+    for ( ii = 0; ii < count; ii++ )
+    {
+        hb_audio_t *audio_ii;
+
+        audio_ii = hb_list_item( title->list_audio, ii );
+        audio_ii->config.index = ii;
+        for ( jj = 0; jj < count; jj++ )
+        {
+            hb_audio_t *audio_jj;
+
+            audio_jj = hb_list_item( title->list_audio, jj );
+            // if same PID or stream_id and not same audio track, link
+            if ((audio_ii->id & 0xffff) == (audio_jj->id & 0xffff) && ii != jj)
+            {
+                if (audio_ii->config.list_linked_index == NULL)
+                {
+                    audio_ii->config.list_linked_index = hb_list_init();
+                }
+                hb_list_add_dup(audio_ii->config.list_linked_index,
+                                &jj, sizeof(jj));
+            }
+        }
+    }
+}
+
 // Sort specifies the index in the audio list where you would
 // like sorted items to begin.
 static void pes_add_audio_to_title(
     hb_stream_t *stream,
-    int         idx,
+    int         track,
     hb_title_t  *title,
     int         sort)
 {
-    hb_pes_stream_t *pes = &stream->pes.list[idx];
+    hb_pes_stream_t *pes = &stream->pes.list[track];
 
     // Sort by id when adding to the list
     // This assures that they are always displayed in the same order
@@ -2139,7 +2172,7 @@ static void pes_add_audio_to_title(
     hb_log("stream id 0x%x (type 0x%x substream 0x%x) audio 0x%x",
            pes->stream_id, pes->stream_type, pes->stream_id_ext, audio->id);
 
-    audio->config.in.track = idx;
+    audio->config.in.track = track;
 
     // Search for the sort position
     if ( sort >= 0 )
@@ -2236,6 +2269,7 @@ static void hb_init_audio_list(hb_stream_t *stream, hb_title_t *title)
             pes_add_audio_to_title( stream, ii, title, count );
         }
     }
+    pes_set_audio_indices(title);
 }
 
 /***********************************************************************
@@ -5361,6 +5395,75 @@ static const char * ffmpeg_track_name(AVStream * st, const char * lang)
     return NULL;
 }
 
+static void add_ffmpeg_linked_audio(hb_audio_t * audio, int audio_index, hb_list_t * list_linked_index)
+{
+    if (audio->config.list_linked_index != NULL)
+    {
+	return;
+    }
+    audio->config.list_linked_index = hb_list_init();
+    hb_list_add_dup(audio->config.list_linked_index, &audio_index, sizeof(audio_index));
+
+    int ii;
+    int linked_count = hb_list_count(list_linked_index);
+    for (ii = 0; ii < linked_count; ii++)
+    {
+	int linked_index = *(int*)hb_list_item(list_linked_index, ii);
+	if (linked_index != audio_index && linked_index != audio->config.index)
+	{
+            hb_list_add_dup(audio->config.list_linked_index, &linked_index, sizeof(audio_index));
+	}
+    }
+}
+
+static void find_ffmpeg_fallback_audio(hb_title_t *title)
+{
+    int count = hb_list_count(title->list_audio);
+    int ii, jj, kk;
+
+    for (ii = 0; ii < count; ii++)
+    {
+        hb_audio_t *audio_ii = hb_list_item(title->list_audio, ii);
+
+        if (audio_ii->config.list_linked_index != NULL)
+        {
+            hb_list_t * list_linked_index = audio_ii->config.list_linked_index;
+            hb_list_t * new_list_linked_index = hb_list_init();
+            int         linked_count = hb_list_count(list_linked_index);
+
+            for (jj = 0; jj < linked_count; jj++)
+            {
+                int linked_index = *(int*)hb_list_item(list_linked_index, jj);
+                for (kk = 0; kk < count; kk++)
+                {
+                    hb_audio_t *audio_kk = hb_list_item(title->list_audio, kk);
+                    if (linked_index == audio_kk->id && kk != ii)
+                    {
+                        hb_list_add_dup(new_list_linked_index, &kk, sizeof(kk));
+                        add_ffmpeg_linked_audio(audio_kk, ii, list_linked_index);
+                        break;
+                    }
+                }
+            }
+            int * item;
+            while ((item = hb_list_item(list_linked_index, 0)))
+            {
+                hb_list_rem(list_linked_index, item);
+                free(item);
+            }
+            hb_list_close(&audio_ii->config.list_linked_index);
+            if (hb_list_count(new_list_linked_index) > 0)
+            {
+                audio_ii->config.list_linked_index = new_list_linked_index;
+            }
+            else
+            {
+                hb_list_close(&new_list_linked_index);
+            }
+        }
+    }
+}
+
 static void add_ffmpeg_audio(hb_title_t *title, hb_stream_t *stream, int id)
 {
     AVStream *st                = stream->ffmpeg_ic->streams[id];
@@ -5370,8 +5473,39 @@ static void add_ffmpeg_audio(hb_title_t *title, hb_stream_t *stream, int id)
                                               tag_lang->value : "und");
     const char        * name = ffmpeg_track_name(st, lang->iso639_2);
 
-    hb_audio_t *audio              = calloc(1, sizeof(*audio));
+    hb_audio_t        * audio = calloc(1, sizeof(*audio));
+    int ii;
+    for (ii = 0; ii < st->codecpar->nb_coded_side_data; ii++)
+    {
+        AVPacketSideData *sd = &st->codecpar->coded_side_data[ii];
+        switch (sd->type)
+        {
+            case AV_PKT_DATA_FALLBACK_TRACK:
+            {
+                if (sd->size == sizeof(int))
+                {
+                    int fallback = *(int*)sd->data;
+                    if (audio->config.list_linked_index == NULL)
+                    {
+                        audio->config.list_linked_index = hb_list_init();
+                    }
+                    // This is not actually the "right" index to store
+                    // in list_linked_index. But we need the complete
+                    // audio list before we can correct it.
+                    //
+                    // This gets corrected in find_ffmpeg_fallback_audio
+                    // after all tracks have been scanned.
+                    hb_list_add_dup(audio->config.list_linked_index,
+                                    &fallback, sizeof(fallback));
+                }
+            } break;
+
+            default:
+                break;
+        }
+    }
     audio->id                      = id;
+    audio->config.index            = hb_list_count(title->list_audio);
     audio->config.in.track         = id;
     audio->config.in.codec         = HB_ACODEC_FFMPEG;
     audio->config.in.codec_param   = codecpar->codec_id;
@@ -5390,14 +5524,12 @@ static void add_ffmpeg_audio(hb_title_t *title, hb_stream_t *stream, int id)
     {
         case AV_CODEC_ID_AAC:
         {
-            int len = MIN(codecpar->extradata_size, HB_CONFIG_MAX_SIZE);
-            memcpy(audio->priv.config.extradata.bytes, codecpar->extradata, len);
-            audio->priv.config.extradata.length = len;
-            audio->config.in.codec              = HB_ACODEC_FFAAC;
+            hb_set_extradata(&audio->priv.extradata, codecpar->extradata, codecpar->extradata_size);
+            audio->config.in.codec = HB_ACODEC_FFAAC;
         } break;
 
         case AV_CODEC_ID_AC3:
-            audio->config.in.codec       = HB_ACODEC_AC3;
+            audio->config.in.codec = HB_ACODEC_AC3;
             break;
 
         case AV_CODEC_ID_EAC3:
@@ -5433,10 +5565,8 @@ static void add_ffmpeg_audio(hb_title_t *title, hb_stream_t *stream, int id)
 
         case AV_CODEC_ID_FLAC:
         {
-            int len = MIN(codecpar->extradata_size, HB_CONFIG_MAX_SIZE);
-            memcpy(audio->priv.config.extradata.bytes, codecpar->extradata, len);
-            audio->priv.config.extradata.length = len;
-            audio->config.in.codec              = HB_ACODEC_FFFLAC;
+            hb_set_extradata(&audio->priv.extradata, codecpar->extradata, codecpar->extradata_size);
+            audio->config.in.codec = HB_ACODEC_FFFLAC;
         } break;
 
         case AV_CODEC_ID_MP2:
@@ -5449,10 +5579,8 @@ static void add_ffmpeg_audio(hb_title_t *title, hb_stream_t *stream, int id)
 
         case AV_CODEC_ID_OPUS:
         {
-            int len = MIN(codecpar->extradata_size, HB_CONFIG_MAX_SIZE);
-            memcpy(audio->priv.config.extradata.bytes, codecpar->extradata, len);
-            audio->priv.config.extradata.length = len;
-            audio->config.in.codec              = HB_ACODEC_OPUS;
+            hb_set_extradata(&audio->priv.extradata, codecpar->extradata, codecpar->extradata_size);
+            audio->config.in.codec = HB_ACODEC_OPUS;
         } break;
 
         default:
@@ -5694,11 +5822,7 @@ static void add_ffmpeg_subtitle( hb_title_t *title, hb_stream_t *stream, int id 
     // Copy the extradata for the subtitle track
     if (codecpar->extradata != NULL)
     {
-        subtitle->extradata = malloc(codecpar->extradata_size + 1);
-        memcpy(subtitle->extradata,
-               codecpar->extradata, codecpar->extradata_size);
-        subtitle->extradata[codecpar->extradata_size] = 0;
-        subtitle->extradata_size = codecpar->extradata_size + 1;
+        hb_set_text_extradata(&subtitle->extradata, codecpar->extradata, codecpar->extradata_size);
     }
 
     if (st->disposition & AV_DISPOSITION_DEFAULT)
@@ -5921,7 +6045,10 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
             // title->video_timebase.den = st->time_base.den;
             title->video_timebase.num = 1;
             title->video_timebase.den = 90000;
-            if (ic->iformat->raw_codec_id != AV_CODEC_ID_NONE)
+
+            // If neither the start_time neither the duration is set,
+            // it's probably a raw video with no timestamps
+            if (st->start_time == AV_NOPTS_VALUE && st->duration == AV_NOPTS_VALUE)
             {
                 title->flags |= HBTF_RAW_VIDEO;
             }
@@ -5940,6 +6067,7 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
             add_ffmpeg_attachment( title, stream, i );
         }
     }
+    find_ffmpeg_fallback_audio(title);
 
     title->container_name = strdup( ic->iformat->name );
     title->data_rate = ic->bit_rate;

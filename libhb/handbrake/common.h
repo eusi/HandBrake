@@ -133,6 +133,7 @@ int hb_buffer_list_size(hb_buffer_list_t *list);
 hb_list_t * hb_list_init(void);
 int         hb_list_count( const hb_list_t * );
 void        hb_list_add( hb_list_t *, void * );
+void        hb_list_add_dup( hb_list_t *, void *, int );
 void        hb_list_insert( hb_list_t * l, int pos, void * p );
 void        hb_list_rem( hb_list_t *, void * );
 void      * hb_list_item( const hb_list_t *, int );
@@ -159,8 +160,6 @@ void hb_audio_config_init(hb_audio_config_t * audiocfg);
 int hb_audio_add(const hb_job_t * job, const hb_audio_config_t * audiocfg);
 hb_audio_config_t * hb_list_audio_config_item(hb_list_t * list, int i);
 
-int hb_subtitle_add_ssa_header(hb_subtitle_t *subtitle, const char *font,
-                               int fs, int width, int height);
 hb_subtitle_t *hb_subtitle_copy(const hb_subtitle_t *src);
 hb_list_t *hb_subtitle_list_copy(const hb_list_t *src);
 void hb_subtitle_close( hb_subtitle_t **sub );
@@ -433,9 +432,10 @@ const hb_rate_t* hb_audio_bitrate_get_next(const hb_rate_t *last);
 
 void        hb_video_quality_get_limits(uint32_t codec, float *low, float *high, float *granularity, int *direction);
 const char* hb_video_quality_get_name(uint32_t codec);
-int         hb_video_quality_is_supported(uint32_t codec);
 
-int         hb_video_multipass_is_supported(uint32_t codec);
+int         hb_video_quality_is_supported(uint32_t codec);
+int         hb_video_bitrate_is_supported(uint32_t codec);
+int         hb_video_multipass_is_supported(uint32_t codec, int constant_quality);
 
 int                hb_video_encoder_is_supported(int encoder);
 int                hb_video_encoder_get_count_of_analysis_passes(int encoder);
@@ -630,6 +630,8 @@ struct hb_job_s
 #define HB_VCODEC_FFMPEG_NVENC_H265_10BIT   (0x00000032 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_H265_MASK)
 #define HB_VCODEC_FFMPEG_NVENC_AV1          (0x00000033 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_AV1_MASK)
 #define HB_VCODEC_FFMPEG_NVENC_AV1_10BIT    (0x00000034 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_AV1_MASK)
+
+#define HB_VCODEC_FFMPEG_FFV1        (0x00000040 | HB_VCODEC_FFMPEG_MASK)
 
 #define HB_VCODEC_SVT_AV1_8BIT       (0x00000041 | HB_VCODEC_SVT_AV1_MASK | HB_VCODEC_AV1_MASK)
 #define HB_VCODEC_SVT_AV1            HB_VCODEC_SVT_AV1_8BIT
@@ -840,6 +842,9 @@ struct hb_job_s
 
     uint64_t        st_paused;
 
+    int             init_delay;
+    hb_data_t     * extradata;
+
     hb_fifo_t     * fifo_mpeg2;   /* MPEG-2 video ES */
     hb_fifo_t     * fifo_raw;     /* Raw pictures */
     hb_fifo_t     * fifo_sync;    /* Raw pictures, framerate corrected */
@@ -847,8 +852,6 @@ struct hb_job_s
     hb_fifo_t     * fifo_mpeg4;   /* MPEG-4 video ES */
 
     hb_list_t     * list_work;
-
-    hb_esconfig_t config;
 
     hb_mux_data_t * mux_data;
 
@@ -923,6 +926,17 @@ struct hb_job_s
 // Update win/CS/HandBrake.Interop/HandBrakeInterop/HbLib/hb_audio_config_s.cs when changing this struct
 struct hb_audio_config_s
 {
+    // index of this item in title.list_audio
+    int index;
+
+    // index of a "linked" audio item in title.list_audio
+    // a linked audio is *exactly* the same audio encoded differently
+    //
+    // e.g. TrueHD tracks that have embedded AC3 and DTSHD that have
+    // embedded DTS are split into distinct "tracks" by HandBrake but
+    // are actually the exact same source track.
+    hb_list_t * list_linked_index;
+
     /* Output */
     struct
     {
@@ -959,7 +973,7 @@ struct hb_audio_config_s
     /* Input */
     struct
     {
-        int track; /* Input track number */
+        PRIVATE int track; /* Input track number */
         PRIVATE uint32_t codec; /* Input audio codec */
         PRIVATE uint32_t codec_param; /* Per-codec config info */
         PRIVATE uint32_t reg_desc; /* Registration descriptor of source */
@@ -999,13 +1013,16 @@ struct hb_audio_s
 
     hb_audio_config_t config;
 
-    struct {
+    struct
+    {
+        int           init_delay;
+        hb_data_t   * extradata;
+
         hb_fifo_t * fifo_in;   /* AC3/MPEG/LPCM ES */
         hb_fifo_t * fifo_raw;  /* Raw audio */
         hb_fifo_t * fifo_sync; /* Resampled, synced raw audio */
         hb_fifo_t * fifo_out;  /* MP3/AAC/Vorbis ES */
 
-        hb_esconfig_t config;
         hb_mux_data_t * mux_data;
         hb_fifo_t     * scan_cache;
     } priv;
@@ -1110,10 +1127,6 @@ struct hb_subtitle_s
     int         width;
     int         height;
 
-    // Codec private data for subtitles originating from FFMPEG sources
-    uint8_t *   extradata;
-    int         extradata_size;
-
     int hits;     /* How many hits/occurrences of this subtitle */
     int forced_hits; /* How many forced hits in this subtitle */
 
@@ -1125,6 +1138,9 @@ struct hb_subtitle_s
     uint32_t        stream_type;    /* stream type from source stream */
     uint32_t        substream_type; /* substream for multiplexed streams */
     hb_rational_t   timebase;
+
+    // Codec private data for subtitles originating from FFMPEG sources
+    hb_data_t   * extradata;
 
     hb_fifo_t     * fifo_in;        /* SPU ES */
     hb_fifo_t     * fifo_raw;       /* Decoded SPU */
@@ -1360,7 +1376,9 @@ struct hb_work_object_s
 
     hb_fifo_t         * fifo_in;
     hb_fifo_t         * fifo_out;
-    hb_esconfig_t     * config;
+
+    int               * init_delay;
+    hb_data_t        ** extradata;
 
     /* Pointer hb_audio_t so we have access to the info in the audio worker threads. */
     hb_audio_t        * audio;

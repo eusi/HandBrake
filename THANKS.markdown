@@ -25,14 +25,12 @@ HandBrake uses many cool libraries from the GNU/Linux world. We thank them and t
 - [libmpeg2dec](http://libmpeg2.sourceforge.net/)
 - [libogg](https://xiph.org/ogg/)
 - [libopus](https://www.opus-codec.org/)
-- [libsamplerate](http://mega-nerd.com/SRC/)
 - [libspeex](https://www.speex.org/)
 - [libtheora](https://theora.org/)
 - [libvorbis](http://vorbis.com/)
 - [libvpx](https://github.com/webmproject/libvpx/)
 - [libx264](https://www.videolan.org/developers/x264.html)
 - [libx265](http://x265.org/)
-- [libxml2](http://xmlsoft.org/)
 - [libzlib](http://zlib.net/)
 
 Windows UI:

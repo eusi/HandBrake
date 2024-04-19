@@ -116,7 +116,7 @@ HB_DIR* hb_opendir(const char *path);
 int hb_closedir(HB_DIR *dir);
 void hb_rewinddir(HB_DIR *dir);
 struct dirent * hb_readdir(HB_DIR *dir);
-int hb_mkdir(char * name);
+int hb_mkdir(const char *name);
 int hb_stat(const char *path, hb_stat_t *sb);
 FILE * hb_fopen(const char *path, const char *mode);
 char * hb_strr_dir_sep(const char *path);
@@ -129,7 +129,7 @@ char * hb_strndup(const char * src, size_t len);
 /************************************************************************
  * File utils
  ***********************************************************************/
-char * hb_get_temporary_directory(void);
+const char * hb_get_temporary_directory(void);
 char * hb_get_temporary_filename( char *fmt, ... );
 size_t hb_getline(char **lineptr, size_t *n, FILE *fp);
 

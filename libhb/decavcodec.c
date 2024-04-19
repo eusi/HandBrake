@@ -50,6 +50,7 @@
 #include "handbrake/hwaccel.h"
 #include "handbrake/lang.h"
 #include "handbrake/audio_resample.h"
+#include "handbrake/extradata.h"
 
 #if HB_PROJECT_FEATURE_QSV
 #include "libavutil/hwcontext_qsv.h"
@@ -822,7 +823,8 @@ static int parse_adts_extradata( hb_audio_t * audio, AVCodecContext * context,
         return ret;
     }
 
-    if (audio->priv.config.extradata.length == 0)
+    if (audio->priv.extradata == NULL ||
+        (audio->priv.extradata && audio->priv.extradata->size == 0))
     {
         const uint8_t * extradata;
         size_t          size;
@@ -831,10 +833,7 @@ static int parse_adts_extradata( hb_audio_t * audio, AVCodecContext * context,
                                             &size);
         if (extradata != NULL && size > 0)
         {
-            int len;
-            len = MIN(size, HB_CONFIG_MAX_SIZE);
-            memcpy(audio->priv.config.extradata.bytes, extradata, len);
-            audio->priv.config.extradata.length = len;
+            hb_set_extradata(&audio->priv.extradata, extradata, size);
         }
     }
 
@@ -1330,33 +1329,6 @@ static hb_buffer_t *copy_frame( hb_work_private_t *pv )
     return out;
 }
 
-static const char * get_range_name(int color_range)
-{
-    switch (color_range)
-    {
-        case AVCOL_RANGE_UNSPECIFIED:
-        case AVCOL_RANGE_MPEG:
-            return "limited";
-        case AVCOL_RANGE_JPEG:
-            return "full";
-    }
-    return "limited";
-}
-
-static const char * get_range_name_cuda(int color_range)
-{
-    // Different names for totally no reason
-    switch (color_range)
-    {
-        case AVCOL_RANGE_UNSPECIFIED:
-        case AVCOL_RANGE_MPEG:
-            return "mpeg";
-        case AVCOL_RANGE_JPEG:
-            return "jpeg";
-    }
-    return "mpeg";
-}
-
 int reinit_video_filters(hb_work_private_t * pv)
 {
     int                orig_width;
@@ -1459,7 +1431,7 @@ int reinit_video_filters(hb_work_private_t * pv)
         {
             if (color_range != pv->frame->color_range)
             {
-                hb_dict_set_string(settings, "range", get_range_name_cuda(color_range));
+                hb_dict_set_int(settings, "range", color_range);
                 hb_avfilter_append_dict(filters, "colorspace_cuda", settings);
                 settings = hb_dict_init();
             }
@@ -1469,17 +1441,19 @@ int reinit_video_filters(hb_work_private_t * pv)
             hb_dict_set(settings, "format", hb_value_string(av_get_pix_fmt_name(pv->job->input_pix_fmt)));
             hb_avfilter_append_dict(filters, "scale_cuda", settings);
         }
-        else if ((pv->frame->width % 2) == 0 && (pv->frame->height % 2) == 0)
+        else if (hb_av_can_use_zscale(pv->frame->format,
+                                      pv->frame->width, pv->frame->height,
+                                      orig_width, orig_height))
         {
-            hb_dict_set(settings, "pix_fmts", hb_value_string(av_get_pix_fmt_name(pix_fmt)));
-            hb_avfilter_append_dict(filters, "format", settings);
-            settings = hb_dict_init();
-
             hb_dict_set(settings, "w", hb_value_int(orig_width));
             hb_dict_set(settings, "h", hb_value_int(orig_height));
             hb_dict_set_string(settings, "filter", "lanczos");
-            hb_dict_set_string(settings, "range", get_range_name(color_range));
+            hb_dict_set_string(settings, "range", av_color_range_name(color_range));
             hb_avfilter_append_dict(filters, "zscale", settings);
+
+            settings = hb_dict_init();
+            hb_dict_set(settings, "pix_fmts", hb_value_string(av_get_pix_fmt_name(pix_fmt)));
+            hb_avfilter_append_dict(filters, "format", settings);
         }
         // Fallback to swscale, zscale requires a mod 2 width and height
         else
@@ -1487,8 +1461,8 @@ int reinit_video_filters(hb_work_private_t * pv)
             hb_dict_set(settings, "w", hb_value_int(orig_width));
             hb_dict_set(settings, "h", hb_value_int(orig_height));
             hb_dict_set(settings, "flags", hb_value_string("lanczos+accurate_rnd"));
-            hb_dict_set_string(settings, "in_range", get_range_name(pv->frame->color_range));
-            hb_dict_set_string(settings, "out_range", get_range_name(color_range));
+            hb_dict_set_int(settings, "in_range", pv->frame->color_range);
+            hb_dict_set_int(settings, "out_range", color_range);
             hb_avfilter_append_dict(filters, "scale", settings);
 
             settings = hb_dict_init();
@@ -1575,6 +1549,8 @@ int reinit_video_filters(hb_work_private_t * pv)
     filter_init.geometry.height   = pv->frame->height;
     filter_init.geometry.par.num  = pv->frame->sample_aspect_ratio.num;
     filter_init.geometry.par.den  = pv->frame->sample_aspect_ratio.den;
+    filter_init.color_matrix      = pv->frame->colorspace;
+    filter_init.color_range       = pv->frame->color_range;
     filter_init.time_base.num     = 1;
     filter_init.time_base.den     = 1;
     filter_init.vrate.num         = vrate.num;
@@ -1596,21 +1572,49 @@ fail:
     return 1;
 }
 
+static void sanitize_deprecated_pix_fmts(AVFrame *frame)
+{
+    switch (frame->format)
+    {
+        case AV_PIX_FMT_YUVJ420P:
+            frame->format = AV_PIX_FMT_YUV420P;
+            frame->color_range = AVCOL_RANGE_JPEG;
+            break;
+        case AV_PIX_FMT_YUVJ422P:
+            frame->format = AV_PIX_FMT_YUV422P;
+            frame->color_range = AVCOL_RANGE_JPEG;
+            break;
+        case AV_PIX_FMT_YUVJ444P:
+            frame->format = AV_PIX_FMT_YUV444P;
+            frame->color_range = AVCOL_RANGE_JPEG;
+            break;
+        case AV_PIX_FMT_YUVJ440P:
+            frame->format = AV_PIX_FMT_YUV440P;
+            frame->color_range = AVCOL_RANGE_JPEG;
+            break;
+        case AV_PIX_FMT_YUVJ411P:
+            frame->format = AV_PIX_FMT_YUV411P;
+            frame->color_range = AVCOL_RANGE_JPEG;
+            break;
+        default:
+            break;
+    }
+}
+
 static void filter_video(hb_work_private_t *pv)
 {
     // Make sure every frame is tagged
-    if (pv->frame->color_primaries == AVCOL_PRI_UNSPECIFIED ||
-        pv->frame->color_trc       == AVCOL_TRC_UNSPECIFIED ||
-        pv->frame->colorspace      == AVCOL_SPC_UNSPECIFIED)
+    if (pv->job)
     {
         pv->frame->color_primaries = pv->title->color_prim;
         pv->frame->color_trc       = pv->title->color_transfer;
         pv->frame->colorspace      = pv->title->color_matrix;
+        pv->frame->color_range     = pv->title->color_range;
     }
-    if (pv->frame->color_range == AVCOL_RANGE_UNSPECIFIED)
-    {
-        pv->frame->color_range = pv->title->color_range;
-    }
+
+    // J pixel formats are mostly deprecated, however
+    // they are still set by decoders, breaking some filters
+    sanitize_deprecated_pix_fmts(pv->frame);
 
     reinit_video_filters(pv);
     if (pv->video_filters.graph != NULL)
@@ -2372,7 +2376,11 @@ static void compute_frame_duration( hb_work_private_t *pv )
             {
                 tb = &(st->r_frame_rate);
             }
-            duration = (double)tb->den / (double)tb->num;
+
+            if (tb != NULL)
+            {
+                duration = (double)tb->den / (double)tb->num;
+            }
         }
     }
     else if (pv->context->framerate.num && pv->context->framerate.den)
@@ -2644,7 +2652,7 @@ static void decodeAudio(hb_work_private_t *pv, packet_info_t * packet_info)
                 av_channel_layout_default(&default_ch_layout, pv->frame->ch_layout.nb_channels);
                 channel_layout = default_ch_layout;
             }
-            hb_audio_resample_set_channel_layout(pv->resample, channel_layout.u.mask);
+            hb_audio_resample_set_ch_layout(pv->resample, &channel_layout);
             hb_audio_resample_set_sample_fmt(pv->resample,
                                              pv->frame->format);
             hb_audio_resample_set_sample_rate(pv->resample,

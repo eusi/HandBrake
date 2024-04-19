@@ -16,6 +16,9 @@
 #include "handbrake/dovi_common.h"
 #include "handbrake/hdr10plus.h"
 #include "handbrake/nal_units.h"
+#include "handbrake/extradata.h"
+#include "handbrake/bitstream.h"
+
 #include "cv_utils.h"
 
 int  encvt_init(hb_work_object_t *, hb_job_t *);
@@ -222,7 +225,7 @@ static void compute_dts_offset(hb_work_private_t *pv, hb_buffer_t *buf)
         if ((pv->frameno_in) == pv->job->areBframes)
         {
             pv->dts_delay = buf->s.start;
-            pv->job->config.init_delay = pv->dts_delay;
+            pv->job->init_delay = pv->dts_delay;
         }
     }
 }
@@ -679,6 +682,33 @@ static int hb_vt_parse_options(hb_work_private_t *pv, hb_job_t *job)
     return 0;
 }
 
+static void set_data_rate_limits(VTCompressionSessionRef session, int bufsize, int maxrate)
+{
+    OSStatus err = 0;
+
+    float seconds = ((float)bufsize / (float)maxrate);
+    int bytes = maxrate * 125 * seconds;
+
+    CFNumberRef size = CFNumberCreate(kCFAllocatorDefault,
+                                      kCFNumberIntType, &bytes);
+    CFNumberRef duration = CFNumberCreate(kCFAllocatorDefault,
+                                          kCFNumberFloatType, &seconds);
+    CFMutableArrayRef dataRateLimits = CFArrayCreateMutable(kCFAllocatorDefault, 2,
+                                                            &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(dataRateLimits, size);
+    CFArrayAppendValue(dataRateLimits, duration);
+    err = VTSessionSetProperty(session,
+                               kVTCompressionPropertyKey_DataRateLimits,
+                               dataRateLimits);
+    CFRelease(size);
+    CFRelease(duration);
+    CFRelease(dataRateLimits);
+    if (err != noErr)
+    {
+        hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_DataRateLimits failed");
+    }
+}
+
 static OSStatus wrap_buf(hb_work_private_t *pv, hb_buffer_t *buf, CVPixelBufferRef *pix_buf)
 {
     OSStatus err = 0;
@@ -872,7 +902,6 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
     if (err != noErr)
     {
         hb_log("Error retrieving the supported property dictionary err=%"PRId64"", (int64_t)err);
-        CFRelease(encoderSpecifications);
     }
 
     CFRelease(encoderSpecifications);
@@ -884,6 +913,14 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
     if (err != noErr)
     {
         hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_RealTime failed");
+    }
+
+    err = VTSessionSetProperty(pv->session,
+                               kVTCompressionPropertyKey_AllowTemporalCompression,
+                               pv->settings.allowTemporalCompression);
+    if (err != noErr)
+    {
+        hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_AllowTemporalCompression failed");
     }
 
     err = VTSessionSetProperty(pv->session,
@@ -988,27 +1025,7 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
         pv->settings.vbv.maxrate > 0 &&
         pv->settings.vbv.bufsize > 0)
     {
-        float seconds = ((float)pv->settings.vbv.bufsize /
-                         (float)pv->settings.vbv.maxrate);
-        int bytes = pv->settings.vbv.maxrate * 125 * seconds;
-        CFNumberRef size = CFNumberCreate(kCFAllocatorDefault,
-                                          kCFNumberIntType, &bytes);
-        CFNumberRef duration = CFNumberCreate(kCFAllocatorDefault,
-                                              kCFNumberFloatType, &seconds);
-        CFMutableArrayRef dataRateLimits = CFArrayCreateMutable(kCFAllocatorDefault, 2,
-                                                                &kCFTypeArrayCallBacks);
-        CFArrayAppendValue(dataRateLimits, size);
-        CFArrayAppendValue(dataRateLimits, duration);
-        err = VTSessionSetProperty(pv->session,
-                                   kVTCompressionPropertyKey_DataRateLimits,
-                                   dataRateLimits);
-        CFRelease(size);
-        CFRelease(duration);
-        CFRelease(dataRateLimits);
-        if (err != noErr)
-        {
-            hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_DataRateLimits failed");
-        }
+        set_data_rate_limits(pv->session, pv->settings.vbv.bufsize, pv->settings.vbv.maxrate);
     }
 
     if (pv->settings.fieldDetail != HB_VT_FIELDORDER_PROGRESSIVE)
@@ -1132,9 +1149,9 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
 
     if (__builtin_available(macOS 11.0, *))
     {
-        // VideoToolbox can generate Dolby Vision 8.4 RPU for HLG video,
-        // however we preserve the RPU from the source file, so disable it
-        // to avoid having two RPUs per frame.
+        // VideoToolbox can generate Dolby Vision 8.4 RPUs for HLG video,
+        // however we preserve the RPUs from the source file, so disable it
+        // to avoid having two sets of RPUs per frame.
         if (supportedProps != NULL && CFDictionaryContainsKey(supportedProps, kVTCompressionPropertyKey_HDRMetadataInsertionMode))
         {
             err = VTSessionSetProperty(pv->session,
@@ -1328,7 +1345,7 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
     return err;
 }
 
-static void set_h264_cookie(hb_work_object_t *w, CMFormatDescriptionRef format)
+static void set_cookie(hb_work_object_t *w, CMFormatDescriptionRef format)
 {
     CFDictionaryRef extentions = CMFormatDescriptionGetExtensions(format);
     if (!extentions)
@@ -1337,59 +1354,23 @@ static void set_h264_cookie(hb_work_object_t *w, CMFormatDescriptionRef format)
     }
     else
     {
+        CFStringRef key = CMVideoFormatDescriptionGetCodecType(format) == kCMVideoCodecType_H264 ? CFSTR("avcC") : CFSTR("hvcC");
         CFDictionaryRef atoms = CFDictionaryGetValue(extentions, kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms);
-        CFDataRef magicCookie = CFDictionaryGetValue(atoms, CFSTR("avcC"));
-
-        const uint8_t *avcCAtom = CFDataGetBytePtr(magicCookie);
-
-        SInt64 i;
-        int8_t spsCount = (avcCAtom[5] & 0x1f);
-        uint8_t ptrPos = 6;
-        uint8_t spsPos = 0;
-        for (i = 0; i < spsCount; i++) {
-            uint16_t spsSize = (avcCAtom[ptrPos++] << 8) & 0xff00;
-            spsSize += avcCAtom[ptrPos++] & 0xff;
-            memcpy(w->config->h264.sps + spsPos, avcCAtom+ptrPos, spsSize);;
-            ptrPos += spsSize;
-            spsPos += spsSize;
-        }
-        w->config->h264.sps_length = spsPos;
-
-        int8_t ppsCount = avcCAtom[ptrPos++];
-        uint8_t ppsPos = 0;
-        for (i = 0; i < ppsCount; i++)
+        if (atoms)
         {
-            uint16_t ppsSize = (avcCAtom[ptrPos++] << 8) & 0xff00;
-            ppsSize += avcCAtom[ptrPos++] & 0xff;
-            memcpy(w->config->h264.pps + ppsPos, avcCAtom+ptrPos, ppsSize);;
+            CFDataRef magicCookie = CFDictionaryGetValue(atoms, key);
 
-            ptrPos += ppsSize;
-            ppsPos += ppsSize;
+            if (magicCookie)
+            {
+                const uint8_t *hvcCAtom = CFDataGetBytePtr(magicCookie);
+                CFIndex size = CFDataGetLength(magicCookie);
+                hb_set_extradata(w->extradata, hvcCAtom, size);
+            }
+            else
+            {
+                hb_log("VTCompressionSession: Magic Cookie error");
+            }
         }
-        w->config->h264.pps_length = ppsPos;
-    }
-}
-
-static void set_h265_cookie(hb_work_object_t *w, CMFormatDescriptionRef format)
-{
-    CFDictionaryRef extensions = CMFormatDescriptionGetExtensions(format);
-    if (!extensions)
-    {
-        hb_log("VTCompressionSession: Format Description Extensions error");
-    }
-    else
-    {
-        CFDictionaryRef atoms = CFDictionaryGetValue(extensions, kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms);
-        CFDataRef magicCookie = CFDictionaryGetValue(atoms, CFSTR("hvcC"));
-        if (!magicCookie)
-        {
-            hb_log("VTCompressionSession: HEVC Magic Cookie error");
-        }
-
-        const uint8_t *hvcCAtom = CFDataGetBytePtr(magicCookie);
-        uint16_t size = CFDataGetLength(magicCookie);
-        memcpy(w->config->h265.headers, hvcCAtom, size);
-        w->config->h265.headers_length = size;
     }
 }
 
@@ -1457,15 +1438,7 @@ static OSStatus create_cookie(hb_work_object_t *w, hb_job_t *job, hb_work_privat
         {
             pv->format = format;
             CFRetain(pv->format);
-
-            if (pv->settings.codec == kCMVideoCodecType_H264)
-            {
-                set_h264_cookie(w, format);
-            }
-            else
-            {
-                set_h265_cookie(w, format);
-            }
+            set_cookie(w, format);
         }
         CFRelease(sampleBuffer);
     }
@@ -1488,14 +1461,7 @@ static OSStatus reuse_vtsession(hb_work_object_t *w, hb_job_t * job, hb_work_pri
     hb_interjob_t *interjob = hb_interjob_get(job->h);
     vt_interjob_t *context = interjob->context;
 
-    if (job->vcodec == HB_VCODEC_VT_H264)
-    {
-        set_h264_cookie(w, context->format);
-    }
-    else
-    {
-        set_h265_cookie(w, context->format);
-    }
+    set_cookie(w, context->format);
 
     pv->session = context->session;
     pv->passStorage = context->passStorage;
@@ -1575,28 +1541,6 @@ int encvt_init(hb_work_object_t *w, hb_job_t *job)
         return -1;
     }
 
-    /*
-     * Update and set Dolby Vision level
-     * There is no way to select an high tier level
-     */
-    if (job->passthru_dynamic_hdr_metadata & DOVI)
-    {
-        int pps = (double)job->width * job->height * (job->vrate.num / job->vrate.den);
-        int bitrate = job->vquality == HB_INVALID_VIDEO_QUALITY ? job->vbitrate : -1;
-
-        // Dolby Vision requires VBV settings to enable HRD
-        // set the max value for the current level or guess one
-        if (pv->settings.vbv.maxrate == 0 || pv->settings.vbv.bufsize == 0)
-        {
-            int max_rate = hb_dovi_max_rate(job->width, pps, bitrate * 1.5, 0, 0);
-            pv->settings.vbv.maxrate = max_rate * 1000;
-            pv->settings.vbv.bufsize = max_rate * 1000;
-        }
-
-        job->dovi.dv_level = hb_dovi_level(job->width, pps, pv->settings.vbv.maxrate, 0);
-        hb_log("encvt_Init: encoding Dolby Vision with automatic data limits: %d kbit/s", pv->settings.vbv.maxrate);
-    }
-
     pv->remainingPasses = job->pass_id == HB_PASS_ENCODE_ANALYSIS ? 1 : 0;
 
     if (job->pass_id != HB_PASS_ENCODE_FINAL)
@@ -1607,6 +1551,42 @@ int encvt_init(hb_work_object_t *w, hb_job_t *job)
             hb_log("VTCompressionSession: Magic Cookie Error err=%"PRId64"", (int64_t)err);
             *job->die = 1;
             return -1;
+        }
+
+        // Read the actual level and tier and set
+        // the Dolby Vision level and data limits
+        if (job->passthru_dynamic_hdr_metadata & DOVI)
+        {
+            int level_idc, high_tier;
+            hb_parse_h265_extradata(*w->extradata, &level_idc, &high_tier);
+
+            int pps = (double)job->width * job->height * (job->vrate.num / job->vrate.den);
+            int bitrate = job->vquality == HB_INVALID_VIDEO_QUALITY ? job->vbitrate : -1;
+
+            // Dolby Vision requires VBV settings to enable HRD
+            // set the max value for the current level or guess one
+            if (pv->settings.vbv.maxrate == 0 || pv->settings.vbv.bufsize == 0)
+            {
+                int max_rate = hb_dovi_max_rate(job->vcodec, job->width, pps, bitrate * 1.5,
+                                                level_idc, high_tier);
+                pv->settings.vbv.maxrate = max_rate;
+                pv->settings.vbv.bufsize = max_rate;
+            }
+
+            job->dovi.dv_level = hb_dovi_level(job->width, pps, pv->settings.vbv.maxrate, high_tier);
+
+            // VideoToolbox CQ seems to not support data rate limits correctly,
+            // just set a high enough level for now, and reset the vbv settings
+            if (job->vquality != HB_INVALID_VIDEO_QUALITY)
+            {
+                pv->settings.vbv.maxrate = 0;
+                pv->settings.vbv.bufsize = 0;
+                hb_log("encvt_Init: data rate limits not supported in CQ mode, Dolby Vision file might be out of specs");
+            }
+            else
+            {
+                hb_log("encvt_Init: encoding Dolby Vision with automatic data rate limits: %d kbit/s", pv->settings.vbv.maxrate);
+            }
         }
 
         err = init_vtsession(w, job, pv, 0);

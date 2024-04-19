@@ -345,6 +345,11 @@ static void ScanFunc( void * _data )
             /* Scan all titles */
             for( i = 0; i < hb_batch_title_count( data->batch ); i++ )
             {
+                if (*data->die)
+                {
+                    goto finish;
+                }
+
                 hb_title_t * title;
 
                 UpdateState1(data, i + 1);
@@ -361,6 +366,11 @@ static void ScanFunc( void * _data )
         // If dragging a batch of files, maybe not, but if the UI's implement a recursive folder maybe?
         for (i = 0; i < hb_list_count( data->paths ); i++)
         {
+            if (*data->die)
+            {
+                goto finish;
+            }
+
             single_path = hb_list_item(data->paths, i);
 
             UpdateState1(data, i + 1);
@@ -1313,9 +1323,14 @@ skip_preview:
             title->color_transfer = get_color_transfer(title->color_transfer);
             title->color_matrix   = get_color_matrix(title->color_matrix, vid_info.geometry);
         }
-        // Let's try to guess a color profile only if the source is not Dolby Vision 5
-        // which requires the values to be unset
-        else if (title->dovi.dv_profile != 5)
+        else if (title->dovi.dv_profile == 5 ||
+                 (title->dovi.dv_profile == 10 && title->dovi.dv_bl_signal_compatibility_id == 0))
+        {
+            title->color_prim     = HB_COLR_PRI_UNDEF;
+            title->color_transfer = HB_COLR_TRA_UNDEF;
+            title->color_matrix   = HB_COLR_MAT_UNDEF;
+        }
+        else
         {
             title->color_prim     = get_color_prim(vid_info.color_prim, vid_info.geometry, vid_info.rate);
             title->color_transfer = get_color_transfer(vid_info.color_transfer);
@@ -1643,7 +1658,7 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_buffer_t * b)
                     codec_name = "TrueHD";
                     break;
                 case AV_CODEC_ID_DTS:
-                    if (profile_name == NULL &&
+                    if ((profile_name == NULL || info.profile == AV_PROFILE_DTS) &&
                         audio->config.in.codec == HB_ACODEC_DCA_HD)
                         codec_name = "DTS-HD";
                     else

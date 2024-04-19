@@ -22,8 +22,6 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		1C0695AC20BD193D001543DA /* libpostproc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C0695AA20BD193D001543DA /* libpostproc.a */; };
-		1C0695AD20BD193D001543DA /* libpostproc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C0695AA20BD193D001543DA /* libpostproc.a */; };
 		1C0695AE20BD193D001543DA /* libswresample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C0695AB20BD193D001543DA /* libswresample.a */; };
 		1C0695AF20BD193D001543DA /* libswresample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C0695AB20BD193D001543DA /* libswresample.a */; };
 		1C53DE8C20BD598D006BBCA8 /* libspeex.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C280BF320BD58DD00D5ECC2 /* libspeex.a */; };
@@ -68,7 +66,6 @@
 		27D6C76D14B102DA00B785E4 /* libvorbis.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27D6C73D14B102DA00B785E4 /* libvorbis.a */; };
 		27D6C76F14B102DA00B785E4 /* libvorbisenc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27D6C73E14B102DA00B785E4 /* libvorbisenc.a */; };
 		27D6C77114B102DA00B785E4 /* libx264.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27D6C73F14B102DA00B785E4 /* libx264.a */; };
-		27D6C77314B102DA00B785E4 /* libxml2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27D6C74014B102DA00B785E4 /* libxml2.a */; };
 		3490BCB41614CF8D002A5AD7 /* HandBrake.icns in Resources */ = {isa = PBXBuildFile; fileRef = 3490BCB31614CF8D002A5AD7 /* HandBrake.icns */; };
 		A900E6BD1D7B1B5A00CB6C0A /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A900E6BC1D7B1B4800CB6C0A /* libopus.a */; };
 		A900E6BE1D7B1B6800CB6C0A /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A900E6BC1D7B1B4800CB6C0A /* libopus.a */; };
@@ -141,7 +138,6 @@
 		A91CE2C61C7DABBC0068F46F /* libvorbisenc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27D6C73E14B102DA00B785E4 /* libvorbisenc.a */; };
 		A91CE2C71C7DABBC0068F46F /* libvpx.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 22DD2C49177B94DB00EF50D3 /* libvpx.a */; };
 		A91CE2C81C7DABBC0068F46F /* libx264.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27D6C73F14B102DA00B785E4 /* libx264.a */; };
-		A91CE2CA1C7DABBC0068F46F /* libxml2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 27D6C74014B102DA00B785E4 /* libxml2.a */; };
 		A91CE2D01C7DABCE0068F46F /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A91CE2CF1C7DABCE0068F46F /* libbz2.tbd */; };
 		A91CE2D21C7DABDA0068F46F /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A91CE2D11C7DABDA0068F46F /* libz.tbd */; };
 		A91CE2D41C7DABE40068F46F /* libiconv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A91CE2D31C7DABE40068F46F /* libiconv.tbd */; };
@@ -211,6 +207,7 @@
 		A939DD8B1FC8826A00135F2A /* HBPresetsMenuBuilder.m in Sources */ = {isa = PBXBuildFile; fileRef = A939DD8A1FC8826A00135F2A /* HBPresetsMenuBuilder.m */; };
 		A93E0ED31972957000FD67FB /* HBVideoController.m in Sources */ = {isa = PBXBuildFile; fileRef = A93E0ED11972957000FD67FB /* HBVideoController.m */; };
 		A942B66D250BB1FE00049203 /* HBQueueActionItem.m in Sources */ = {isa = PBXBuildFile; fileRef = A942B66C250BB1FE00049203 /* HBQueueActionItem.m */; };
+		A94339262BA49E3600C4493F /* HBComboView.m in Sources */ = {isa = PBXBuildFile; fileRef = A94339252BA49E3600C4493F /* HBComboView.m */; };
 		A943874122ED911B005F701B /* HBJob+HBAdditions.m in Sources */ = {isa = PBXBuildFile; fileRef = A943874022ED911B005F701B /* HBJob+HBAdditions.m */; };
 		A94A98F51C858EFB004BA9BA /* HBDictTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A94A98F41C858EFB004BA9BA /* HBDictTests.m */; };
 		A94DC2DE20CADA2C00EAC8FD /* MainWindow.xib in Resources */ = {isa = PBXBuildFile; fileRef = A94DC2DC20CADA2C00EAC8FD /* MainWindow.xib */; };
@@ -450,7 +447,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		1C0695AA20BD193D001543DA /* libpostproc.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpostproc.a; path = external/contrib/lib/libpostproc.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C0695AB20BD193D001543DA /* libswresample.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libswresample.a; path = external/contrib/lib/libswresample.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C15C82B1CD7722500368223 /* libharfbuzz.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libharfbuzz.a; path = external/contrib/lib/libharfbuzz.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C280BF320BD58DD00D5ECC2 /* libspeex.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libspeex.a; path = external/contrib/lib/libspeex.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -510,7 +506,6 @@
 		27D6C73D14B102DA00B785E4 /* libvorbis.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libvorbis.a; path = external/contrib/lib/libvorbis.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		27D6C73E14B102DA00B785E4 /* libvorbisenc.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libvorbisenc.a; path = external/contrib/lib/libvorbisenc.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		27D6C73F14B102DA00B785E4 /* libx264.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libx264.a; path = external/contrib/lib/libx264.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		27D6C74014B102DA00B785E4 /* libxml2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libxml2.a; path = external/contrib/lib/libxml2.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		3490BCB31614CF8D002A5AD7 /* HandBrake.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = HandBrake.icns; sourceTree = "<group>"; };
 		46AB433315F98A2B009C0961 /* HBDockTextField.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HBDockTextField.h; sourceTree = "<group>"; };
 		46AB433415F98A2B009C0961 /* HBDockTextField.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HBDockTextField.m; sourceTree = "<group>"; };
@@ -627,6 +622,8 @@
 		A942B668250BA70400049203 /* HBQueueItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HBQueueItem.h; sourceTree = "<group>"; };
 		A942B66B250BB1FE00049203 /* HBQueueActionItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HBQueueActionItem.h; sourceTree = "<group>"; };
 		A942B66C250BB1FE00049203 /* HBQueueActionItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HBQueueActionItem.m; sourceTree = "<group>"; };
+		A94339242BA49E3600C4493F /* HBComboView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HBComboView.h; sourceTree = "<group>"; };
+		A94339252BA49E3600C4493F /* HBComboView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HBComboView.m; sourceTree = "<group>"; };
 		A943873F22ED911B005F701B /* HBJob+HBAdditions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "HBJob+HBAdditions.h"; sourceTree = "<group>"; };
 		A943874022ED911B005F701B /* HBJob+HBAdditions.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "HBJob+HBAdditions.m"; sourceTree = "<group>"; };
 		A945CC3122ED7C6A00E9C2E3 /* HBPreferencesKeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HBPreferencesKeys.h; sourceTree = "<group>"; };
@@ -1060,6 +1057,42 @@
 		D0A8A0342706E3710008018A /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = "ru.lproj/HandBrakeXPCService2-InfoPlist.strings"; sourceTree = "<group>"; };
 		D0A8A0352706E3710008018A /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = "ru.lproj/HandBrakeXPCService3-InfoPlist.strings"; sourceTree = "<group>"; };
 		D0A8A0362706E3710008018A /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = "ru.lproj/HandBrakeXPCService4-InfoPlist.strings"; sourceTree = "<group>"; };
+		D0B6CB8C2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/AddPreset.strings"; sourceTree = "<group>"; };
+		D0B6CB8D2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Audio.strings"; sourceTree = "<group>"; };
+		D0B6CB8E2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/AudioDefaults.strings"; sourceTree = "<group>"; };
+		D0B6CB8F2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/ChaptersTitles.strings"; sourceTree = "<group>"; };
+		D0B6CB902BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/ExceptionAlert.strings"; sourceTree = "<group>"; };
+		D0B6CB912BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBAddCategoryController.strings"; sourceTree = "<group>"; };
+		D0B6CB922BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBCroppingView.strings"; sourceTree = "<group>"; };
+		D0B6CB932BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBEncodingProgressHUDController.strings"; sourceTree = "<group>"; };
+		D0B6CB942BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBFiltersViewController.strings"; sourceTree = "<group>"; };
+		D0B6CB952BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBPictureHUDController.strings"; sourceTree = "<group>"; };
+		D0B6CB962BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBPictureViewController.strings"; sourceTree = "<group>"; };
+		D0B6CB972BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBPlayerHUDController.strings"; sourceTree = "<group>"; };
+		D0B6CB982BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBPreviewViewController.strings"; sourceTree = "<group>"; };
+		D0B6CB992BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBQueueInfoViewController.strings"; sourceTree = "<group>"; };
+		D0B6CB9A2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBQueueTableViewController.strings"; sourceTree = "<group>"; };
+		D0B6CB9B2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBRenamePresetController.strings"; sourceTree = "<group>"; };
+		D0B6CB9C2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBSummaryViewController.strings"; sourceTree = "<group>"; };
+		D0B6CB9D2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBTitleSelection.strings"; sourceTree = "<group>"; };
+		D0B6CB9E2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBTrackTitleViewController.strings"; sourceTree = "<group>"; };
+		D0B6CB9F2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/MainMenu.strings"; sourceTree = "<group>"; };
+		D0B6CBA02BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/MainWindow.strings"; sourceTree = "<group>"; };
+		D0B6CBA12BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/OutputPanel.strings"; sourceTree = "<group>"; };
+		D0B6CBA22BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/PicturePreview.strings"; sourceTree = "<group>"; };
+		D0B6CBA32BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Preferences.strings"; sourceTree = "<group>"; };
+		D0B6CBA42BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Presets.strings"; sourceTree = "<group>"; };
+		D0B6CBA52BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Queue.strings"; sourceTree = "<group>"; };
+		D0B6CBA62BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Subtitles.strings"; sourceTree = "<group>"; };
+		D0B6CBA72BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/SubtitlesDefaults.strings"; sourceTree = "<group>"; };
+		D0B6CBA82BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Video.strings"; sourceTree = "<group>"; };
+		D0B6CBA92BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		D0B6CBAA2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		D0B6CBAB2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		D0B6CBAC2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HandBrakeXPCService1-InfoPlist.strings"; sourceTree = "<group>"; };
+		D0B6CBAD2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HandBrakeXPCService2-InfoPlist.strings"; sourceTree = "<group>"; };
+		D0B6CBAE2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HandBrakeXPCService3-InfoPlist.strings"; sourceTree = "<group>"; };
+		D0B6CBAF2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HandBrakeXPCService4-InfoPlist.strings"; sourceTree = "<group>"; };
 		D0B806A426E7F2760013D332 /* co */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = co; path = co.lproj/AddPreset.strings; sourceTree = "<group>"; };
 		D0B806A526E7F2760013D332 /* co */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = co; path = co.lproj/Audio.strings; sourceTree = "<group>"; };
 		D0B806A626E7F2760013D332 /* co */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = co; path = co.lproj/AudioDefaults.strings; sourceTree = "<group>"; };
@@ -1202,7 +1235,6 @@
 				27D6C75A14B102DA00B785E4 /* libfribidi.a in Frameworks */,
 				27D6C75F14B102DA00B785E4 /* libmp3lame.a in Frameworks */,
 				1CBC683420BE014800A26CC2 /* liblzma.a in Frameworks */,
-				1C0695AC20BD193D001543DA /* libpostproc.a in Frameworks */,
 				27D6C76514B102DA00B785E4 /* libogg.a in Frameworks */,
 				27D6C76914B102DA00B785E4 /* libswscale.a in Frameworks */,
 				27D6C76B14B102DA00B785E4 /* libtheora.a in Frameworks */,
@@ -1211,7 +1243,6 @@
 				27D6C76F14B102DA00B785E4 /* libvorbisenc.a in Frameworks */,
 				22DD2C4B177B95DA00EF50D3 /* libvpx.a in Frameworks */,
 				27D6C77114B102DA00B785E4 /* libx264.a in Frameworks */,
-				27D6C77314B102DA00B785E4 /* libxml2.a in Frameworks */,
 				A955128B1A320B02001BFC6F /* libjansson.a in Frameworks */,
 				1C6D76551CD7733300F5B943 /* libharfbuzz.a in Frameworks */,
 				A9C3A8F6278DFF8D00839EDF /* libzimg.a in Frameworks */,
@@ -1299,14 +1330,12 @@
 				A91CE2BF1C7DABBC0068F46F /* libjansson.a in Frameworks */,
 				A91CE2C01C7DABBC0068F46F /* libmp3lame.a in Frameworks */,
 				A91CE2C11C7DABBC0068F46F /* libogg.a in Frameworks */,
-				1C0695AD20BD193D001543DA /* libpostproc.a in Frameworks */,
 				A91CE2C31C7DABBC0068F46F /* libswscale.a in Frameworks */,
 				A91CE2C41C7DABBC0068F46F /* libtheora.a in Frameworks */,
 				A91CE2C51C7DABBC0068F46F /* libvorbis.a in Frameworks */,
 				A91CE2C61C7DABBC0068F46F /* libvorbisenc.a in Frameworks */,
 				A91CE2C71C7DABBC0068F46F /* libvpx.a in Frameworks */,
 				A91CE2C81C7DABBC0068F46F /* libx264.a in Frameworks */,
-				A91CE2CA1C7DABBC0068F46F /* libxml2.a in Frameworks */,
 				A9C3A8F8278DFFC900839EDF /* libzimg.a in Frameworks */,
 				A91CE2B11C7DAA530068F46F /* libhandbrake.a in Frameworks */,
 			);
@@ -1330,7 +1359,6 @@
 				1CDCF0C1241F28D400FB62C6 /* libturbojpeg.a */,
 				1C280BF320BD58DD00D5ECC2 /* libspeex.a */,
 				1CBC683320BE014800A26CC2 /* liblzma.a */,
-				1C0695AA20BD193D001543DA /* libpostproc.a */,
 				1C0695AB20BD193D001543DA /* libswresample.a */,
 				27D6C72414B1019100B785E4 /* libhandbrake.a */,
 				27D6C72814B102DA00B785E4 /* libass.a */,
@@ -1352,7 +1380,6 @@
 				22DD2C49177B94DB00EF50D3 /* libvpx.a */,
 				27D6C73F14B102DA00B785E4 /* libx264.a */,
 				A900E6BC1D7B1B4800CB6C0A /* libopus.a */,
-				27D6C74014B102DA00B785E4 /* libxml2.a */,
 				A95512881A320A12001BFC6F /* libjansson.a */,
 				A9E165511C523016003EF30E /* libavfilter.a */,
 				1C15C82B1CD7722500368223 /* libharfbuzz.a */,
@@ -1923,6 +1950,8 @@
 				A96E20632B90B0A20043CFCD /* HBBadgeView.m */,
 				A95140912B8F6B1600B446C1 /* HBToolbarItem.h */,
 				A95140922B8F6B1600B446C1 /* HBToolbarItem.m */,
+				A94339242BA49E3600C4493F /* HBComboView.h */,
+				A94339252BA49E3600C4493F /* HBComboView.m */,
 			);
 			name = "UI Views";
 			sourceTree = "<group>";
@@ -2233,6 +2262,7 @@
 				ja_JP,
 				ko,
 				bg,
+				uk_UA,
 			);
 			mainGroup = 273F1FDE14AD9DA40021BE6D;
 			packageReferences = (
@@ -2445,6 +2475,7 @@
 				A92268781A6E555500A8D5C5 /* HBAppDelegate.m in Sources */,
 				A98036CD1CCA91DD007661AA /* HBAVPlayer.m in Sources */,
 				A9BC24C91A69293E007DC41A /* HBAttributedStringAdditions.m in Sources */,
+				A94339262BA49E3600C4493F /* HBComboView.m in Sources */,
 				273F20B314ADBE670021BE6D /* HBOutputPanelController.m in Sources */,
 				A9C61F9E22E31CDB00C28E7C /* HBFlippedClipView.m in Sources */,
 				273F20B414ADBE670021BE6D /* HBOutputRedirect.m in Sources */,
@@ -2638,6 +2669,7 @@
 				D0924616280B72B900B79A40 /* ja_JP */,
 				D0A185F12AD5BDE60056C7BD /* ko */,
 				D0E25A652AD5BE3600D1B3F5 /* bg */,
+				D0B6CB9B2BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBRenamePresetController.xib;
 			sourceTree = "<group>";
@@ -2664,6 +2696,7 @@
 				D0924617280B72BA00B79A40 /* ja_JP */,
 				D0A185F22AD5BDE60056C7BD /* ko */,
 				D0E25A662AD5BE3600D1B3F5 /* bg */,
+				D0B6CB9C2BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBSummaryViewController.xib;
 			sourceTree = "<group>";
@@ -2697,6 +2730,7 @@
 				D092460C280B72B900B79A40 /* ja_JP */,
 				D0A185E72AD5BDE60056C7BD /* ko */,
 				D0E25A5B2AD5BE3600D1B3F5 /* bg */,
+				D0B6CB912BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBAddCategoryController.xib;
 			sourceTree = "<group>";
@@ -2715,6 +2749,7 @@
 				D0924607280B72B900B79A40 /* ja_JP */,
 				D0A185E22AD5BDE60056C7BD /* ko */,
 				D0E25A562AD5BE3600D1B3F5 /* bg */,
+				D0B6CB8C2BA7775B0015F453 /* uk_UA */,
 			);
 			name = AddPreset.xib;
 			sourceTree = "<group>";
@@ -2732,6 +2767,7 @@
 				D0924629280B72BA00B79A40 /* ja_JP */,
 				D0A186022AD5BDE60056C7BD /* ko */,
 				D0E25A762AD5BE3600D1B3F5 /* bg */,
+				D0B6CBAC2BA7775B0015F453 /* uk_UA */,
 			);
 			name = "HandBrakeXPCService1-InfoPlist.strings";
 			sourceTree = "<group>";
@@ -2749,6 +2785,7 @@
 				D092462A280B72BA00B79A40 /* ja_JP */,
 				D0A186032AD5BDE60056C7BD /* ko */,
 				D0E25A772AD5BE3600D1B3F5 /* bg */,
+				D0B6CBAD2BA7775B0015F453 /* uk_UA */,
 			);
 			name = "HandBrakeXPCService2-InfoPlist.strings";
 			sourceTree = "<group>";
@@ -2766,6 +2803,7 @@
 				D092462B280B72BA00B79A40 /* ja_JP */,
 				D0A186042AD5BDE60056C7BD /* ko */,
 				D0E25A782AD5BE3600D1B3F5 /* bg */,
+				D0B6CBAE2BA7775B0015F453 /* uk_UA */,
 			);
 			name = "HandBrakeXPCService3-InfoPlist.strings";
 			sourceTree = "<group>";
@@ -2783,6 +2821,7 @@
 				D092462C280B72BA00B79A40 /* ja_JP */,
 				D0A186052AD5BDE60056C7BD /* ko */,
 				D0E25A792AD5BE3600D1B3F5 /* bg */,
+				D0B6CBAF2BA7775B0015F453 /* uk_UA */,
 			);
 			name = "HandBrakeXPCService4-InfoPlist.strings";
 			sourceTree = "<group>";
@@ -2801,6 +2840,7 @@
 				D092461B280B72BA00B79A40 /* ja_JP */,
 				D0A185F62AD5BDE60056C7BD /* ko */,
 				D0E25A6A2AD5BE3600D1B3F5 /* bg */,
+				D0B6CBA02BA7775B0015F453 /* uk_UA */,
 			);
 			name = MainWindow.xib;
 			sourceTree = "<group>";
@@ -2819,6 +2859,7 @@
 				D0924615280B72B900B79A40 /* ja_JP */,
 				D0A185F02AD5BDE60056C7BD /* ko */,
 				D0E25A642AD5BE3600D1B3F5 /* bg */,
+				D0B6CB9A2BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBQueueTableViewController.xib;
 			sourceTree = "<group>";
@@ -2837,6 +2878,7 @@
 				D0924614280B72B900B79A40 /* ja_JP */,
 				D0A185EF2AD5BDE60056C7BD /* ko */,
 				D0E25A632AD5BE3600D1B3F5 /* bg */,
+				D0B6CB992BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBQueueInfoViewController.xib;
 			sourceTree = "<group>";
@@ -2872,6 +2914,7 @@
 				D0924610280B72B900B79A40 /* ja_JP */,
 				D0A185EB2AD5BDE60056C7BD /* ko */,
 				D0E25A5F2AD5BE3600D1B3F5 /* bg */,
+				D0B6CB952BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBPictureHUDController.xib;
 			sourceTree = "<group>";
@@ -2890,6 +2933,7 @@
 				D092460E280B72B900B79A40 /* ja_JP */,
 				D0A185E92AD5BDE60056C7BD /* ko */,
 				D0E25A5D2AD5BE3600D1B3F5 /* bg */,
+				D0B6CB932BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBEncodingProgressHUDController.xib;
 			sourceTree = "<group>";
@@ -2908,6 +2952,7 @@
 				D0924612280B72B900B79A40 /* ja_JP */,
 				D0A185ED2AD5BDE60056C7BD /* ko */,
 				D0E25A612AD5BE3600D1B3F5 /* bg */,
+				D0B6CB972BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBPlayerHUDController.xib;
 			sourceTree = "<group>";
@@ -2926,6 +2971,7 @@
 				D092461A280B72BA00B79A40 /* ja_JP */,
 				D0A185F52AD5BDE60056C7BD /* ko */,
 				D0E25A692AD5BE3600D1B3F5 /* bg */,
+				D0B6CB9F2BA7775B0015F453 /* uk_UA */,
 			);
 			name = MainMenu.xib;
 			sourceTree = "<group>";
@@ -2944,6 +2990,7 @@
 				D092461F280B72BA00B79A40 /* ja_JP */,
 				D0A185FA2AD5BDE60056C7BD /* ko */,
 				D0E25A6E2AD5BE3600D1B3F5 /* bg */,
+				D0B6CBA42BA7775B0015F453 /* uk_UA */,
 			);
 			name = Presets.xib;
 			sourceTree = "<group>";
@@ -2962,6 +3009,7 @@
 				D0924618280B72BA00B79A40 /* ja_JP */,
 				D0A185F32AD5BDE60056C7BD /* ko */,
 				D0E25A672AD5BE3600D1B3F5 /* bg */,
+				D0B6CB9D2BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBTitleSelection.xib;
 			sourceTree = "<group>";
@@ -2980,6 +3028,7 @@
 				D0924611280B72B900B79A40 /* ja_JP */,
 				D0A185EC2AD5BDE60056C7BD /* ko */,
 				D0E25A602AD5BE3600D1B3F5 /* bg */,
+				D0B6CB962BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBPictureViewController.xib;
 			sourceTree = "<group>";
@@ -2998,6 +3047,7 @@
 				D092460F280B72B900B79A40 /* ja_JP */,
 				D0A185EA2AD5BDE60056C7BD /* ko */,
 				D0E25A5E2AD5BE3600D1B3F5 /* bg */,
+				D0B6CB942BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBFiltersViewController.xib;
 			sourceTree = "<group>";
@@ -3016,6 +3066,7 @@
 				D0924623280B72BA00B79A40 /* ja_JP */,
 				D0A185FE2AD5BDE60056C7BD /* ko */,
 				D0E25A722AD5BE3600D1B3F5 /* bg */,
+				D0B6CBA82BA7775B0015F453 /* uk_UA */,
 			);
 			name = Video.xib;
 			sourceTree = "<group>";
@@ -3034,6 +3085,7 @@
 				D0924608280B72B900B79A40 /* ja_JP */,
 				D0A185E32AD5BDE60056C7BD /* ko */,
 				D0E25A572AD5BE3600D1B3F5 /* bg */,
+				D0B6CB8D2BA7775B0015F453 /* uk_UA */,
 			);
 			name = Audio.xib;
 			sourceTree = "<group>";
@@ -3052,6 +3104,7 @@
 				D0924609280B72B900B79A40 /* ja_JP */,
 				D0A185E42AD5BDE60056C7BD /* ko */,
 				D0E25A582AD5BE3600D1B3F5 /* bg */,
+				D0B6CB8E2BA7775B0015F453 /* uk_UA */,
 			);
 			name = AudioDefaults.xib;
 			sourceTree = "<group>";
@@ -3070,6 +3123,7 @@
 				D0924621280B72BA00B79A40 /* ja_JP */,
 				D0A185FC2AD5BDE60056C7BD /* ko */,
 				D0E25A702AD5BE3600D1B3F5 /* bg */,
+				D0B6CBA62BA7775B0015F453 /* uk_UA */,
 			);
 			name = Subtitles.xib;
 			sourceTree = "<group>";
@@ -3088,6 +3142,7 @@
 				D0924622280B72BA00B79A40 /* ja_JP */,
 				D0A185FD2AD5BDE60056C7BD /* ko */,
 				D0E25A712AD5BE3600D1B3F5 /* bg */,
+				D0B6CBA72BA7775B0015F453 /* uk_UA */,
 			);
 			name = SubtitlesDefaults.xib;
 			sourceTree = "<group>";
@@ -3106,6 +3161,7 @@
 				D092460A280B72B900B79A40 /* ja_JP */,
 				D0A185E52AD5BDE60056C7BD /* ko */,
 				D0E25A592AD5BE3600D1B3F5 /* bg */,
+				D0B6CB8F2BA7775B0015F453 /* uk_UA */,
 			);
 			name = ChaptersTitles.xib;
 			sourceTree = "<group>";
@@ -3124,6 +3180,7 @@
 				D0924620280B72BA00B79A40 /* ja_JP */,
 				D0A185FB2AD5BDE60056C7BD /* ko */,
 				D0E25A6F2AD5BE3600D1B3F5 /* bg */,
+				D0B6CBA52BA7775B0015F453 /* uk_UA */,
 			);
 			name = Queue.xib;
 			sourceTree = "<group>";
@@ -3142,6 +3199,7 @@
 				D092460D280B72B900B79A40 /* ja_JP */,
 				D0A185E82AD5BDE60056C7BD /* ko */,
 				D0E25A5C2AD5BE3600D1B3F5 /* bg */,
+				D0B6CB922BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBCroppingView.xib;
 			sourceTree = "<group>";
@@ -3160,6 +3218,7 @@
 				D092461D280B72BA00B79A40 /* ja_JP */,
 				D0A185F82AD5BDE60056C7BD /* ko */,
 				D0E25A6C2AD5BE3600D1B3F5 /* bg */,
+				D0B6CBA22BA7775B0015F453 /* uk_UA */,
 			);
 			name = PicturePreview.xib;
 			sourceTree = "<group>";
@@ -3178,6 +3237,7 @@
 				D092461C280B72BA00B79A40 /* ja_JP */,
 				D0A185F72AD5BDE60056C7BD /* ko */,
 				D0E25A6B2AD5BE3600D1B3F5 /* bg */,
+				D0B6CBA12BA7775B0015F453 /* uk_UA */,
 			);
 			name = OutputPanel.xib;
 			sourceTree = "<group>";
@@ -3196,6 +3256,7 @@
 				D092461E280B72BA00B79A40 /* ja_JP */,
 				D0A185F92AD5BDE60056C7BD /* ko */,
 				D0E25A6D2AD5BE3600D1B3F5 /* bg */,
+				D0B6CBA32BA7775B0015F453 /* uk_UA */,
 			);
 			name = Preferences.xib;
 			sourceTree = "<group>";
@@ -3214,6 +3275,7 @@
 				D0924613280B72B900B79A40 /* ja_JP */,
 				D0A185EE2AD5BDE60056C7BD /* ko */,
 				D0E25A622AD5BE3600D1B3F5 /* bg */,
+				D0B6CB982BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBPreviewViewController.xib;
 			sourceTree = "<group>";
@@ -3232,6 +3294,7 @@
 				D0924619280B72BA00B79A40 /* ja_JP */,
 				D0A185F42AD5BDE60056C7BD /* ko */,
 				D0E25A682AD5BE3600D1B3F5 /* bg */,
+				D0B6CB9E2BA7775B0015F453 /* uk_UA */,
 			);
 			name = HBTrackTitleViewController.xib;
 			sourceTree = "<group>";
@@ -3250,6 +3313,7 @@
 				D0924627280B72BA00B79A40 /* ja_JP */,
 				D0A186002AD5BDE60056C7BD /* ko */,
 				D0E25A742AD5BE3600D1B3F5 /* bg */,
+				D0B6CBAA2BA7775B0015F453 /* uk_UA */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
@@ -3267,6 +3331,7 @@
 				D0924628280B72BA00B79A40 /* ja_JP */,
 				D0A186012AD5BDE60056C7BD /* ko */,
 				D0E25A752AD5BE3600D1B3F5 /* bg */,
+				D0B6CBAB2BA7775B0015F453 /* uk_UA */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -3285,6 +3350,7 @@
 				D092460B280B72B900B79A40 /* ja_JP */,
 				D0A185E62AD5BDE60056C7BD /* ko */,
 				D0E25A5A2AD5BE3600D1B3F5 /* bg */,
+				D0B6CB902BA7775B0015F453 /* uk_UA */,
 			);
 			name = ExceptionAlert.xib;
 			sourceTree = "<group>";

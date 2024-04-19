@@ -311,7 +311,7 @@ int hb_get_build( hb_handle_t * h )
 void hb_remove_previews( hb_handle_t * h )
 {
     char          * filename;
-    char          * dirname;
+    const char    * dirname;
     hb_title_t    * title;
     int             i, count, len;
     DIR           * dir;
@@ -321,7 +321,6 @@ void hb_remove_previews( hb_handle_t * h )
     dir = opendir( dirname );
     if (dir == NULL)
     {
-        free(dirname);
         return;
     }
 
@@ -351,7 +350,6 @@ void hb_remove_previews( hb_handle_t * h )
             free(filename);
         }
     }
-    free(dirname);
     closedir( dir );
 }
 
@@ -917,8 +915,21 @@ hb_image_t * hb_get_preview3(hb_handle_t * h, int picture,
     }
     hb_dict_set_int(filter->settings, "width", scaled_width);
     hb_dict_set_int(filter->settings, "height", scaled_height);
-    hb_dict_set_string(filter->settings, "out_pix_fmt", av_get_pix_fmt_name(AV_PIX_FMT_RGB32));
     hb_list_add(job->list_filter, filter);
+
+    if (filter->init != NULL && filter->init(filter, &init))
+    {
+        hb_error("hb_get_preview3: Failure to initialize filter '%s'",
+                 filter->name);
+        hb_list_rem(list_filter, filter);
+        hb_filter_close(&filter);
+    }
+
+    filter = hb_filter_init(HB_FILTER_FORMAT);
+    filter->settings = hb_dict_init();
+    hb_dict_set_string(filter->settings, "format", av_get_pix_fmt_name(AV_PIX_FMT_RGB32));
+    hb_list_add(job->list_filter, filter);
+
     if (filter->init != NULL && filter->init(filter, &init))
     {
         hb_error("hb_get_preview3: Failure to initialize filter '%s'",
@@ -1903,7 +1914,7 @@ int hb_add( hb_handle_t * h, hb_job_t * job )
 
 void hb_job_setup_passes(hb_handle_t * h, hb_job_t * job, hb_list_t * list_pass)
 {
-    if (job->vquality > HB_INVALID_VIDEO_QUALITY)
+    if (job->vquality > HB_INVALID_VIDEO_QUALITY && ! hb_video_multipass_is_supported(job->vcodec, 1))
     {
         job->multipass = 0;
     }
@@ -2176,7 +2187,7 @@ int hb_global_init()
  */
 void hb_global_close()
 {
-    char          * dirname;
+    const char    * dirname;
     DIR           * dir;
     struct dirent * entry;
 
@@ -2202,7 +2213,6 @@ void hb_global_close()
         closedir( dir );
         rmdir( dirname );
     }
-    free(dirname);
 }
 
 /**
@@ -2214,7 +2224,7 @@ void hb_global_close()
 static void thread_func( void * _h )
 {
     hb_handle_t * h = (hb_handle_t *) _h;
-    char * dirname;
+    const char * dirname;
 
     h->pid = getpid();
 
@@ -2222,7 +2232,6 @@ static void thread_func( void * _h )
     dirname = hb_get_temporary_directory();
 
     hb_mkdir( dirname );
-    free(dirname);
 
     while( !h->die )
     {

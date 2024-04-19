@@ -10,6 +10,7 @@
 #include "handbrake/handbrake.h"
 #include "handbrake/hbffmpeg.h"
 #include "handbrake/decavsub.h"
+#include "handbrake/extradata.h"
 
 struct hb_avsub_context_s
 {
@@ -91,6 +92,12 @@ hb_avsub_context_t * decavsubInit( hb_work_object_t * w, hb_job_t * job )
             hb_yuv2rgb(ctx->subtitle->palette[15]));
         av_dict_set( &av_opts, "palette", palette, 0 );
         free(palette);
+
+        // Make the decoder output empty and fully transparent
+        // subtitles, to avoid collecting valid packets together.
+        // There is no way to distinguish a partial packet from a zero
+        // rect packet with the info returned by avcodec_decode_subtitle2()
+        av_dict_set(&av_opts, "output_empty_rects", "1", 0);
     }
 
     if (hb_avcodec_open(ctx->context, codec, &av_opts, 0))
@@ -123,14 +130,14 @@ hb_avsub_context_t * decavsubInit( hb_work_object_t * w, hb_job_t * job )
             case AV_CODEC_ID_EIA_608:
             {
                 // Mono font for CC
-                hb_subtitle_add_ssa_header(ctx->subtitle, HB_FONT_MONO,
-                    20, 384, 288);
+                hb_set_ssa_extradata(&ctx->subtitle->extradata,
+                                     HB_FONT_MONO, 20, 384, 288);
             } break;
 
             default:
             {
-                hb_subtitle_add_ssa_header(ctx->subtitle, HB_FONT_SANS,
-                    .066 * job->title->geometry.height, width, height);
+                hb_set_ssa_extradata(&ctx->subtitle->extradata, HB_FONT_SANS,
+                                     .066 * job->title->geometry.height, width, height);
             } break;
         }
     }

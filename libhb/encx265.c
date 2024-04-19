@@ -17,6 +17,8 @@
 #include "handbrake/h265_common.h"
 #include "handbrake/dovi_common.h"
 #include "handbrake/hdr10plus.h"
+#include "handbrake/extradata.h"
+
 #include "x265.h"
 
 int  encx265Init (hb_work_object_t*, hb_job_t*);
@@ -507,9 +509,10 @@ int encx265Init(hb_work_object_t *w, hb_job_t *job)
         // set the max value for the current level or guess one
         if (param->rc.vbvMaxBitrate == 0 || param->rc.vbvBufferSize == 0)
         {
-            int max_rate = hb_dovi_max_rate(job->width, pps, bitrate, param->levelIdc, param->bHighTier);
-            param->rc.vbvMaxBitrate = max_rate * 1000;
-            param->rc.vbvBufferSize = max_rate * 1000;
+            int max_rate = hb_dovi_max_rate(job->vcodec, job->width, pps, bitrate,
+                                            param->levelIdc, param->bHighTier);
+            param->rc.vbvMaxBitrate = max_rate;
+            param->rc.vbvBufferSize = max_rate;
         }
 
         job->dovi.dv_level = hb_dovi_level(job->width, pps, param->rc.vbvMaxBitrate, param->bHighTier);
@@ -537,13 +540,11 @@ int encx265Init(hb_work_object_t *w, hb_job_t *job)
         hb_error("encx265: x265_encoder_headers failed (%d)", ret);
         goto fail;
     }
-    if (ret > sizeof(w->config->h265.headers))
+    if (hb_set_extradata(w->extradata, nal->payload, ret))
     {
         hb_error("encx265: bitstream headers too large (%d)", ret);
         goto fail;
     }
-    memcpy(w->config->h265.headers, nal->payload, ret);
-    w->config->h265.headers_length = ret;
 
     return 0;
 
@@ -635,9 +636,9 @@ static hb_buffer_t* nal_encode(hb_work_object_t *w,
     buf->s.stop         = pic_out->pts + buf->s.duration;
     buf->s.start        = pic_out->pts;
     buf->s.renderOffset = pic_out->dts;
-    if (w->config->init_delay == 0 && pic_out->dts < 0)
+    if (*w->init_delay == 0 && pic_out->dts < 0)
     {
-        w->config->init_delay -= pic_out->dts;
+        *w->init_delay -= pic_out->dts;
     }
 
     switch (pic_out->sliceType)
