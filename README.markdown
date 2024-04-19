@@ -6,6 +6,8 @@ In the settings you can add a "Track Name", which should be the "Default" subtit
 
 Discussed: https://github.com/HandBrake/HandBrake/issues/2921
 
+To make this build work, open the Visual Studio project, build HandBrakeWPF. Afterwards download latest Windows binary via zip from their [Snapshot Repo](https://github.com/HandBrake/handbrake-snapshots/releases/tag/win). Open the zip and add the hb.dll to the bin folder: ..\win\CS\HandBrakeWPF\bin\Release
+
 
 -------------------------
 
