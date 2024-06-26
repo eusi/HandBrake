@@ -45,9 +45,12 @@ namespace HandBrakeWPF.Services.Encode.Factories
     {
         private readonly IUserSettingService userSettingService;
 
-        public EncodeTaskFactory(IUserSettingService userSettingService)
+        private readonly bool isEncodePath;
+
+        public EncodeTaskFactory(IUserSettingService userSettingService, bool isEncodePath)
         {
             this.userSettingService = userSettingService;
+            this.isEncodePath = isEncodePath;
         }
 
         internal JsonEncodeObject Create(EncodeTask job)
@@ -261,20 +264,18 @@ namespace HandBrakeWPF.Services.Encode.Factories
             bool useQSVDecodeForNonQSVEnc = userSettingService.GetUserSetting<bool>(UserSettingConstants.UseQSVDecodeForNonQSVEnc);
             bool enableQsvLowPower = userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncLowPower);
 
-            if (job.VideoEncoder?.IsQuickSync ?? false)
+            if (this.isEncodePath && (job.VideoEncoder?.IsQuickSync ?? false))
             {
                 video.QSV.Decode = HandBrakeHardwareEncoderHelper.IsQsvAvailable && enableQuickSyncDecoding;
             }
 
             // Allow use of the QSV decoder is configurable for non QSV encoders.
-            if (job.VideoEncoder != null && !job.VideoEncoder.IsHardwareEncoder && useQSVDecodeForNonQSVEnc && enableQuickSyncDecoding && enableQuickSyncEncoding)
+            if (this.isEncodePath &&  job.VideoEncoder != null && !job.VideoEncoder.IsHardwareEncoder && useQSVDecodeForNonQSVEnc && enableQuickSyncDecoding && enableQuickSyncEncoding)
             {
                 video.QSV.Decode = HandBrakeHardwareEncoderHelper.IsQsvAvailable && useQSVDecodeForNonQSVEnc;
             }
 
-            video.Options = job.ExtraAdvancedArguments;
-
-            if (HandBrakeHardwareEncoderHelper.IsQsvAvailable && (HandBrakeHardwareEncoderHelper.QsvHardwareGeneration > 6) && job.VideoEncoder.IsQuickSync)
+            if (!this.isEncodePath && HandBrakeHardwareEncoderHelper.IsQsvAvailable && (HandBrakeHardwareEncoderHelper.QsvHardwareGeneration > 6) && job.VideoEncoder.IsQuickSync)
             {
                 if (enableQsvLowPower && !video.Options.Contains("lowpower"))
                 {
@@ -286,10 +287,12 @@ namespace HandBrakeWPF.Services.Encode.Factories
                 }
             }
 
-            if (this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvDecSupport) && job.VideoEncoder.IsNVEnc)
+            if (!this.isEncodePath && HandBrakeHardwareEncoderHelper.IsNVDecAvailable &&  this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvDecSupport) && job.VideoEncoder.IsNVEnc)
             {
                 video.HardwareDecode = (int)NativeConstants.HB_DECODE_SUPPORT_NVDEC;
             }
+
+            video.Options = job.ExtraAdvancedArguments;
 
             return video;
         }
@@ -602,27 +605,20 @@ namespace HandBrakeWPF.Services.Encode.Factories
             return filter;
         }
 
-        private Metadata CreateMetadata(EncodeTask job)
+        private Dictionary<string, string> CreateMetadata(EncodeTask job)
         {
-            if (job.MetaData != null && job.MetaData.PassthruMetadataEnabled)
+            if (job.MetaData != null && job.PassthruMetadataEnabled)
             {
-                Metadata metaData = new Metadata
-                                    {
-                                        Artist = job.MetaData.Artist,
-                                        Album = job.MetaData.Album,
-                                        AlbumArtist = job.MetaData.AlbumArtist,
-                                        Comment = job.MetaData.Comment,
-                                        Composer = job.MetaData.Composer,
-                                        Description = job.MetaData.Description,
-                                        Genre = job.MetaData.Genre,
-                                        LongDescription = job.MetaData.LongDescription,
-                                        Name = job.MetaData.Name,
-                                        ReleaseDate = job.MetaData.ReleaseDate
-                                    };
-                return metaData;
+                Dictionary<string, string> metadata = new Dictionary<string, string>();
+                foreach (var item in job.MetaData)
+                {
+                    metadata.Add(item.Annotation, item.Value);
+                }
+
+                return metadata;
             }
 
-            return new Metadata(); // Empty Metadata will not pass through to the destination.  
+            return new Dictionary<string, string>(); // Empty Metadata will not pass through to the destination.  
         }
     }
 }

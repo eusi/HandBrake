@@ -5,7 +5,46 @@
 
 Before updating HandBrake, please make sure there are no pending encodes in the queue, and be sure to make a backup of any custom presets and app preferences you have, as they may not be compatible with newer versions.
 
-Windows users, please make sure to install [Microsoft .NET Desktop Runtime version 8.0.x](https://dotnet.microsoft.com/en-us/download/dotnet/8.0). Read carefully: you need the **DESKTOP** runtime.
+Windows users, please make sure to install [Microsoft .NET Desktop Runtime version 8.0](https://dotnet.microsoft.com/en-us/download/dotnet/8.0/runtime)
+Download available from Microsoft:
+- [For x64 (AMD or Intel CPUs)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe)
+- [For Arm64 (Qualcomm or other)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-arm64.exe)
+
+
+## HandBrake 1.8.1
+
+### All platforms
+
+#### Video
+
+- Fixed a warning / misconfiguration when repeat-headers is used with the x265 encoder.(#6061)
+- Fixed an issue where the NVEnc encoder ignored the level option
+
+#### Subtitles
+
+- Fixed an issue where dvd subtitles could be corrupted during rendering.
+
+#### Filters
+
+- Fixed an issue that caused video artefacts to occur when using the eedi2 filter (#6073)
+
+#### Third-party libraries
+
+- Updated libraries
+  - FFmpeg 7.0.1 (decoding and filters)
+  - libdav1d 1.4.3 (AV1 video decoding)
+
+### Mac
+
+- Fixed a stall in the queue that could happen if the encoding process crashes when configuring a job
+- Removed the "Show" button from the notifications when there is nothing to show
+
+### Windows
+
+- Hardware decoding is now defaulted to off for new installations. Users can opt-in whilst making sure they are running up-to-date drivers
+- Fixed an issue where hardware decoding could erroneously be used for previews
+- Fixed an issue where auto name was triggering too aggressively (#6079)
+- Removed an erroneous error message when dragging files onto the main window that include a subtitle file.(#6065)
 
 
 ## HandBrake 1.8.0
@@ -17,10 +56,11 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 - Allowed muxing VP9 and FLAC in the MP4 container
 - Removed timestamp jitters when using a constant NTSC frame rate in the MP4 container
 - Removed support for importing legacy plist based presets from much older versions of HandBrake
+- Updated iso639 language codes list
 
 #### Video
 
-- Added support for the FFV1 preset, including a new preset "Preservation FFV1" under the Professional category 
+- Added support for the FFV1 encoder, including a new preset "Preservation FFV1" under the Professional category
 - Added support for multi-pass CQ with VP9
 - Added support for VP9 tunes
 - Added Dolby Vision dynamic metadata pass through for SVT-AV1
@@ -29,10 +69,15 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 
 #### Command line interface
 
+- Fixed subtitle "scan" when not first in --subtitle list
+- Fixed override of subtitle settings
+- Fixed processing audio overrides to preset
+
 #### Audio
 
 - Added TrueHD encoder
 - Added 88.2/96/176.4/192 kHz sample rates for TrueHD and FLAC encoders
+- Improved audio tracks selection by tracking "linked" audio tracks
 - Fixed incorrect channel layout when encoding a 6.1 track to Opus
 
 #### Subtitles
@@ -44,22 +89,25 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 #### Build system
 
 - Reviewed and improved compiler optimization options for the third-party libraries
+- Improved libdovi package to make it possible to ship it in Flathub flatpak version
 
 #### Third-party libraries
 
 - Updated libraries
-  - libvpx 1.14.0 (VP8/VP9 video encoding)
-  - libopus 1.5.2 (Opus audio encoding)
-  - FFmpeg 7.0 (decoding and filters)
-  - x265 3.6 (H.265/HEVC video encoding)
-  - libdovi 3.3.0 (Dolby Vision dynamic metadata)
-  - libjpeg-turbo 3.0.2 (preview image compression)
-  - HarfBuzz 8.3.1 (subtitles)
-  - libdav1d 1.4.1 (AV1 video decoding)
-  - SVT-AV1 2.0 (AV1 video encoding)
   - AMF 1.4.33 (AMD VCN video encoding)
-  - oneVPL 2.10.1 (Intel QSV video encoding/decoding)
+  - FFmpeg 7.0 (decoding and filters)
+  - HarfBuzz 8.4.0 (subtitles)
+  - libass 0.17.2 (subtitles)
+  - libdav1d 1.4.1 (AV1 video decoding)
+  - libdovi 3.3.0 (Dolby Vision dynamic metadata)
+  - libopus 1.5.2 (Opus audio encoding)
+  - libjpeg-turbo 3.0.3 (preview image compression)
   - libvpx 1.14.0 (VP8/VP9 video encoding)
+  - oneVPL 2.10.1 (Intel QSV video encoding/decoding)
+  - SVT-AV1 2.1.0 (AV1 video encoding)
+  - x264 164 r3186 (H.264/AVC video encoding)
+  - x265 3.6 (H.265/HEVC video encoding)
+  - zlib 1.3.1 (general)
 - Removed libraries
   - libxml2
   
@@ -72,6 +120,7 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 - Update the "Open Source" button to make the folder/batch mode more discoverable. 
 - Refreshed app icons
 - Miscellaneous bug fixes and improvements
+- Updated existing translations
 
 ### Mac
 
@@ -87,6 +136,9 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 - Improved performance of the Activity Log window
 - Improved UI performances by avoiding uneeded window resizes and slow AppKit controls
 - Miscellaneous bug fixes and improvements
+- Updated existing translations
+- Added new translations
+  - Ukrainian
 
 ### Windows
 
@@ -94,6 +146,7 @@ Windows users, please make sure to install [Microsoft .NET Desktop Runtime versi
 - Added Invert Queue option to the Add to Queue Window (#5741)
 - Drag/Drop now supports resursive folder scan mode.
 - Miscellaneous bug fixes and improvements
+- Updated existing translations
 - Added new translations
   - Catalan (Català)
 

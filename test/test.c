@@ -165,7 +165,7 @@ static int      crop_threshold_frames    = 0;
 static char *   vrate                    = NULL;
 static float    vquality                 = HB_INVALID_VIDEO_QUALITY;
 static int      vbitrate                 = 0;
-static int      mux                      = HB_MUX_AV_MP4;
+static int      mux                      = HB_MUX_INVALID;
 static int      anamorphic_mode     = -1;
 static int      modulus             = 0;
 static int      par_height          = -1;
@@ -598,10 +598,13 @@ int main( int argc, char ** argv )
 
         hb_system_sleep_prevent(h);
 
-        hb_scan(h, input, titleindex, preview_count, store_previews,
+        hb_list_t *file_paths = hb_list_init();
+        hb_list_add(file_paths, input);
+        hb_scan(h, file_paths, titleindex, preview_count, store_previews,
                 min_title_duration * 90000LL,
                 crop_threshold_frames, crop_threshold_pixels,
                 NULL, hw_decode);
+        hb_list_close(&file_paths);
 
         EventLoop(h, preset_dict);
         hb_value_free(&preset_dict);
@@ -3564,7 +3567,24 @@ static int foreign_audio_scan(char **subtracks)
         int ii;
         for (ii = 0; ii < count; ii++)
         {
-            if (!strcasecmp(subtracks[0], "scan"))
+            if (!strcasecmp(subtracks[ii], "scan"))
+            {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+static int subtitles_none(char **subtracks)
+{
+    if (subtracks != NULL)
+    {
+        int count = hb_str_vlen(subtracks);
+        int ii;
+        for (ii = 0; ii < count; ii++)
+        {
+            if (!strcasecmp(subtracks[0], "none"))
             {
                 return 1;
             }
@@ -3689,6 +3709,8 @@ static hb_dict_t * PreparePreset(const char *preset_name)
 {
     int ii;
     hb_dict_t *preset;
+    int preset_mux;
+    const char *preset_format;
 
     if (preset_name != NULL)
     {
@@ -3719,6 +3741,8 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     {
         hb_dict_set(preset, "FileFormat", hb_value_string(format));
     }
+    preset_format = hb_dict_get_string(preset, "FileFormat");
+    preset_mux = hb_container_get_from_name(preset_format);
     if (optimize != -1)
     {
         hb_dict_set(preset, "Optimize", hb_value_bool(optimize));
@@ -3780,6 +3804,10 @@ static hb_dict_t * PreparePreset(const char *preset_name)
         hb_dict_set(preset, "SubtitleAddForeignAudioSubtitle",
                     hb_value_bool(1));
     }
+    if (hb_str_vlen(subtracks) > 0)
+    {
+        hb_dict_set(preset, "SubtitleAddForeignAudioSearch", hb_value_bool(0));
+    }
     if (foreign_audio_scan(subtracks))
     {
         // Add foreign audio search
@@ -3823,7 +3851,7 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     {
         selection = subtitle_all == 1 ? "all" : "first";
     }
-    else if (subtitle_track_count > 0)
+    else if (subtitle_track_count > 0 || subtitles_none(subtracks))
     {
         selection = "none";
     }
@@ -3964,7 +3992,7 @@ static hb_dict_t * PreparePreset(const char *preset_name)
                 // it is a required entry
                 const char *enc;
                 enc = hb_audio_encoder_get_short_name(
-                        hb_audio_encoder_get_default(mux));
+                        hb_audio_encoder_get_default(preset_mux));
                 hb_dict_set(audio_dict_stub, "AudioEncoder",
                         hb_value_string(enc));
             }

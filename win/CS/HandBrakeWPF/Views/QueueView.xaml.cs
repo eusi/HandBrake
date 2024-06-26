@@ -93,11 +93,11 @@ namespace HandBrakeWPF.Views
             if (menu != null)
             {
                 Point p = Mouse.GetPosition(this);
-                HitTestResult result = VisualTreeHelper.HitTest(this, p);
+                IInputElement result = this.InputHitTest(p);
 
                 if (result != null)
                 {
-                    ListBoxItem listBoxItem = FindParent<ListBoxItem>(result.VisualHit);
+                    ListBoxItem listBoxItem = FindParent2<ListBoxItem>(result);
                     if (listBoxItem != null)
                     {
                         this.mouseActiveQueueTask = listBoxItem.DataContext as QueueTask;
@@ -134,12 +134,35 @@ namespace HandBrakeWPF.Views
             }
 
             this.DeleteMenuItem.Header = this.queueJobs.SelectedItems.Count > 1 ? Properties.Resources.QueueView_DeleteSelected : Properties.Resources.QueueView_Delete;
-            this.DeleteMenuItem.IsEnabled = (this.mouseActiveQueueTask != null || this.queueJobs.SelectedItems.Count >= 1) && (!this.mouseActiveQueueTask?.IsBreakpointTask ?? true);
+            this.DeleteMenuItem.IsEnabled = (this.mouseActiveQueueTask != null || this.queueJobs.SelectedItems.Count >= 1) && (this.mouseActiveQueueTask?.TaskType != QueueTaskType.Breakpoint);
             this.EditMenuItem.IsEnabled = this.mouseActiveQueueTask != null && this.queueJobs.SelectedItems.Count == 1;
             this.openSourceDir.IsEnabled = this.mouseActiveQueueTask != null && this.queueJobs.SelectedItems.Count == 1;
             this.openDestDir.IsEnabled = this.mouseActiveQueueTask != null && this.queueJobs.SelectedItems.Count == 1;
             this.moveToBottomMenuItem.IsEnabled = this.mouseActiveQueueTask != null && this.queueJobs.SelectedItems.Count >= 1;
             this.moveToTopMenuItem.IsEnabled = this.mouseActiveQueueTask != null && this.queueJobs.SelectedItems.Count >= 1;
+        }
+
+        private static T FindParent2<T>(IInputElement from) where T : class
+        {
+            FrameworkElement fromElement = from as FrameworkElement;
+            DependencyObject parent = fromElement?.Parent;
+
+            if (parent == null)
+            {
+                parent = fromElement?.TemplatedParent;
+            }
+            
+            T result = null;
+            if (parent is T)
+            {
+                result = parent as T;
+            }
+            else if (parent != null)
+            {
+                result = FindParent<T>(parent);
+            }
+
+            return result;
         }
 
         private static T FindParent<T>(DependencyObject from) where T : class
@@ -244,7 +267,7 @@ namespace HandBrakeWPF.Views
                 this.simpleQueueDisplay.Header = Properties.Resources.QueueView_SimpleQueueDisplay;
             }
         }
-        
+
         private void QueueView_OnClosing(object sender, CancelEventArgs e)
         {
             ((QueueViewModel)this.DataContext).BackupQueue();

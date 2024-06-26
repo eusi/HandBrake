@@ -23,7 +23,6 @@ HandBrake works with most common video files and formats, including ones created
 
 For information on downloading, building/installing, and using HandBrake, see the official [HandBrake Documentation](https://handbrake.fr/docs).
 
-
 ## Community Support
 
 Visit the [HandBrake Community Forums](https://forum.handbrake.fr/).
@@ -48,6 +47,7 @@ Please read our [Translations Guide](https://github.com/HandBrake/HandBrake/blob
 
 ## Additional Information
 
+[Application / Project Information](https://github.com/HandBrake/HandBrake/wiki/Application-Information)  
 [Authors](AUTHORS.markdown)  
 [License](LICENSE)  
 [News](NEWS.markdown)  

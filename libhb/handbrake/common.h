@@ -1025,6 +1025,7 @@ struct hb_audio_s
 
         hb_mux_data_t * mux_data;
         hb_fifo_t     * scan_cache;
+        int             scan_error_count;
     } priv;
 };
 #endif
@@ -1239,7 +1240,7 @@ struct hb_title_s
 
     // additional supported video decoders (e.g. HW-accelerated implementations)
     int           video_decode_support;
-#define HB_DECODE_SUPPORT_SW             0x01 // software (libavcodec or mpeg2dec)
+#define HB_DECODE_SUPPORT_SW             0x01 // software (libavcodec)
 #define HB_DECODE_SUPPORT_QSV            0x02 // Intel Quick Sync Video
 #define HB_DECODE_SUPPORT_NVDEC          0x04
 #define HB_DECODE_SUPPORT_VIDEOTOOLBOX   0x08

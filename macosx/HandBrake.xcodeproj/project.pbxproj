@@ -242,7 +242,6 @@
 		A9736F171C7DA5FE008F1D18 /* HandBrakeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A9736F021C7DA5FE008F1D18 /* HandBrakeKit.framework */; };
 		A9736F181C7DA5FE008F1D18 /* HandBrakeKit.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = A9736F021C7DA5FE008F1D18 /* HandBrakeKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A973E109216E74AC00D498EC /* HBImageUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = A9CE0A931F57EC4600724577 /* HBImageUtilities.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		A973E10C216E74E900D498EC /* HBThumbnailItemView.m in Sources */ = {isa = PBXBuildFile; fileRef = A973E10B216E74E900D498EC /* HBThumbnailItemView.m */; };
 		A975B02220F7AF29004675CC /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A975B02020F7AF29004675CC /* Localizable.strings */; };
 		A97D8DCF24DBD3C000B16AF5 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A91CE2D11C7DABDA0068F46F /* libz.tbd */; };
 		A97D8DD024DBD3EF00B16AF5 /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A91CE2CF1C7DABCE0068F46F /* libbz2.tbd */; };
@@ -730,8 +729,6 @@
 		A9736F061C7DA5FE008F1D18 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A9736F0B1C7DA5FE008F1D18 /* HandBrakeKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HandBrakeKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A9736F141C7DA5FE008F1D18 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A973E10A216E74E800D498EC /* HBThumbnailItemView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HBThumbnailItemView.h; sourceTree = "<group>"; };
-		A973E10B216E74E900D498EC /* HBThumbnailItemView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HBThumbnailItemView.m; sourceTree = "<group>"; };
 		A975B02120F7AF29004675CC /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A975C08C1AE8C5270061870D /* HBStateFormatter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HBStateFormatter.h; sourceTree = "<group>"; };
 		A975C08D1AE8C5270061870D /* HBStateFormatter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HBStateFormatter.m; sourceTree = "<group>"; };
@@ -1057,42 +1054,41 @@
 		D0A8A0342706E3710008018A /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = "ru.lproj/HandBrakeXPCService2-InfoPlist.strings"; sourceTree = "<group>"; };
 		D0A8A0352706E3710008018A /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = "ru.lproj/HandBrakeXPCService3-InfoPlist.strings"; sourceTree = "<group>"; };
 		D0A8A0362706E3710008018A /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = "ru.lproj/HandBrakeXPCService4-InfoPlist.strings"; sourceTree = "<group>"; };
-		D0B6CB8C2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/AddPreset.strings"; sourceTree = "<group>"; };
-		D0B6CB8D2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Audio.strings"; sourceTree = "<group>"; };
-		D0B6CB8E2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/AudioDefaults.strings"; sourceTree = "<group>"; };
-		D0B6CB8F2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/ChaptersTitles.strings"; sourceTree = "<group>"; };
-		D0B6CB902BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/ExceptionAlert.strings"; sourceTree = "<group>"; };
-		D0B6CB912BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBAddCategoryController.strings"; sourceTree = "<group>"; };
-		D0B6CB922BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBCroppingView.strings"; sourceTree = "<group>"; };
-		D0B6CB932BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBEncodingProgressHUDController.strings"; sourceTree = "<group>"; };
-		D0B6CB942BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBFiltersViewController.strings"; sourceTree = "<group>"; };
-		D0B6CB952BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBPictureHUDController.strings"; sourceTree = "<group>"; };
-		D0B6CB962BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBPictureViewController.strings"; sourceTree = "<group>"; };
-		D0B6CB972BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBPlayerHUDController.strings"; sourceTree = "<group>"; };
-		D0B6CB982BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBPreviewViewController.strings"; sourceTree = "<group>"; };
-		D0B6CB992BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBQueueInfoViewController.strings"; sourceTree = "<group>"; };
-		D0B6CB9A2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBQueueTableViewController.strings"; sourceTree = "<group>"; };
-		D0B6CB9B2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBRenamePresetController.strings"; sourceTree = "<group>"; };
-		D0B6CB9C2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBSummaryViewController.strings"; sourceTree = "<group>"; };
-		D0B6CB9D2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBTitleSelection.strings"; sourceTree = "<group>"; };
-		D0B6CB9E2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HBTrackTitleViewController.strings"; sourceTree = "<group>"; };
-		D0B6CB9F2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/MainMenu.strings"; sourceTree = "<group>"; };
-		D0B6CBA02BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/MainWindow.strings"; sourceTree = "<group>"; };
-		D0B6CBA12BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/OutputPanel.strings"; sourceTree = "<group>"; };
-		D0B6CBA22BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/PicturePreview.strings"; sourceTree = "<group>"; };
-		D0B6CBA32BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Preferences.strings"; sourceTree = "<group>"; };
-		D0B6CBA42BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Presets.strings"; sourceTree = "<group>"; };
-		D0B6CBA52BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Queue.strings"; sourceTree = "<group>"; };
-		D0B6CBA62BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Subtitles.strings"; sourceTree = "<group>"; };
-		D0B6CBA72BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/SubtitlesDefaults.strings"; sourceTree = "<group>"; };
-		D0B6CBA82BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Video.strings"; sourceTree = "<group>"; };
-		D0B6CBA92BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		D0B6CBAA2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
-		D0B6CBAB2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		D0B6CBAC2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HandBrakeXPCService1-InfoPlist.strings"; sourceTree = "<group>"; };
-		D0B6CBAD2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HandBrakeXPCService2-InfoPlist.strings"; sourceTree = "<group>"; };
-		D0B6CBAE2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HandBrakeXPCService3-InfoPlist.strings"; sourceTree = "<group>"; };
-		D0B6CBAF2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "uk_UA"; path = "uk_UA.lproj/HandBrakeXPCService4-InfoPlist.strings"; sourceTree = "<group>"; };
+		D0B6CB8C2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/AddPreset.strings; sourceTree = "<group>"; };
+		D0B6CB8D2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/Audio.strings; sourceTree = "<group>"; };
+		D0B6CB8E2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/AudioDefaults.strings; sourceTree = "<group>"; };
+		D0B6CB8F2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/ChaptersTitles.strings; sourceTree = "<group>"; };
+		D0B6CB902BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/ExceptionAlert.strings; sourceTree = "<group>"; };
+		D0B6CB912BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBAddCategoryController.strings; sourceTree = "<group>"; };
+		D0B6CB922BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBCroppingView.strings; sourceTree = "<group>"; };
+		D0B6CB932BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBEncodingProgressHUDController.strings; sourceTree = "<group>"; };
+		D0B6CB942BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBFiltersViewController.strings; sourceTree = "<group>"; };
+		D0B6CB952BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBPictureHUDController.strings; sourceTree = "<group>"; };
+		D0B6CB962BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBPictureViewController.strings; sourceTree = "<group>"; };
+		D0B6CB972BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBPlayerHUDController.strings; sourceTree = "<group>"; };
+		D0B6CB982BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBPreviewViewController.strings; sourceTree = "<group>"; };
+		D0B6CB992BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBQueueInfoViewController.strings; sourceTree = "<group>"; };
+		D0B6CB9A2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBQueueTableViewController.strings; sourceTree = "<group>"; };
+		D0B6CB9B2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBRenamePresetController.strings; sourceTree = "<group>"; };
+		D0B6CB9C2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBSummaryViewController.strings; sourceTree = "<group>"; };
+		D0B6CB9D2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBTitleSelection.strings; sourceTree = "<group>"; };
+		D0B6CB9E2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/HBTrackTitleViewController.strings; sourceTree = "<group>"; };
+		D0B6CB9F2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		D0B6CBA02BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/MainWindow.strings; sourceTree = "<group>"; };
+		D0B6CBA12BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/OutputPanel.strings; sourceTree = "<group>"; };
+		D0B6CBA22BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/PicturePreview.strings; sourceTree = "<group>"; };
+		D0B6CBA32BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/Preferences.strings; sourceTree = "<group>"; };
+		D0B6CBA42BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/Presets.strings; sourceTree = "<group>"; };
+		D0B6CBA52BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/Queue.strings; sourceTree = "<group>"; };
+		D0B6CBA62BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/Subtitles.strings; sourceTree = "<group>"; };
+		D0B6CBA72BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/SubtitlesDefaults.strings; sourceTree = "<group>"; };
+		D0B6CBA82BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/Video.strings; sourceTree = "<group>"; };
+		D0B6CBAA2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		D0B6CBAB2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = uk_UA.lproj/Localizable.strings; sourceTree = "<group>"; };
+		D0B6CBAC2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = "uk_UA.lproj/HandBrakeXPCService1-InfoPlist.strings"; sourceTree = "<group>"; };
+		D0B6CBAD2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = "uk_UA.lproj/HandBrakeXPCService2-InfoPlist.strings"; sourceTree = "<group>"; };
+		D0B6CBAE2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = "uk_UA.lproj/HandBrakeXPCService3-InfoPlist.strings"; sourceTree = "<group>"; };
+		D0B6CBAF2BA7775B0015F453 /* uk_UA */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = uk_UA; path = "uk_UA.lproj/HandBrakeXPCService4-InfoPlist.strings"; sourceTree = "<group>"; };
 		D0B806A426E7F2760013D332 /* co */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = co; path = co.lproj/AddPreset.strings; sourceTree = "<group>"; };
 		D0B806A526E7F2760013D332 /* co */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = co; path = co.lproj/Audio.strings; sourceTree = "<group>"; };
 		D0B806A626E7F2760013D332 /* co */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = co; path = co.lproj/AudioDefaults.strings; sourceTree = "<group>"; };
@@ -1962,8 +1958,6 @@
 				A941ACB91CD75B4E0029D06A /* HBHUD.h */,
 				A92B148020CA9F7600146FD8 /* HBHUDView.h */,
 				A92B148120CA9F7600146FD8 /* HBHUDView.m */,
-				A973E10A216E74E800D498EC /* HBThumbnailItemView.h */,
-				A973E10B216E74E900D498EC /* HBThumbnailItemView.m */,
 				A96664B21CCE48F700DA4A57 /* HBPictureHUDController.h */,
 				A96664B31CCE48F700DA4A57 /* HBPictureHUDController.m */,
 				A9A96B8420CAD2C200A39AFB /* HBPictureHUDController.xib */,
@@ -2435,7 +2429,6 @@
 				A95140932B8F6B1600B446C1 /* HBToolbarItem.m in Sources */,
 				A9C1722B2B8F4E890047C49D /* HBControllerToolbarDelegate.m in Sources */,
 				A942B66D250BB1FE00049203 /* HBQueueActionItem.m in Sources */,
-				A973E10C216E74E900D498EC /* HBThumbnailItemView.m in Sources */,
 				A916C9981C8449DB00C7B560 /* HBTitleSelectionController.m in Sources */,
 				A943874122ED911B005F701B /* HBJob+HBAdditions.m in Sources */,
 				A96127E422E09ADD0086E6DC /* HBQueueTableViewController.m in Sources */,
@@ -5605,10 +5598,10 @@
 /* Begin XCRemoteSwiftPackageReference section */
 		A96E4619278D99840016DCBB /* XCRemoteSwiftPackageReference "Sparkle" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			repositoryURL = "https://github.com/HandBrake/Sparkle";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.0.0;
+				kind = exactVersion;
+				version = "2.6.1-handbrake";
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

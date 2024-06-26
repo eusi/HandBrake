@@ -905,12 +905,13 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
     unsigned char *parse_buffer;
     int parse_pos, parse_buffer_size;
 
+    int avcodec_result = 0;
     while (buf != NULL && !done)
     {
         parse_pos = 0;
         while (parse_pos < buf->size && !done)
         {
-            int parse_len, ret;
+            int parse_len;
 
             if (parser != NULL)
             {
@@ -937,8 +938,8 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
             avp->pts  = buf->s.start;
             avp->dts  = AV_NOPTS_VALUE;
 
-            ret = avcodec_send_packet(context, avp);
-            if (ret < 0 && ret != AVERROR_EOF)
+            avcodec_result = avcodec_send_packet(context, avp);
+            if (avcodec_result < 0 && avcodec_result != AVERROR_EOF)
             {
                 parse_pos += parse_len;
                 av_packet_free(&avp);
@@ -952,8 +953,8 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
                 {
                     frame = av_frame_alloc();
                 }
-                ret = avcodec_receive_frame(context, frame);
-                if (ret >= 0)
+                avcodec_result = avcodec_receive_frame(context, frame);
+                if (avcodec_result >= 0)
                 {
                     // libavcoded doesn't consistently set frame->sample_rate
                     if (frame->sample_rate != 0)
@@ -1056,7 +1057,7 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
                     av_frame_unref(frame);
                     break;
                 }
-            } while (ret >= 0);
+            } while (avcodec_result >= 0);
             av_packet_free(&avp);
             av_frame_free(&frame);
             parse_pos += parse_len;
@@ -1071,6 +1072,10 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
     if ( parser != NULL )
         av_parser_close( parser );
     hb_avcodec_free_context(&context);
+    if (!result && avcodec_result < 0 && avcodec_result != AVERROR_EOF)
+    {
+        result = avcodec_result;
+    }
     return result;
 }
 
@@ -1339,13 +1344,6 @@ int reinit_video_filters(hb_work_private_t * pv)
     enum AVPixelFormat pix_fmt;
     enum AVColorRange  color_range;
 
-    memset((void*)&filter_init, 0, sizeof(filter_init));
-
-    if (pv->job && pv->job->hw_pix_fmt == AV_PIX_FMT_VIDEOTOOLBOX)
-    {
-        // Filtering is done in a separate filter
-        return 0;
-    }
     if (!pv->job)
     {
         // HandBrake's preview pipeline uses yuv420 color.  This means all
@@ -1358,6 +1356,12 @@ int reinit_video_filters(hb_work_private_t * pv)
     }
     else
     {
+        if (pv->job->hw_pix_fmt == AV_PIX_FMT_VIDEOTOOLBOX)
+        {
+            // Filtering is done in a separate filter
+            return 0;
+        }
+
         if (pv->title->rotation == HB_ROTATION_90 ||
             pv->title->rotation == HB_ROTATION_270)
         {
@@ -1541,6 +1545,8 @@ int reinit_video_filters(hb_work_private_t * pv)
         sw_pix_fmt = frames_ctx->sw_format;
         hw_pix_fmt = frames_ctx->format;
     }
+
+    memset((void*)&filter_init, 0, sizeof(filter_init));
 
     filter_init.job               = pv->job;
     filter_init.pix_fmt           = sw_pix_fmt;
@@ -2330,7 +2336,6 @@ static int decavcodecvWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
     return result;
 }
 
-
 static void compute_frame_duration( hb_work_private_t *pv )
 {
     int64_t max_fps = 256LL;
@@ -2359,22 +2364,21 @@ static void compute_frame_duration( hb_work_private_t *pv )
             AVRational *tb = NULL;
             // We don't have a frame count or duration so try to use the
             // far less reliable avg_frame_rate info in the stream.
-            // Because the time bases are so screwed up, we only take values
-            // in a restricted range.
-            if (st->avg_frame_rate.den * max_fps > st->avg_frame_rate.num &&
-                st->avg_frame_rate.num > st->avg_frame_rate.den * min_fps)
+            if (st->avg_frame_rate.den && st->avg_frame_rate.num)
             {
                 tb = &(st->avg_frame_rate);
-            }
-            else if (st->time_base.num * max_fps > st->time_base.den &&
-                     st->time_base.den > st->time_base.num * min_fps)
-            {
-                tb = &(st->time_base);
             }
             // Try r_frame_rate, which is usually set for cfr streams
             else if (st->r_frame_rate.num && st->r_frame_rate.den)
             {
                 tb = &(st->r_frame_rate);
+            }
+            // Because the time bases are so screwed up, we only take values
+            // in a restricted range.
+            else if (st->time_base.num * max_fps > st->time_base.den &&
+                     st->time_base.den > st->time_base.num * min_fps)
+            {
+                tb = &(st->time_base);
             }
 
             if (tb != NULL)
@@ -2388,21 +2392,17 @@ static void compute_frame_duration( hb_work_private_t *pv )
         duration = (double)pv->context->framerate.den / (double)pv->context->framerate.num;
     }
 
-    if (duration == 0)
-    {
-        // No valid timing info found in the stream, so pick some value
-        duration = 1001. / 24000.;
-    }
-    pv->duration = duration * 90000.;
-
     int clock_min, clock_max, clock;
     hb_video_framerate_get_limits(&clock_min, &clock_max, &clock);
-    if (pv->duration < 1 / (clock / 90000.))
+
+    if (duration == 0 || duration > INT_MAX / clock || duration < 1. / clock)
     {
-        // Not representable, probably a broken file, so pick some value
-        pv->duration = 1001. / 24000. * 90000;
+        // No valid timing info found in the stream
+        // or not representable, probably a broken file, so pick some value
+        duration = 1001. / 24000.;
     }
 
+    pv->duration = duration * 90000.;
     pv->field_duration = pv->duration;
     if ( ticks_per_frame > 1 )
     {

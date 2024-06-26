@@ -2133,7 +2133,16 @@ language_opts_set(signal_user_data_t *ud, const gchar *name,
     for (iso639 = lang_get_next(NULL); iso639 != NULL;
          iso639 = lang_get_next(iso639))
     {
-        int     index = lang_lookup_index(iso639->iso639_1);
+        int     index;
+
+        if (iso639->iso639_1 != NULL && iso639->iso639_1[0] != 0)
+        {
+            index = lang_lookup_index(iso639->iso639_1);
+        }
+        else
+        {
+            index = lang_lookup_index(iso639->iso639_2);
+        }
         gchar * lang;
 
         if (iso639->native_name[0] != 0)
@@ -3540,7 +3549,7 @@ ghb_backend_scan_list (GListModel *files, int titleindex, int preview_count, uin
 {
     hb_list_t *path_list = get_path_list(files);
     hb_list_t *extensions = ghb_get_excluded_extensions_list();
-    hb_scan_list(h_scan, path_list, titleindex, preview_count, 1, min_duration,
+    hb_scan(h_scan, path_list, titleindex, preview_count, 1, min_duration,
                  0, 0, extensions, 0);
     ghb_free_list(path_list);
     ghb_free_list(extensions);
@@ -3560,7 +3569,7 @@ ghb_backend_scan (const char *path, int titleindex, int preview_count, uint64_t 
     hb_list_t *path_list = hb_list_init();
     hb_list_add(path_list, (void *)path);
     hb_list_t *extensions = ghb_get_excluded_extensions_list();
-    hb_scan_list(h_scan, path_list, titleindex, preview_count, 1, min_duration,
+    hb_scan(h_scan, path_list, titleindex, preview_count, 1, min_duration,
                  0, 0, extensions, 0);
     hb_list_close(&path_list);
     ghb_free_list(extensions);
@@ -3581,7 +3590,7 @@ ghb_backend_queue_scan(const gchar *path, gint titlenum)
     hb_list_t *extensions = ghb_get_excluded_extensions_list();
     hb_list_t *path_list = hb_list_init();
     hb_list_add(path_list, (void *)path);
-    hb_scan_list(h_queue, path_list, titlenum, -1, 0, 0, 0, 0, extensions, 0);
+    hb_scan(h_queue, path_list, titlenum, -1, 0, 0, 0, 0, extensions, 0);
     ghb_free_list(extensions);
     hb_list_close(&path_list);
     hb_status.queue.state |= GHB_STATE_SCANNING;

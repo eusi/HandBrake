@@ -142,12 +142,15 @@ static void rpu_close(hb_filter_object_t * filter)
 static void apply_rpu_if_needed(hb_filter_private_t *pv, hb_buffer_t *buf)
 {
     int rpu_available = 0;
+    enum AVFrameSideDataType type = AV_FRAME_DATA_DOVI_RPU_BUFFER;
 
     for (int i = 0; i < buf->nb_side_data; i++)
     {
         const AVFrameSideData *side_data = buf->side_data[i];
-        if (side_data->type == AV_FRAME_DATA_DOVI_RPU_BUFFER)
+        if (side_data->type == AV_FRAME_DATA_DOVI_RPU_BUFFER ||
+            side_data->type == AV_FRAME_DATA_DOVI_RPU_BUFFER_T35)
         {
+            type = side_data->type;
             rpu_available = 1;
         }
     }
@@ -157,7 +160,7 @@ static void apply_rpu_if_needed(hb_filter_private_t *pv, hb_buffer_t *buf)
         if (pv->rpu)
         {
             AVBufferRef *ref = av_buffer_ref(pv->rpu);
-            AVFrameSideData *sd_dst = hb_buffer_new_side_data_from_buf(buf, AV_FRAME_DATA_DOVI_RPU_BUFFER, ref);
+            AVFrameSideData *sd_dst = hb_buffer_new_side_data_from_buf(buf, type, ref);
             if (!sd_dst)
             {
                 av_buffer_unref(&ref);
@@ -201,13 +204,22 @@ static int rpu_work(hb_filter_object_t *filter,
     for (int i = 0; i < in->nb_side_data; i++)
     {
         const AVFrameSideData *side_data = in->side_data[i];
-        if (side_data->type == AV_FRAME_DATA_DOVI_RPU_BUFFER)
+        if (side_data->type == AV_FRAME_DATA_DOVI_RPU_BUFFER ||
+            side_data->type == AV_FRAME_DATA_DOVI_RPU_BUFFER_T35)
         {
-            DoviRpuOpaque *rpu_in = dovi_parse_unspec62_nalu(side_data->data, side_data->size);
+            DoviRpuOpaque *rpu_in = NULL;
+            if (side_data->type == AV_FRAME_DATA_DOVI_RPU_BUFFER)
+            {
+                rpu_in = dovi_parse_unspec62_nalu(side_data->data, side_data->size);
+            }
+            else if (side_data->type == AV_FRAME_DATA_DOVI_RPU_BUFFER_T35)
+            {
+                rpu_in = dovi_parse_itu_t35_dovi_metadata_obu(side_data->data, side_data->size);
+            }
 
             if (rpu_in == NULL)
             {
-                hb_log("rpu: dovi_parse_unspec62_nalu failed");
+                hb_log("rpu: dovi_parse failed");
                 break;
             }
 
@@ -301,7 +313,16 @@ static int rpu_work(hb_filter_object_t *filter,
 
                     AVBufferRef *ref = av_buffer_alloc(rpu_data->len - offset);
                     memcpy(ref->data, rpu_data->data + offset, rpu_data->len - offset);
-                    AVFrameSideData *sd_dst = hb_buffer_new_side_data_from_buf(in, AV_FRAME_DATA_DOVI_RPU_BUFFER, ref);
+                    AVFrameSideData *sd_dst = NULL;
+
+                    if (pv->mode & RPU_MODE_EMIT_UNSPECT_62_NAL)
+                    {
+                        sd_dst = hb_buffer_new_side_data_from_buf(in, AV_FRAME_DATA_DOVI_RPU_BUFFER, ref);
+                    }
+                    else if (pv->mode & RPU_MODE_EMIT_T35_OBU)
+                    {
+                        sd_dst = hb_buffer_new_side_data_from_buf(in, AV_FRAME_DATA_DOVI_RPU_BUFFER_T35, ref);
+                    }
 
                     if (!sd_dst)
                     {
