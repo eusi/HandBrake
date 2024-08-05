@@ -832,6 +832,7 @@ struct hb_job_s
     } qsv;
 
     int hw_decode;
+    int keep_duplicate_titles;
 
 #ifdef __LIBHB__
     /* Internal data */
@@ -1189,6 +1190,7 @@ struct hb_title_s
     const char    * path;
     const char    * name;
     int             index;
+    int             keep_duplicate_titles;
     int             playlist;
     int             angle_count;
     void          * opaque_priv;
@@ -1627,6 +1629,10 @@ int hb_output_color_transfer(hb_job_t * job);
 int hb_output_color_matrix(hb_job_t * job);
 
 int hb_get_bit_depth(int format);
+int hb_get_color_prim(int color_primaries, hb_geometry_t geometry, hb_rational_t rate);
+int hb_get_color_transfer(int color_trc);
+int hb_get_color_matrix(int colorspace, hb_geometry_t geometry);
+int hb_get_color_range(int color_range);
 int hb_get_chroma_sub_sample(int format, int *h_shift, int *v_shift);
 int hb_get_best_pix_fmt(hb_job_t * job);
 int hb_get_best_hw_pix_fmt(hb_job_t * job);

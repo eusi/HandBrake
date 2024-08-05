@@ -10,6 +10,31 @@ Download available from Microsoft:
 - [For x64 (AMD or Intel CPUs)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe)
 - [For Arm64 (Qualcomm or other)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-arm64.exe)
 
+## HandBrake 1.9.0
+
+### Windows
+- Add Range Limit controls to the "Add to Queue" selection window. (#4146)
+
+
+## HandBrake 1.8.2
+
+### All platforms
+
+#### General
+
+- Fixed a potential crash when trying to scan deleted files
+- Fixed scan of broken video that uses reserved color matrix values
+- Fixed an issue that could cause some audio tracks to be dropped
+
+#### Third-party libraries
+
+- Updated libraries
+  - libass 0.17.3 (subtitles)
+  - libvpx 1.14.1 (VP8/VP9 video encoding)
+
+### Windows
+- Fixed an issue where auto name wasn't triggering correclty with preset changes (#6159)
+
 
 ## HandBrake 1.8.1
 

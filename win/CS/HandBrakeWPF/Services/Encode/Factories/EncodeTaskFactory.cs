@@ -119,7 +119,8 @@ namespace HandBrakeWPF.Services.Encode.Factories
                 Range = range,
                 Angle = job.Angle,
                 Path = job.Source,
-                HWDecode = hwDecode
+                HWDecode = hwDecode,
+                KeepDuplicateTitles = job.KeepDuplicateTitles
             };
             return source;
         }
@@ -258,6 +259,7 @@ namespace HandBrakeWPF.Services.Encode.Factories
 
             video.MultiPass = job.MultiPass;
             video.Turbo = job.TurboAnalysisPass;
+            video.Options = job.ExtraAdvancedArguments;
 
             bool enableQuickSyncEncoding = userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncEncoding);
             bool enableQuickSyncDecoding = userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncDecoding);
@@ -275,7 +277,7 @@ namespace HandBrakeWPF.Services.Encode.Factories
                 video.QSV.Decode = HandBrakeHardwareEncoderHelper.IsQsvAvailable && useQSVDecodeForNonQSVEnc;
             }
 
-            if (!this.isEncodePath && HandBrakeHardwareEncoderHelper.IsQsvAvailable && (HandBrakeHardwareEncoderHelper.QsvHardwareGeneration > 6) && job.VideoEncoder.IsQuickSync)
+            if (this.isEncodePath && HandBrakeHardwareEncoderHelper.IsQsvAvailable && (HandBrakeHardwareEncoderHelper.QsvHardwareGeneration > 6) && (job.VideoEncoder?.IsQuickSync ?? false))
             {
                 if (enableQsvLowPower && !video.Options.Contains("lowpower"))
                 {
@@ -287,12 +289,10 @@ namespace HandBrakeWPF.Services.Encode.Factories
                 }
             }
 
-            if (!this.isEncodePath && HandBrakeHardwareEncoderHelper.IsNVDecAvailable &&  this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvDecSupport) && job.VideoEncoder.IsNVEnc)
+            if (this.isEncodePath && HandBrakeHardwareEncoderHelper.IsNVDecAvailable &&  this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvDecSupport) && job.VideoEncoder.IsNVEnc)
             {
                 video.HardwareDecode = (int)NativeConstants.HB_DECODE_SUPPORT_NVDEC;
             }
-
-            video.Options = job.ExtraAdvancedArguments;
 
             return video;
         }
