@@ -42,7 +42,7 @@
         </Grid.ColumnDefinitions>
 
         <StackPanel Grid.Row="0" Margin="10,0,0,0">
-            <TextBlock Text="{x:Static Properties:Resources.SubtitlesDefaultsView_PaneTitle}"  Style="{StaticResource windowTitle}"   />
+            <TextBlock Text="{x:Static Properties:Resources.SubtitlesDefaultsView_PaneTitle}" />
         </StackPanel>
 
         <!-- Row 0 -->
