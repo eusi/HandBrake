@@ -203,6 +203,7 @@ static int      start_at_frame = 0;
 static int64_t  stop_at_pts    = 0;
 static int      stop_at_frame = 0;
 static uint64_t min_title_duration = 10;
+static uint64_t max_title_duration = 0;
 #if HB_PROJECT_FEATURE_QSV
 static int      qsv_async_depth    = -1;
 static int      qsv_adapter        = -1;
@@ -602,7 +603,7 @@ int main( int argc, char ** argv )
         hb_list_t *file_paths = hb_list_init();
         hb_list_add(file_paths, input);
         hb_scan(h, file_paths, titleindex, preview_count, store_previews,
-                min_title_duration * 90000LL,
+                min_title_duration * 90000LL, max_title_duration * 90000LL,
                 crop_threshold_frames, crop_threshold_pixels,
                 NULL, hw_decode, keep_duplicate_titles);
         hb_list_close(&file_paths);
@@ -1324,7 +1325,7 @@ static void ShowHelp(void)
 "   --json                  Log title, progress, and version info in\n"
 "                           JSON format\n"
 "   -v, --verbose[=number]  Be verbose (optional argument: logging level)\n"
-"   -Z. --preset <string>   Select preset by name (case-sensitive)\n"
+"   -Z, --preset <string>   Select preset by name (case-sensitive)\n"
 "                           Enclose names containing spaces in double quotation\n"
 "                           marks (e.g. \"Preset Name\")\n"
 "   -z, --preset-list       List available presets\n"
@@ -1535,9 +1536,9 @@ static void ShowHelp(void)
         fprintf(out, "                               %s\n", encoder->short_name);
     }
     fprintf(out,
-"                           \"copy:<type>\" will pass through the corresponding\n"
-"                           audio track without modification, if pass through\n"
-"                           is supported for the audio type.\n"
+"                           \"copy:<type>\" will enable passthru of the \n"
+"                           corresponding audio track without modification\n"
+"                           if passthru is supported for the audio type.\n"
 "                           Separate tracks by commas.\n"
 "                           Defaults:\n");
     container = NULL;
@@ -2233,6 +2234,7 @@ static int ParseOptions( int argc, char ** argv )
     #define CROP_MODE                     330
     #define HW_DECODE                     331
     #define KEEP_DUPLICATE_TITLES         332
+    #define MAX_DURATION         333
     
     for( ;; )
     {
@@ -2265,6 +2267,7 @@ static int ParseOptions( int argc, char ** argv )
 
             { "title",       required_argument, NULL,    't' },
             { "min-duration",required_argument, NULL,    MIN_DURATION },
+            { "max-duration",required_argument, NULL,    MAX_DURATION },
             { "scan",        no_argument,       NULL,    SCAN_ONLY },
             { "main-feature",no_argument,       NULL,    MAIN_FEATURE },
             { "chapters",    required_argument, NULL,    'c' },
@@ -3177,6 +3180,9 @@ static int ParseOptions( int argc, char ** argv )
             case MIN_DURATION:
                 min_title_duration = strtol( optarg, NULL, 0 );
                 break;
+            case MAX_DURATION:
+                max_title_duration = strtol( optarg, NULL, 0 );
+                break;
             case FILTER_BWDIF:
                 free(bwdif);
                 if (optarg != NULL)
@@ -3218,6 +3224,10 @@ static int ParseOptions( int argc, char ** argv )
                             fprintf( stderr, "videotoolbox hardware decoders require macOS 13 and later");
                         }
 #endif
+                    }
+                    else if (!strcmp(optarg, "mf"))
+                    {
+                        hw_decode = HB_DECODE_SUPPORT_MF;
                     }
                     else
                     {

@@ -12,8 +12,59 @@ Download available from Microsoft:
 
 ## HandBrake 1.9.0
 
+### All platforms
+
+#### General
+
+- Added Intel QSV VVC (hardware) video decoder
+- Added an option to enable AV1 screen content coding(SCC) on Intel Lunar Lake QSV AV1 encoder
+- Added a preference to keep duplicated Blu-ray titles
+- Added support for lossless VP9 encoding
+
+#### Audio
+
+- Added ALAC encoder
+- Added Vorbis passthru
+- Improved scan of DTS audio profiles
+
+#### Subtitles
+
+- Improved quality of subtitles burn-in
+- Fixed a rare video corruption issue that could happen when burning-in subtitles
+
+#### Third-party libraries
+
+- Updated libraries
+  - AMF 1.4.35 (AMD VCN video encoding)
+  - FFmpeg 7.1 (decoding and filters)
+  - FreeType 2.13.3 (subtitles)
+  - Fribidi 1.0.16 (subtitles)
+  - HarfBuzz 10.0.1 (subtitles)
+  - libdav1d 1.5.0 (AV1 video decoding)
+  - libdovi 3.3.1 (Dolby Vision dynamic metadata)
+  - libjpeg-turbo 3.0.4 (preview image compression)
+  - nv-codec-headers 12.2.72.0 (Nvidia NVENC encoding)
+  - oneVPL 2.13.0 (Intel QSV video encoding/decoding)
+  - SVT-AV1 2.2.1 (AV1 video encoding)
+  - x265 4.0 (H.265/HEVC video encoding)
+
+### Linux
+
+- Fixed the Power Save option to pause the encodes only when enabled
+- Fixed the queue being stopped when removing completed items
+- Fixed chapters names not being saved properly
+
+### Mac
+
+- Add Range Limit controls to the "Add to Queue" selection window (#4146)
+- Miscellaneous bug fixes and improvements
+
 ### Windows
-- Add Range Limit controls to the "Add to Queue" selection window. (#4146)
+
+- Added Range Limit controls to the "Add to Queue" selection window (#4146)
+- Added support for DirectX based video decoding when using the Media Foundation encoder on ARM devices
+- Added support for the AV1 Media Foundation encoder on ARM devices
+- Miscellaneous bug fixes and improvements
 
 
 ## HandBrake 1.8.2
@@ -29,11 +80,20 @@ Download available from Microsoft:
 #### Third-party libraries
 
 - Updated libraries
+  - FFmpeg 7.0.2 (decoding and filters)
   - libass 0.17.3 (subtitles)
   - libvpx 1.14.1 (VP8/VP9 video encoding)
 
 ### Windows
-- Fixed an issue where auto name wasn't triggering correclty with preset changes (#6159)
+
+- Fixed an issue where auto name wasn't triggering correctly with preset changes (#6159)
+- Fixed a potential crash when importing presets from the mac version. (#6186)
+- Fixed an issue loading presets where a video encode isn't available on the system. (#6184)
+- Minor startup performance improvement on some Intel based systems.
+
+### Linux
+
+- Fixed an issue where an encoded file could be output to the wrong filename when using the queue (#6067)
 
 
 ## HandBrake 1.8.1
@@ -2244,7 +2304,7 @@ Superseded by HandBrake 1.0.5.
 
 #### Audio
 
-- Blu-ray: make TrueHD, DTS-HD and E-AC3 Secondary Audio streams available for decoding and/or passthrough
+- Blu-ray: make TrueHD, DTS-HD and E-AC3 Secondary Audio streams available for decoding and/or passthru
 - bug fix: libavcodec-decoded streams can now be decoded multiple times
   - previously, multiple decodes of the same source tracks weren't possible and audio output tracks had to be dropped
 - bug fix: fix audio screech at beginning of some audio tracks when decoding AC3
@@ -2422,7 +2482,7 @@ Superseded by HandBrake 1.0.5.
   - Allows specifying field parity for detelecine and decomb
 - Better AV sync
 - Support for sources with no audio
-- DTS passthrough for MKV
+- DTS passthru for MKV
 - x264 bumped from r1169 to r1347, which means speed optimizations, new default settings (see r2742 commit comment), the magic of macroblock tree rate control (mbtree), a new CRF curve (meaning you will get different, generally lower bitrates at the same RF, with similar quality metrics), and weighted P-Frames (disabled by default for Baseline encodes and the AppleTV preset).
 - Better sample interleaving
 - Better, optional deinterlacer for decomb (EEDI2)

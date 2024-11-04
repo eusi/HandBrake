@@ -401,6 +401,8 @@ int hb_qsv_hardware_generation(int cpu_platform)
             return QSV_G8;
         case HB_CPU_PLATFORM_INTEL_DG2:
             return QSV_G9;
+        case HB_CPU_PLATFORM_INTEL_LNL:
+            return QSV_G10;
         default:
             return QSV_FU;
     }
@@ -461,7 +463,13 @@ int qsv_map_mfx_platform_codename(int mfx_platform_codename)
     case MFX_PLATFORM_DG2:
     case MFX_PLATFORM_ALDERLAKE_N:
     case MFX_PLATFORM_KEEMBAY:
+    case MFX_PLATFORM_METEORLAKE:
+    case MFX_PLATFORM_BATTLEMAGE:
+    case MFX_PLATFORM_ARROWLAKE:
         platform = HB_CPU_PLATFORM_INTEL_DG2;
+        break;
+    case MFX_PLATFORM_LUNARLAKE:
+        platform = HB_CPU_PLATFORM_INTEL_LNL;
         break;
     default:
         platform = HB_CPU_PLATFORM_UNSPECIFIED;
@@ -977,6 +985,20 @@ static void init_ext_av1bitstream_option(mfxExtAV1BitstreamParam *extAV1Bitstrea
     extAV1BitstreamParam->WriteIVFHeaders = MFX_CODINGOPTION_OFF;
 }
 
+static void init_ext_av1screencontent_tools(mfxExtAV1ScreenContentTools *extScreenContentTools)
+{
+    if (extScreenContentTools == NULL)
+    {
+        return;
+    }
+
+    memset(extScreenContentTools, 0, sizeof(mfxExtAV1ScreenContentTools));
+    extScreenContentTools->Header.BufferId = MFX_EXTBUFF_AV1_SCREEN_CONTENT_TOOLS;
+    extScreenContentTools->Header.BufferSz = sizeof(mfxExtAV1ScreenContentTools);
+    extScreenContentTools->IntraBlockCopy  = MFX_CODINGOPTION_OFF;
+    extScreenContentTools->Palette         = MFX_CODINGOPTION_OFF;
+}
+
 static int query_capabilities(mfxSession session, int index, mfxVersion version, hb_qsv_info_t *info, int lowpower)
 {
     /*
@@ -995,7 +1017,6 @@ static int query_capabilities(mfxSession session, int index, mfxVersion version,
      * - MFXVideoENCODE_Query should sanitize all unsupported parameters
      */
     mfxStatus     status;
-
     mfxExtBuffer *videoExtParam[1];
     mfxVideoParam videoParam, inputParam;
     mfxExtCodingOption    extCodingOption;
@@ -1005,6 +1026,7 @@ static int query_capabilities(mfxSession session, int index, mfxVersion version,
     mfxExtMasteringDisplayColourVolume  extMasteringDisplayColourVolume;
     mfxExtContentLightLevelInfo         extContentLightLevelInfo;
     mfxExtAV1BitstreamParam extAV1BitstreamParam;
+    mfxExtAV1ScreenContentTools extAV1ScreenContentToolsParam;
     mfxExtHyperModeParam extHyperEncodeParam;
 
     /* Reset capabilities before querying */
@@ -1455,6 +1477,23 @@ static int query_capabilities(mfxSession session, int index, mfxVersion version,
                 info->capabilities |= HB_QSV_CAP_AV1_BITSTREAM;
             }
         }
+        if ((lowpower == MFX_CODINGOPTION_ON) && (info->codec_id == MFX_CODEC_AV1))
+        {
+            init_video_param(&videoParam);
+            videoParam.mfx.CodecId = info->codec_id;
+            videoParam.mfx.LowPower = lowpower;
+            init_ext_av1screencontent_tools(&extAV1ScreenContentToolsParam);
+
+            videoParam.ExtParam    = videoExtParam;
+            videoParam.ExtParam[0] = (mfxExtBuffer*)&extAV1ScreenContentToolsParam;
+            videoParam.NumExtParam = 1;
+
+            status = MFXVideoENCODE_Query(session, NULL, &videoParam);
+            if (status >= MFX_ERR_NONE && extAV1ScreenContentToolsParam.IntraBlockCopy != 0)
+            {
+                info->capabilities |= HB_QSV_CAP_AV1_SCREENCONTENT;
+            }
+        }
     }
 
     return 0;
@@ -1790,6 +1829,11 @@ static void log_decoder_capabilities(const int log_level, const hb_qsv_adapter_d
         strcat(buffer, " av1 (8bit: yes, 10bit: yes)");
     }
 
+    if (hb_qsv_decode_vvc_is_supported(adapter_details->index))
+    {
+        strcat(buffer, " vvc (8bit: yes, 10bit: yes)");
+    }
+
     hb_deep_log(log_level, "%s%s", prefix,
                 strnlen(buffer, 1) ? buffer : " no decode support");
 }
@@ -1890,6 +1934,10 @@ static void log_encoder_capabilities(const int log_level, const uint64_t caps, c
         {
             strcat(buffer, "+nmpslice");
         }
+    }
+    if (caps & HB_QSV_CAP_AV1_SCREENCONTENT)
+    {
+        strcat(buffer, " av1screencontent");
     }
     if (caps & HB_QSV_CAP_HYPERENCODE)
     {
@@ -2066,6 +2114,9 @@ const char* hb_qsv_decode_get_codec_name(enum AVCodecID codec_id)
         case AV_CODEC_ID_AV1:
             return "av1_qsv";
 
+        case AV_CODEC_ID_VVC:
+            return "vvc_qsv";
+
         default:
             return NULL;
     }
@@ -2089,6 +2140,11 @@ int hb_qsv_decode_h265_10_bit_is_supported(int adapter_index)
 int hb_qsv_decode_av1_is_supported(int adapter_index)
 {
     return hb_qsv_hardware_generation(hb_qsv_get_platform(adapter_index)) >= QSV_G8;
+}
+
+int hb_qsv_decode_vvc_is_supported(int adapter_index)
+{
+    return hb_qsv_hardware_generation(hb_qsv_get_platform(adapter_index)) > QSV_G9;
 }
 
 int hb_qsv_decode_is_codec_supported(int adapter_index, int video_codec_param, int pix_fmt, int width, int height)
@@ -2128,6 +2184,16 @@ int hb_qsv_decode_is_codec_supported(int adapter_index, int video_codec_param, i
                 pix_fmt == AV_PIX_FMT_YUV420P10)
             {
                 return hb_qsv_decode_av1_is_supported(adapter_index);
+            }
+            break;
+        case AV_CODEC_ID_VVC:
+            if (pix_fmt == AV_PIX_FMT_NV12     ||
+                pix_fmt == AV_PIX_FMT_P010LE   ||
+                pix_fmt == AV_PIX_FMT_YUV420P  ||
+                pix_fmt == AV_PIX_FMT_YUVJ420P ||
+                pix_fmt == AV_PIX_FMT_YUV420P10)
+            {
+                return hb_qsv_decode_vvc_is_supported(adapter_index);
             }
             break;
         default:
@@ -2945,6 +3011,36 @@ int hb_qsv_param_parse(hb_qsv_param_t *param, hb_qsv_info_t *info, hb_job_t *job
             param->hyperEncodeParam.Mode = mode->value;
         }
     }
+    else if (!strcasecmp(key, "palette"))
+    {
+        if (info->capabilities & HB_QSV_CAP_AV1_SCREENCONTENT)
+        {
+            ivalue = hb_qsv_atobool(value, &error);
+            if (!error)
+            {
+                param->av1ScreenContentToolsParam.Palette = ivalue ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF;
+            }
+        }
+        else
+        {
+            return HB_QSV_PARAM_UNSUPPORTED;
+        }
+    }
+    else if (!strcasecmp(key, "intrabc"))
+    {
+        if (info->capabilities & HB_QSV_CAP_AV1_SCREENCONTENT)
+        {
+            ivalue = hb_qsv_atobool(value, &error);
+            if (!error)
+            {
+                param->av1ScreenContentToolsParam.IntraBlockCopy = ivalue ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF;
+            }
+        }
+        else
+        {
+            return HB_QSV_PARAM_UNSUPPORTED;
+        }
+    }
     else if (!strcasecmp(key, "async-depth"))
     {
         int async_depth = hb_qsv_atoi(value, &error);
@@ -3431,6 +3527,12 @@ int hb_qsv_param_default(hb_qsv_param_t *param, mfxVideoParam *videoParam,
         param->av1BitstreamParam.Header.BufferId = MFX_EXTBUFF_AV1_BITSTREAM_PARAM;
         param->av1BitstreamParam.Header.BufferSz = sizeof(mfxExtAV1BitstreamParam);
         param->av1BitstreamParam.WriteIVFHeaders = MFX_CODINGOPTION_OFF;
+        // introduced in API 2.11
+        memset(&param->av1ScreenContentToolsParam, 0, sizeof(mfxExtAV1ScreenContentTools));
+        param->av1ScreenContentToolsParam.Header.BufferId = MFX_EXTBUFF_AV1_SCREEN_CONTENT_TOOLS;
+        param->av1ScreenContentToolsParam.Header.BufferSz = sizeof(mfxExtAV1ScreenContentTools);
+        param->av1ScreenContentToolsParam.IntraBlockCopy  = MFX_CODINGOPTION_OFF;
+        param->av1ScreenContentToolsParam.Palette         = MFX_CODINGOPTION_OFF;
 
         // GOP & rate control
         param->gop.b_pyramid          =  1; // enabled by default (if supported)
@@ -3504,6 +3606,10 @@ int hb_qsv_param_default(hb_qsv_param_t *param, mfxVideoParam *videoParam,
         if (info->capabilities & HB_QSV_CAP_AV1_BITSTREAM)
         {
             param->videoParam->ExtParam[param->videoParam->NumExtParam++] = (mfxExtBuffer*)&param->av1BitstreamParam;
+        }
+        if (info->capabilities & HB_QSV_CAP_AV1_SCREENCONTENT)
+        {
+            param->videoParam->ExtParam[param->videoParam->NumExtParam++] = (mfxExtBuffer*)&param->av1ScreenContentToolsParam;
         }
 #if defined(_WIN32) || defined(__MINGW32__)
         if (info->capabilities & HB_QSV_CAP_LOWPOWER_ENCODE)

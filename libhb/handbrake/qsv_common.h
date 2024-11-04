@@ -86,6 +86,8 @@ typedef struct hb_qsv_info_s
 #define HB_QSV_CAP_AV1_BITSTREAM     (1LL << 41)
     // mfxExtHyperModeParam
 #define HB_QSV_CAP_HYPERENCODE       (1LL << 42)
+    // mfxExtAV1ScreenContentTools
+#define HB_QSV_CAP_AV1_SCREENCONTENT (1LL << 43)
 
     // TODO: add maximum encode resolution, etc.
 } hb_qsv_info_t;
@@ -137,6 +139,7 @@ enum
     QSV_G7, // Ice Lake or equivalent
     QSV_G8, // Tiger Lake or equivalent
     QSV_G9, // DG2 or equivalent
+    QSV_G10,// Lunar Lake or equivalent
     QSV_FU, // always last (future processors)
 };
 
@@ -162,12 +165,13 @@ typedef struct
      * This should cover all encode-compatible extended
      * buffers that can be attached to an mfxVideoParam.
      */
-#define HB_QSV_ENC_NUM_EXT_PARAM_MAX 10
+#define HB_QSV_ENC_NUM_EXT_PARAM_MAX 16
     mfxExtBuffer*         ExtParamArray[HB_QSV_ENC_NUM_EXT_PARAM_MAX];
     mfxExtCodingOption    codingOption;
     mfxExtCodingOption2   codingOption2;
     mfxExtVideoSignalInfo videoSignalInfo;
     mfxExtHyperModeParam hyperEncodeParam;
+    mfxExtAV1ScreenContentTools av1ScreenContentToolsParam;
     mfxExtChromaLocInfo   chromaLocInfo;
     mfxExtMasteringDisplayColourVolume masteringDisplayColourVolume;
     mfxExtContentLightLevelInfo        contentLightLevelInfo;
@@ -275,6 +279,7 @@ int hb_qsv_decode_h264_is_supported(int adapter_index);
 int hb_qsv_decode_h265_is_supported(int adapter_index);
 int hb_qsv_decode_h265_10_bit_is_supported(int adapter_index);
 int hb_qsv_decode_av1_is_supported(int adapter_index);
+int hb_qsv_decode_vvc_is_supported(int adapter_index);
 int hb_qsv_decode_is_codec_supported(int adapter_index, int video_codec_param, int pix_fmt, int width, int height);
 int hb_qsv_device_init(hb_job_t *job);
 

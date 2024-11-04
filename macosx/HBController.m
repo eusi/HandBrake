@@ -680,12 +680,17 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 
     if (canScan)
     {
-        NSUInteger hb_num_previews = [NSUserDefaults.standardUserDefaults integerForKey:HBPreviewsNumber];
-        NSUInteger min_title_duration_seconds = [NSUserDefaults.standardUserDefaults integerForKey:HBMinTitleScanSeconds];
+        NSUInteger previewsCount = [NSUserDefaults.standardUserDefaults integerForKey:HBPreviewsNumber];
+        NSUInteger minTitleDuration = [NSUserDefaults.standardUserDefaults boolForKey:HBMinTitleScan] ?
+                                       [NSUserDefaults.standardUserDefaults integerForKey:HBMinTitleScanSeconds] : 0;
+        NSUInteger maxTitleDuration = [NSUserDefaults.standardUserDefaults boolForKey:HBMaxTitleScan] ?
+                                       [NSUserDefaults.standardUserDefaults integerForKey:HBMaxTitleScanSeconds] : 0;
 
         [self.core scanURLs:fileURLs
                  titleIndex:index
-                   previews:hb_num_previews minDuration:min_title_duration_seconds
+                   previews:previewsCount
+                minDuration:minTitleDuration
+                maxDuration:maxTitleDuration
                keepPreviews:YES
             hardwareDecoder:[NSUserDefaults.standardUserDefaults boolForKey:HBUseHardwareDecoder]
             keepDuplicateTitles:keepDuplicateTitles
@@ -747,6 +752,12 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
          {
              self.destinationFolderURL = panel.URL;
              self.destinationFolderToken = [HBSecurityAccessToken tokenWithAlreadyAccessedObject:panel.URL];
+             if (self.job)
+             {
+                 [self.job setDestinationFolderURL:self.destinationFolderURL
+                                      sameAsSource:[NSUserDefaults.standardUserDefaults boolForKey:HBUseSourceFolderDestination]];
+                 [self.window.undoManager removeAllActions];
+             }
          }
      }];
 }
@@ -758,7 +769,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         return;
     }
 
-    if (sourceURLs.firstObject)
+    if (sourceURLs.count == 1)
     {
         // There is no need to ask for permission
         // if the source is a already a folder
@@ -931,7 +942,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
     return URLs;
 }
 
-- (HBJob *)jobFromTitle:(HBTitle *)title
+- (nullable HBJob *)jobFromTitle:(HBTitle *)title
 {
     // If there is already a title loaded, save the current settings to a preset
     [self updateCurrentPreset];
@@ -1177,7 +1188,10 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 {
     HBTitle *title = self.core.titles[sender.indexOfSelectedItem];
     HBJob *job = [self jobFromTitle:title];
-    self.job = job;
+    if (job)
+    {
+        self.job = job;
+    }
 }
 
 - (void)formatChanged:(NSNotification *)notification
@@ -1216,7 +1230,10 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         {
             HBTitle *title = titles[index + 1];
             HBJob *job = [self jobFromTitle:title];
-            self.job = job;
+            if (job)
+            {
+                self.job = job;
+            }
         }
     }
 }
@@ -1231,7 +1248,10 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         {
             HBTitle *title = titles[index - 1];
             HBJob *job = [self jobFromTitle:title];
-            self.job = job;
+            if (job)
+            {
+                self.job = job;
+            }
         }
     }
 }

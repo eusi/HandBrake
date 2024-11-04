@@ -244,22 +244,29 @@ namespace HandBrakeWPF.Services.Scan
                 this.IsScanning = true;
 
                 TimeSpan minDuration = TimeSpan.FromSeconds(this.userSettingService.GetUserSetting<int>(UserSettingConstants.MinScanDuration));
+                TimeSpan maxDuration = TimeSpan.FromSeconds(this.userSettingService.GetUserSetting<int>(UserSettingConstants.MaxScanDuration));
 
                 HandBrakeUtils.SetDvdNav(!this.userSettingService.GetUserSetting<bool>(UserSettingConstants.DisableLibDvdNav));
 
                 List<string> excludedExtensions = this.userSettingService.GetUserSetting<List<string>>(UserSettingConstants.ExcludedExtensions);
 
                 bool nvdec = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvDecSupport);
+                bool directx = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableDirectXDecoding);
+
                 int hwDecode = 0;
                 if (nvdec && HandBrakeHardwareEncoderHelper.IsNVDecAvailable)
                 {
                     hwDecode = (int)NativeConstants.HB_DECODE_SUPPORT_NVDEC;
                 }
+                if (directx && HandBrakeHardwareEncoderHelper.IsDirectXAvailable)
+                {
+                    hwDecode = (int)NativeConstants.HB_DECODE_SUPPORT_MF;
+                }
 
                 bool keepDuplicateTitles = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.KeepDuplicateTitles);
 
                 this.ServiceLogMessage("Starting Scan ...");
-                this.instance.StartScan(sourcePaths, previewCount, minDuration, title != 0 ? title : 0, excludedExtensions, hwDecode, keepDuplicateTitles);
+                this.instance.StartScan(sourcePaths, previewCount, minDuration, maxDuration, title != 0 ? title : 0, excludedExtensions, hwDecode, keepDuplicateTitles);
 
                 this.ScanStarted?.Invoke(this, System.EventArgs.Empty);
             }

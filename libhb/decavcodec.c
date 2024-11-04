@@ -598,6 +598,10 @@ static void closePrivData( hb_work_private_t ** ppv )
         }
         if ( pv->context )
         {
+            if (pv->context->hw_device_ctx)
+            {
+                av_buffer_unref(&pv->context->hw_device_ctx);
+            }
             hb_avcodec_free_context(&pv->context);
         }
         av_packet_free(&pv->pkt);
@@ -883,6 +887,10 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
     }
     else
     {
+        // AVCodecContext bit_rate default is 128 Kb
+        // unset it to avoid getting a wrong value if
+        // nothing sets it to the actual streams value
+        context->bit_rate = 1;
         parser = av_parser_init(codec->id);
     }
 
@@ -1025,7 +1033,31 @@ static int decavcodecaBSInfo( hb_work_object_t *w, const hb_buffer_t *buf,
                     }
                     else
                     {
-                        info->channel_layout = frame->ch_layout.u.mask;
+                        if (frame->ch_layout.order == AV_CHANNEL_ORDER_NATIVE)
+                        {
+                            info->channel_layout = frame->ch_layout.u.mask;
+                        }
+                        else if (frame->ch_layout.order == AV_CHANNEL_ORDER_CUSTOM)
+                        {
+                            AVChannelLayout channel_layout;
+                            av_channel_layout_copy(&channel_layout, &frame->ch_layout);
+                            int result = av_channel_layout_retype(&channel_layout,
+                                                                  AV_CHANNEL_ORDER_NATIVE,
+                                                                  0);
+                            if (result == 0)
+                            {
+                                info->channel_layout = channel_layout.u.mask;
+                            }
+                            else
+                            {
+                                hb_deep_log(2, "decavcodec: unsupported custom channel order");
+                            }
+                            av_channel_layout_uninit(&channel_layout);
+                        }
+                        else
+                        {
+                            hb_deep_log(2, "decavcodec: unsupported custom channel order");
+                        }
                     }
 
                     if (info->channel_layout == 0)
@@ -1167,7 +1199,7 @@ static hb_buffer_t *copy_frame( hb_work_private_t *pv )
     else
 #endif
     {
-        out = hb_avframe_to_video_buffer(pv->frame, (AVRational){1,1}, 1);
+        out = hb_avframe_to_video_buffer(pv->frame, (AVRational){1,1});
     }
 
     if (pv->frame->pts != AV_NOPTS_VALUE)
@@ -2496,6 +2528,10 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
     else if (pv->context->pix_fmt == AV_PIX_FMT_VIDEOTOOLBOX)
     {
         info->video_decode_support |= HB_DECODE_SUPPORT_VIDEOTOOLBOX;
+    }
+    else if (pv->context->pix_fmt == AV_PIX_FMT_D3D11)
+    {
+        info->video_decode_support |= HB_DECODE_SUPPORT_MF;
     }
 
     return 1;

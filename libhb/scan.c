@@ -29,6 +29,7 @@ typedef struct
     int            store_previews;
 
     uint64_t       min_title_duration;
+    uint64_t       max_title_duration;
     int            keep_duplicate_titles;
     
     int            crop_threshold_frames;
@@ -88,7 +89,7 @@ static int is_known_filetype(const char *filename)
 hb_thread_t * hb_scan_init( hb_handle_t * handle, volatile int * die,
                             hb_list_t *  paths, int title_index,
                             hb_title_set_t * title_set, int preview_count,
-                            int store_previews, uint64_t min_duration,
+                            int store_previews, uint64_t min_duration, uint64_t max_duration,
                             int crop_threshold_frames, int crop_threshold_pixels,
                             hb_list_t * exclude_extensions, int hw_decode,
                             int keep_duplicate_titles)
@@ -104,7 +105,8 @@ hb_thread_t * hb_scan_init( hb_handle_t * handle, volatile int * die,
     data->preview_count  = preview_count;
     data->store_previews = store_previews;
     data->min_title_duration = min_duration;
-    
+    data->max_title_duration = max_duration;
+     
     data->crop_threshold_frames = crop_threshold_frames;
     data->crop_threshold_pixels = crop_threshold_pixels;
     data->exclude_extensions    = hb_string_list_copy(exclude_extensions);
@@ -154,7 +156,7 @@ static void ScanFunc( void * _data )
             /* Scan this title only */
             hb_list_add( data->title_set->list_title,
                          hb_bd_title_scan( data->bd,
-                         data->title_index, 0 ) );
+                         data->title_index, 0, 0 ) );
         }
         else
         {
@@ -164,7 +166,7 @@ static void ScanFunc( void * _data )
                 UpdateState1(data, i + 1);
                 hb_list_add( data->title_set->list_title,
                              hb_bd_title_scan( data->bd,
-                             i + 1, data->min_title_duration ) );
+                             i + 1, data->min_title_duration, data->max_title_duration ) );
             }
             feature = hb_bd_main_feature( data->bd,
                                           data->title_set->list_title );
@@ -179,7 +181,7 @@ static void ScanFunc( void * _data )
             /* Scan this title only */
             hb_list_add( data->title_set->list_title,
                          hb_dvd_title_scan( data->dvd,
-                            data->title_index, 0 ) );
+                            data->title_index, 0, 0 ) );
         }
         else
         {
@@ -189,7 +191,7 @@ static void ScanFunc( void * _data )
                 UpdateState1(data, i + 1);
                 hb_list_add( data->title_set->list_title,
                              hb_dvd_title_scan( data->dvd,
-                            i + 1, data->min_title_duration ) );
+                            i + 1, data->min_title_duration, data->max_title_duration ) );
             }
             feature = hb_dvd_main_feature( data->dvd,
                                            data->title_set->list_title );
@@ -227,30 +229,6 @@ static void ScanFunc( void * _data )
             }
         }
     }
-    else if (hb_list_count(data->paths) > 1) // We have many file paths to process.
-    {
-        // If dragging a batch of files, maybe not, but if the UI's implement a recursive folder maybe?
-        for (i = 0; i < hb_list_count( data->paths ); i++)
-        {
-            if (*data->die)
-            {
-                goto finish;
-            }
-
-            single_path = hb_list_item(data->paths, i);
-
-            UpdateState1(data, i + 1);
-
-            if (hb_is_valid_batch_path(single_path))
-            {
-                title = hb_batch_title_scan_single(data->h, single_path, (int)i + 1);
-                if (title != NULL)
-                {
-                    hb_list_add(data->title_set->list_title, title);
-                }
-            }
-        }
-    }
     else if (single_path != NULL) // Single File.
     {
         // Title index 0 is not a valid title number and means scan all titles.
@@ -274,6 +252,30 @@ static void ScanFunc( void * _data )
             hb_title_close( &title );
             hb_log( "scan: unrecognized file type" );
             goto finish;
+        }
+    }
+    else // We have many file paths to process.
+    {
+        // If dragging a batch of files, maybe not, but if the UI's implement a recursive folder maybe?
+        for (i = 0; i < hb_list_count( data->paths ); i++)
+        {
+            if (*data->die)
+            {
+                goto finish;
+            }
+
+            char *path = hb_list_item(data->paths, i);
+
+            UpdateState1(data, i + 1);
+
+            if (hb_is_valid_batch_path(path))
+            {
+                title = hb_batch_title_scan_single(data->h, path, (int)i + 1);
+                if (title != NULL)
+                {
+                    hb_list_add(data->title_set->list_title, title);
+                }
+            }
         }
     }
 
@@ -712,6 +714,11 @@ static int DecodePreviews( hb_scan_t * data, hb_title_t * title, int flush )
              hb_hwaccel_available(title->video_codec_param, "videotoolbox"))
     {
         hw_decode = HB_DECODE_SUPPORT_VIDEOTOOLBOX;
+    }
+    else if (data->hw_decode == HB_DECODE_SUPPORT_MF &&
+             hb_hwaccel_available(title->video_codec_param, "d3d11va"))
+    {
+        hw_decode = HB_DECODE_SUPPORT_MF;
     }
 
     void *hw_device_ctx = NULL;
@@ -1520,6 +1527,41 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_audio_t * audio
     audio->config.in.flags = info.flags;
     audio->config.in.mode = info.mode;
 
+    // Under some circumstances, ffmpeg fails to probe the DTS profile
+    // during it's initial scan of DTS audio tracks. The profile gets
+    // picked up during our more indepth scan here.
+    if (audio->config.in.codec == HB_ACODEC_FFMPEG)
+    {
+        switch (audio->config.in.codec_param)
+        {
+            case AV_CODEC_ID_DTS:
+            {
+                switch (info.profile)
+                {
+                    case AV_PROFILE_DTS:
+                    case AV_PROFILE_DTS_ES:
+                    case AV_PROFILE_DTS_96_24:
+                    case AV_PROFILE_DTS_EXPRESS:
+                        audio->config.in.codec = HB_ACODEC_DCA;
+                        break;
+
+                    case AV_PROFILE_DTS_HD_MA:
+                    case AV_PROFILE_DTS_HD_HRA:
+                    case AV_PROFILE_DTS_HD_MA_X:
+                    case AV_PROFILE_DTS_HD_MA_X_IMAX:
+                        audio->config.in.codec = HB_ACODEC_DCA_HD;
+                        break;
+
+                    default:
+                        break;
+                }
+            } break;
+
+            default:
+                break;
+        }
+    }
+
     // now that we have all the info, set the audio description
     const char *codec_name   = NULL;
     const char *profile_name = NULL;
@@ -1528,7 +1570,7 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_audio_t * audio
         const AVCodec *codec = avcodec_find_decoder(audio->config.in.codec_param);
         if (codec != NULL)
         {
-            if (info.profile != FF_PROFILE_UNKNOWN)
+            if (info.profile != AV_PROFILE_UNKNOWN)
             {
                 profile_name = av_get_profile_name(codec, info.profile);
             }
@@ -1541,6 +1583,9 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_audio_t * audio
                     break;
                 case AV_CODEC_ID_AC3:
                     codec_name = "AC3";
+                    break;
+                case AV_CODEC_ID_ALAC:
+                    codec_name = "ALAC";
                     break;
                 case AV_CODEC_ID_EAC3:
                     codec_name = "E-AC3";
@@ -1593,6 +1638,9 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_audio_t * audio
                 case HB_ACODEC_FFEAC3:
                     codec_name = "E-AC3";
                     break;
+                case HB_ACODEC_FFALAC:
+                    codec_name = "ALAC";
+                    break;
                 case HB_ACODEC_FFTRUEHD:
                     codec_name = "TrueHD";
                     break;
@@ -1613,6 +1661,9 @@ static void LookForAudio(hb_scan_t *scan, hb_title_t * title, hb_audio_t * audio
                     break;
                 case HB_ACODEC_MP3:
                     codec_name = "MP3";
+                    break;
+                case AV_CODEC_ID_VORBIS:
+                    codec_name = "Vorbis";
                     break;
                 default:
                     codec_name = "Unknown (libav)";

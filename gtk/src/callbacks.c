@@ -2777,7 +2777,7 @@ ghb_set_title_settings(signal_user_data_t *ud, GhbValue *settings)
         ghb_dict_set_string(settings, "MetaDescription", "");
         ghb_dict_set_string(settings, "MetaLongDescription", "");
 
-        if (ghb_dict_get_bool(settings, "MetadataPassthrough"))
+        if (ghb_dict_get_bool(settings, "MetadataPassthru"))
         {
             if (title->metadata && title->metadata->dict)
             {
@@ -2829,7 +2829,7 @@ ghb_set_title_settings(signal_user_data_t *ud, GhbValue *settings)
     dest_dir = ghb_dict_get_string(settings, "dest_dir");
     dest = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s", dest_dir, dest_file);
     ghb_dict_set_string(settings, "destination", dest);
-    GhbValue *dest_dict = ghb_get_job_dest_settings(ud->settings);
+    GhbValue *dest_dict = ghb_get_job_dest_settings(settings);
     ghb_dict_set_string(dest_dict, "File", dest);
     g_free(dest);
 
@@ -3012,7 +3012,7 @@ meta_pass_changed_cb (GtkWidget *widget, gpointer data)
     title = ghb_lookup_title(title_id, &titleindex);
 
     if (title != NULL &&
-        ghb_dict_get_bool(ud->settings, "MetadataPassthrough"))
+        ghb_dict_get_bool(ud->settings, "MetadataPassthru"))
     {
         // Reload metadata from title
         if (title->metadata && title->metadata->dict)
@@ -4098,7 +4098,7 @@ ghb_stop_encode_dialog_show (signal_user_data_t *ud)
     GtkWidget *dialog = ghb_cancel_dialog_new(window, _("Stop Encoding?"),
         _("Your movie will be lost if you don't continue encoding."),
         _("Cancel Current and Stop"), _("Cancel Current, Start Next"),
-        _("Finish Current, Start Next"), _("Continue Encoding"));
+        _("Finish Current and Stop"), _("Continue Encoding"));
     g_signal_connect(dialog, "response",
                      G_CALLBACK(stop_encode_dialog_response), ud);
     gtk_widget_show(dialog);

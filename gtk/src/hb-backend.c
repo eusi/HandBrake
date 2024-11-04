@@ -3549,7 +3549,7 @@ ghb_backend_scan_list (GListModel *files, int titleindex, int preview_count, uin
 {
     hb_list_t *path_list = get_path_list(files);
     hb_list_t *extensions = ghb_get_excluded_extensions_list();
-    hb_scan(h_scan, path_list, titleindex, preview_count, 1, min_duration,
+    hb_scan(h_scan, path_list, titleindex, preview_count, 1, min_duration, 0,
                  0, 0, extensions, 0, keep_duplicate_titles);
     ghb_free_list(path_list);
     ghb_free_list(extensions);
@@ -3569,7 +3569,7 @@ ghb_backend_scan (const char *path, int titleindex, int preview_count, uint64_t 
     hb_list_t *path_list = hb_list_init();
     hb_list_add(path_list, (void *)path);
     hb_list_t *extensions = ghb_get_excluded_extensions_list();
-    hb_scan(h_scan, path_list, titleindex, preview_count, 1, min_duration,
+    hb_scan(h_scan, path_list, titleindex, preview_count, 1, min_duration, 0,
                  0, 0, extensions, 0, keep_duplicate_titles);
     hb_list_close(&path_list);
     ghb_free_list(extensions);
@@ -4612,7 +4612,7 @@ ghb_validate_audio(GhbValue *settings, GtkWindow *parent)
             !(ghb_audio_can_passthru(aconfig->in.codec) &&
               (aconfig->in.codec & codec)))
         {
-            // Not supported.  AC3 is passthrough only, so input must be AC3
+            // Not supported.  AC3 is passthru only, so input must be AC3
             if (!ghb_question_dialog_run(parent, GHB_ACTION_NORMAL,
                     _("Continue"), _("Cancel"), _("Invalid Audio Selection"),
                     _("The source does not support Pass-Thru.\n\n"
