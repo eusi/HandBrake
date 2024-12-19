@@ -10,6 +10,18 @@ Download available from Microsoft:
 - [For x64 (AMD or Intel CPUs)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe)
 - [For Arm64 (Qualcomm or other)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-arm64.exe)
 
+## HandBrake 1.10.0
+
+#### General
+
+### Windows
+
+- Added a new preference "Default Range Mode for titles". See Preferences -> Advanced (#6385)
+- Added a new preference to run a custom action when the queue completes. See Preferences -> When Done (#4851)
+- Updated Auto Naming Preferences to add "{angle}" as a filename generation option. (#6086)
+
+
+
 ## HandBrake 1.9.0
 
 ### All platforms
@@ -18,8 +30,9 @@ Download available from Microsoft:
 
 - Added Intel QSV VVC (hardware) video decoder
 - Added an option to enable AV1 screen content coding(SCC) on Intel Lunar Lake QSV AV1 encoder
-- Added a preference to keep duplicated Blu-ray titles
 - Added support for lossless VP9 encoding
+- Added a preference to keep duplicated Blu-ray titles
+- Added support for Max Duration of Scan titles for disc based sources (#6304)
 
 #### Audio
 
@@ -39,32 +52,44 @@ Download available from Microsoft:
   - FFmpeg 7.1 (decoding and filters)
   - FreeType 2.13.3 (subtitles)
   - Fribidi 1.0.16 (subtitles)
-  - HarfBuzz 10.0.1 (subtitles)
+  - HarfBuzz 10.1.0 (subtitles)
   - libdav1d 1.5.0 (AV1 video decoding)
   - libdovi 3.3.1 (Dolby Vision dynamic metadata)
   - libjpeg-turbo 3.0.4 (preview image compression)
+  - libvpx 1.15.0 (VP8/VP9 video encoding)
   - nv-codec-headers 12.2.72.0 (Nvidia NVENC encoding)
   - oneVPL 2.13.0 (Intel QSV video encoding/decoding)
-  - SVT-AV1 2.2.1 (AV1 video encoding)
-  - x265 4.0 (H.265/HEVC video encoding)
+  - SVT-AV1 2.3.0 (AV1 video encoding)
+  - x265 4.1 (H.265/HEVC video encoding)
 
 ### Linux
 
 - Fixed the Power Save option to pause the encodes only when enabled
 - Fixed the queue being stopped when removing completed items
 - Fixed chapters names not being saved properly
+- Fixed various issues related to presets
+- Updated existing translations
 
 ### Mac
 
 - Add Range Limit controls to the "Add to Queue" selection window (#4146)
+- Fixed an issue that could cause corrupted video when using VideoToolbox HEVC multi-pass
 - Miscellaneous bug fixes and improvements
+- Updated existing translations
+- Added new translations
+  - Swedish (Svenska)
 
 ### Windows
 
-- Added Range Limit controls to the "Add to Queue" selection window (#4146)
+- Added Range Limit controls to the "Add to Queue" "Add Selection" window (#4146)
 - Added support for DirectX based video decoding when using the Media Foundation encoder on ARM devices
 - Added support for the AV1 Media Foundation encoder on ARM devices
+- Added a "Start Later" option to the Queue Window.
+- Performance Improvements in the filter pipeline for ARM devices.
 - Miscellaneous bug fixes and improvements
+- Updated existing translations
+- Added new translations
+  - Swedish (Svenska)
 
 
 ## HandBrake 1.8.2

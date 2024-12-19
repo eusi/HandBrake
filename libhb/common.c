@@ -4351,6 +4351,8 @@ void hb_title_close( hb_title_t ** _t )
     hb_subtitle_t * subtitle;
     hb_attachment_t * attachment;
 
+    hb_data_close(&t->initial_rpu);
+
     while( ( chapter = hb_list_item( t->list_chapter, 0 ) ) )
     {
         hb_list_rem( t->list_chapter, chapter );
@@ -6236,6 +6238,62 @@ int hb_rgb2yuv_bt2020(int rgb)
     return (y << 16) | (Cr << 8) | Cb;
 }
 
+hb_csp_convert_f hb_get_rgb2yuv_function(int color_matrix)
+{
+    switch (color_matrix)
+    {
+    case HB_COLR_MAT_BT470BG:
+    case HB_COLR_MAT_SMPTE170M:
+    case HB_COLR_MAT_FCC:
+        return hb_rgb2yuv;
+    case HB_COLR_MAT_BT2020_NCL:
+    case HB_COLR_MAT_BT2020_CL: //wrong
+        return hb_rgb2yuv_bt2020;
+    default: //assume 709 for the rest
+        break;
+    }
+    return hb_rgb2yuv_bt709;
+}
+
+void hb_compute_chroma_smoothing_coefficient(unsigned chroma_coeffs[2][4], int pix_fmt, int chroma_location)
+{
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(pix_fmt);
+
+    // Compute chroma smoothing coefficients wrt video chroma location
+    int wX, wY;
+    wX = 4 - (1 << desc->log2_chroma_w);
+    wY = 4 - (1 << desc->log2_chroma_h);
+
+    switch (chroma_location)
+    {
+        case AVCHROMA_LOC_TOPLEFT:
+            wX += (1 << desc->log2_chroma_w) - 1;
+        case AVCHROMA_LOC_TOP:
+            wY += (1 << desc->log2_chroma_h) - 1;
+            break;
+        case AVCHROMA_LOC_LEFT:
+            wX += (1 << desc->log2_chroma_w) - 1;
+            break;
+        case AVCHROMA_LOC_BOTTOMLEFT:
+            wX += (1 << desc->log2_chroma_w) - 1;
+        case AVCHROMA_LOC_BOTTOM:
+            wY += (1 << desc->log2_chroma_h) - 1;
+        case AVCHROMA_LOC_CENTER:
+        default: // Center chroma value for unknown/unsupported
+            break;
+    }
+
+    const unsigned base_coefficients[] = {1, 3, 9, 27, 9, 3, 1};
+    // If wZ is even, an intermediate value is interpolated for symmetry.
+    for (int x = 0; x < 4; x++)
+    {
+        chroma_coeffs[0][x] = (base_coefficients[x + wX] +
+                               base_coefficients[x + wX + !(wX & 0x1)]) >> 1;
+        chroma_coeffs[1][x] = (base_coefficients[x + wY] +
+                               base_coefficients[x + wY + !(wY & 0x1)]) >> 1;
+    }
+}
+
 const char * hb_subsource_name( int source )
 {
     switch (source)
@@ -6620,6 +6678,12 @@ int hb_get_color_matrix(int colorspace, hb_geometry_t geometry)
             return HB_COLR_MAT_CD_CL;
         case AVCOL_SPC_ICTCP:
             return HB_COLR_MAT_ICTCP;
+        case AVCOL_SPC_IPT_C2:
+            return HB_COLR_MAT_IPT_C2;
+        case AVCOL_SPC_YCGCO_RE:
+            return HB_COLR_MAT_YCGCO_RE;
+        case AVCOL_SPC_YCGCO_RO:
+            return HB_COLR_MAT_YCGCO_RO;
         default:
         {
             if ((geometry.width >= 1280 || geometry.height >= 720)||

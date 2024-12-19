@@ -190,6 +190,7 @@ void          hb_video_buffer_realloc( hb_buffer_t * b, int w, int h );
 void          hb_buffer_reduce( hb_buffer_t * b, int size );
 void          hb_buffer_close( hb_buffer_t ** );
 hb_buffer_t * hb_buffer_dup( const hb_buffer_t * src );
+hb_buffer_t * hb_buffer_shallow_dup( const hb_buffer_t *src );
 int           hb_buffer_copy( hb_buffer_t * dst, const hb_buffer_t * src );
 void          hb_buffer_swap_copy( hb_buffer_t *src, hb_buffer_t *dst );
 hb_image_t  * hb_image_init(int pix_fmt, int width, int height);
@@ -466,6 +467,8 @@ extern hb_motion_metric_object_t hb_motion_metric;
 #if defined(__APPLE__)
 extern hb_motion_metric_object_t hb_motion_metric_vt;
 #endif
+
+extern hb_blend_object_t hb_blend;
 
 extern hb_work_object_t * hb_objects;
 

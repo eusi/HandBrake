@@ -702,7 +702,7 @@ struct hb_job_s
 #define HB_COLR_PRI_SMPTE431     11
 #define HB_COLR_PRI_SMPTE432     12
 #define HB_COLR_PRI_JEDEC_P22    22
-// 0, 3-4, 7-8, 10-65535: reserved/not implemented
+// 0, 3, 19-65535: reserved/not implemented
 #define HB_COLR_TRA_UNSET       -1
 #define HB_COLR_TRA_BT709        1 // also use for bt470m, bt470bg, smpte170m, bt2020_10 and bt2020_12
 #define HB_COLR_TRA_UNDEF        2
@@ -721,7 +721,7 @@ struct hb_job_s
 #define HB_COLR_TRA_SMPTEST2084  16
 #define HB_COLR_TRA_SMPTE428     17
 #define HB_COLR_TRA_ARIB_STD_B67 18 //known as "Hybrid log-gamma"
-// 0, 3-6, 8-15, 17-65535: reserved/not implemented
+// 0, 3, 18-65535: reserved/not implemented
 #define HB_COLR_MAT_UNSET       -1
 #define HB_COLR_MAT_RGB          0
 #define HB_COLR_MAT_BT709        1
@@ -737,6 +737,9 @@ struct hb_job_s
 #define HB_COLR_MAT_CD_NCL       12 // chromaticity derived non-constant lum
 #define HB_COLR_MAT_CD_CL        13 // chromaticity derived constant lum
 #define HB_COLR_MAT_ICTCP        14 // ITU-R BT.2100-0, ICtCp
+#define HB_COLR_MAT_IPT_C2       15 // SMPTE ST 2128, IPT-C2
+#define HB_COLR_MAT_YCGCO_RE     16 // YCgCo-R, even addition of bits
+#define HB_COLR_MAT_YCGCO_RO     17 // YCgCo-R, odd addition of bits
 // 0, 3-5, 8, 11-65535: reserved/not implemented
 #define HB_COLR_RANGE_UNSET     -1
 #define HB_COLR_RANGE_LIMITED    1
@@ -1224,7 +1227,11 @@ struct hb_title_s
     hb_mastering_display_metadata_t mastering;
     hb_content_light_metadata_t     coll;
     hb_ambient_viewing_environment_metadata_t ambient;
+
     hb_dovi_conf_t  dovi;
+    hb_data_t      *initial_rpu;
+    int             initial_rpu_type;
+
     int             hdr_10_plus;
 
     hb_rational_t   vrate;
@@ -1511,20 +1518,6 @@ struct hb_filter_object_s
 #endif
 };
 
-struct hb_motion_metric_object_s
-{
-    char                * name;
-
-#ifdef __LIBHB__
-    int                (* init)       ( hb_motion_metric_object_t *, hb_filter_init_t * );
-    float              (* work)       ( hb_motion_metric_object_t *,
-                                        hb_buffer_t *, hb_buffer_t * );
-    void               (* close)      ( hb_motion_metric_object_t * );
-
-    hb_motion_metric_private_t * private_data;
-#endif
-};
-
 // Update win/CS/HandBrake.Interop/HandBrakeInterop/HbLib/hb_filter_ids.cs when changing this enum
 enum
 {
@@ -1591,6 +1584,34 @@ char               * hb_filter_settings_string(int filter_id,
 char               * hb_filter_settings_string_json(int filter_id,
                                                     const char * json);
 
+struct hb_motion_metric_object_s
+{
+    char                * name;
+
+#ifdef __LIBHB__
+    int                (* init)       ( hb_motion_metric_object_t *, hb_filter_init_t * );
+    float              (* work)       ( hb_motion_metric_object_t *,
+                                        hb_buffer_t *, hb_buffer_t * );
+    void               (* close)      ( hb_motion_metric_object_t * );
+
+    hb_motion_metric_private_t * private_data;
+#endif
+};
+
+struct hb_blend_object_s
+{
+    char                * name;
+
+#ifdef __LIBHB__
+    int                (* init)       ( hb_blend_object_t *, int in_pix_fmt, int in_chroma_location, int sub_pix_fmt );
+    hb_buffer_t *      (* work)       ( hb_blend_object_t *,
+                                        hb_buffer_t *, hb_buffer_list_t * );
+    void               (* close)      ( hb_blend_object_t * );
+
+    hb_blend_private_t * private_data;
+#endif
+};
+
 typedef void hb_error_handler_t( const char *errmsg );
 
 extern void hb_register_error_handler( hb_error_handler_t * handler );
@@ -1613,6 +1634,12 @@ int hb_yuv2rgb(int yuv);
 int hb_rgb2yuv(int rgb);
 int hb_rgb2yuv_bt709(int rgb);
 int hb_rgb2yuv_bt2020(int rgb);
+
+typedef int (*hb_csp_convert_f)(int);
+hb_csp_convert_f hb_get_rgb2yuv_function(int color_matrix);
+
+void hb_compute_chroma_smoothing_coefficient(unsigned chroma_coeffs[2][4],
+                                             int pix_fmt, int chroma_location);
 
 const char * hb_subsource_name( int source );
 

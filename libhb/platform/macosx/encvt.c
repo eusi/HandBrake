@@ -87,8 +87,10 @@ struct hb_work_private_s
         int maxReferenceBufferCount;
         int maxFrameDelayCount;
         int maxKeyFrameInterval;
+        int lookAheadFrameCount;
         CFBooleanRef allowFrameReordering;
         CFBooleanRef allowTemporalCompression;
+        CFBooleanRef disableSpatialAdaptiveQP;
         CFBooleanRef prioritizeEncodingSpeedOverQuality;
         CFBooleanRef preserveDynamicHDRMetadata;
         struct
@@ -142,8 +144,10 @@ void hb_vt_param_default(struct hb_vt_param *param)
     param->minAllowedFrameQP        = -1;
     param->maxReferenceBufferCount  = -1;
     param->maxFrameDelayCount       = kVTUnlimitedFrameDelayCount;
+    param->lookAheadFrameCount      = -1;
     param->allowFrameReordering     = kCFBooleanTrue;
     param->allowTemporalCompression = kCFBooleanTrue;
+    param->disableSpatialAdaptiveQP = kCFBooleanFalse;
     param->prioritizeEncodingSpeedOverQuality = kCFBooleanFalse;
     param->preserveDynamicHDRMetadata         = kCFBooleanFalse;
     param->fieldDetail              = HB_VT_FIELDORDER_PROGRESSIVE;
@@ -655,11 +659,23 @@ static int hb_vt_parse_options(hb_work_private_t *pv, hb_job_t *job)
                 pv->settings.maxReferenceBufferCount = ref;
             }
         }
+        else if (!strcmp(key, "look-ahead-frame-count"))
+        {
+            int lookaheadframe = hb_value_get_int(value);
+            if (lookaheadframe >= 0)
+            {
+                pv->settings.lookAheadFrameCount = lookaheadframe;
+            }
+        }
+        else if (!strcmp(key, "disable-spatial-adaptive-qp"))
+        {
+            int disabled = hb_value_get_bool(value);
+            pv->settings.disableSpatialAdaptiveQP = disabled ? kCFBooleanTrue : kCFBooleanFalse;
+        }
         else
         {
             hb_log("encvt_Init: unknown option '%s'", key);
         }
-
     }
     hb_dict_free(&opts);
 
@@ -681,6 +697,17 @@ static int hb_vt_parse_options(hb_work_private_t *pv, hb_job_t *job)
             pv->settings.allowFrameReordering     = kCFBooleanFalse;
         default:
             break;
+    }
+
+    if (pv->settings.lookAheadFrameCount > pv->settings.maxFrameDelayCount &&
+        pv->settings.maxFrameDelayCount != kVTUnlimitedFrameDelayCount)
+    {
+        pv->settings.lookAheadFrameCount = pv->settings.maxFrameDelayCount;
+    }
+
+    if (pv->settings.quality == 1 || pv->passStorage)
+    {
+        pv->settings.lookAheadFrameCount = -1;
     }
 
     return 0;
@@ -909,6 +936,39 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
     }
 
     CFRelease(encoderSpecifications);
+
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 150000
+    if (__builtin_available(macOS 15, *))
+    {
+        // Control spatial adaptation of the quantization parameter (QP) based on per-frame statistics.
+        if (pv->settings.disableSpatialAdaptiveQP == kCFBooleanTrue)
+        {
+            int32_t spatialAdaptiveQP = kVTQPModulationLevel_Disable;
+            CFNumberRef spatialAdaptiveQPNumber = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &spatialAdaptiveQP );
+            err = VTSessionSetProperty(pv->session, kVTCompressionPropertyKey_SpatialAdaptiveQPLevel , spatialAdaptiveQPNumber);
+            CFRelease(spatialAdaptiveQPNumber );
+            if (err != noErr)
+            {
+                hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_SpatialAdaptiveQPLevel failed (%d)",err);
+            }
+        }
+
+        // Requests that the encoder retain the specified number of frames during encoding.
+        if (pv->settings.lookAheadFrameCount >= 0)
+        {
+            cfValue = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType,
+                                     &pv->settings.lookAheadFrameCount);
+            err = VTSessionSetProperty(pv->session,
+                                       kVTCompressionPropertyKey_SuggestedLookAheadFrameCount,
+                                       cfValue);
+            CFRelease(cfValue);
+            if (err != noErr)
+            {
+                hb_log("VTSessionSetProperty: kVTCompressionPropertyKey_SuggestedLookAheadFrameCount failed");
+            }
+        }
+    }
+#endif
 
     // Offline encoders (such as Handbrake) should set RealTime property to False, as it disconnects the relationship
     // between encoder speed and target video frame rate, explicitly setting RealTime to false encourages VideoToolbox
@@ -1288,7 +1348,7 @@ static OSStatus init_vtsession(hb_work_object_t *w, hb_job_t *job, hb_work_priva
     }
 
     // Multi-pass
-    if (job->pass_id == HB_PASS_ENCODE_ANALYSIS && cookieOnly == 0)
+    if (job->pass_id == HB_PASS_ENCODE_ANALYSIS)
     {
         char *filename = hb_get_temporary_filename("videotoolbox.log");
 
@@ -1453,9 +1513,15 @@ static OSStatus create_cookie(hb_work_object_t *w, hb_job_t *job, hb_work_privat
 fail:
     CVPixelBufferRelease(pix_buf);
     VTCompressionSessionInvalidate(pv->session);
+    if (pv->passStorage)
+    {
+        VTMultiPassStorageClose(pv->passStorage);
+        CFRelease(pv->passStorage);
+    }
     CFRelease(pv->session);
     CFRelease(pv->queue);
     pv->session = NULL;
+    pv->passStorage = NULL;
     pv->queue = NULL;
 
     return err;
@@ -1491,6 +1557,15 @@ static OSStatus reuse_vtsession(hb_work_object_t *w, hb_job_t * job, hb_work_pri
     {
         hb_log("Error beginning a VTCompressionSession final pass err=%"PRId64"", (int64_t)err);
         return err;
+    }
+
+    hb_log("encvt_Init: starting pass with time ranges: %ld", pv->timeRangeCount);
+
+    for (CMItemCount i = 0; i < pv->timeRangeCount; i++)
+    {
+        hb_log("encvt_init: %lld, %lld",
+               pv->timeRangeArray[i].start.value,
+               pv->timeRangeArray[i].duration.value);
     }
 
     err = VTCompressionSessionBeginPass(pv->session, kVTCompressionSessionBeginFinalPass, 0);
@@ -1590,9 +1665,12 @@ int encvt_init(hb_work_object_t *w, hb_job_t *job)
                 pv->settings.vbv.bufsize = 0;
                 hb_log("encvt_Init: data rate limits not supported in CQ mode, Dolby Vision file might be out of specs");
             }
+            // Data limits are poorly supported in average mode too, disabling for now
             else
             {
-                hb_log("encvt_Init: encoding Dolby Vision with automatic data rate limits: %d kbit/s", pv->settings.vbv.maxrate);
+                pv->settings.vbv.maxrate = 0;
+                pv->settings.vbv.bufsize = 0;
+                hb_log("encvt_Init: data rate limits not supported in ABR mode, Dolby Vision file might be out of specs");
             }
         }
 
