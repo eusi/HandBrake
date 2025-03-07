@@ -1,6 +1,6 @@
 /* common.h
 
-   Copyright (c) 2003-2024 HandBrake Team
+   Copyright (c) 2003-2025 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -146,6 +146,8 @@ void hb_limit_rational( int *x, int *y, int64_t num, int64_t den, int limit );
 void hb_reduce64( int64_t *x, int64_t *y, int64_t num, int64_t den );
 void hb_limit_rational64( int64_t *x, int64_t *y, int64_t num, int64_t den, int64_t limit );
 
+void hb_update_str( char **dst, const char *src );
+
 void hb_job_set_encoder_preset (hb_job_t *job, const char *preset);
 void hb_job_set_encoder_tune   (hb_job_t *job, const char *tune);
 void hb_job_set_encoder_options(hb_job_t *job, const char *options);
@@ -160,6 +162,7 @@ void hb_audio_config_init(hb_audio_config_t * audiocfg);
 int hb_audio_add(const hb_job_t * job, const hb_audio_config_t * audiocfg);
 hb_audio_config_t * hb_list_audio_config_item(hb_list_t * list, int i);
 
+void hb_subtitle_config_copy(hb_subtitle_config_t *dst, const hb_subtitle_config_t *src);
 hb_subtitle_t *hb_subtitle_copy(const hb_subtitle_t *src);
 hb_list_t *hb_subtitle_list_copy(const hb_list_t *src);
 void hb_subtitle_close( hb_subtitle_t **sub );
@@ -170,8 +173,11 @@ int hb_import_subtitle_add( const hb_job_t * job,
 int hb_srt_add(const hb_job_t * job, const hb_subtitle_config_t * subtitlecfg,
                const char *lang);
 int hb_subtitle_can_force( int source );
+int hb_subtitle_can_export( int source );
 int hb_subtitle_can_burn( int source );
 int hb_subtitle_can_pass( int source, int mux );
+int hb_subtitle_must_burn(hb_subtitle_t * subtitle, int mux);
+int hb_subtitle_extradata_init(hb_subtitle_t * subtitle);
 
 int hb_audio_can_apply_drc(uint32_t codec, uint32_t codec_param, int encoder);
 int hb_audio_can_apply_drc2(hb_handle_t *h, int title_idx,
@@ -187,7 +193,9 @@ hb_metadata_t * hb_metadata_copy(const hb_metadata_t *src);
 void hb_metadata_close(hb_metadata_t **metadata);
 void hb_update_meta_dict(hb_dict_t * dict, const char * key, const char * value);
 const char * hb_lookup_meta_key(const char * mux_key);
-void hb_metadata_add_coverart( hb_metadata_t *metadata, const uint8_t *data, int size, int type );
+void hb_metadata_add_coverart( hb_metadata_t *metadata,
+                               const uint8_t *data, int size,
+                               int type, const char *name );
 void hb_metadata_rem_coverart( hb_metadata_t *metadata, int ii );
 
 hb_chapter_t *hb_chapter_copy(const hb_chapter_t *src);
@@ -329,6 +337,17 @@ struct hb_subtitle_config_s
     int          force;
     int          default_track;
     const char * name;
+    char       * external_filename;
+    enum subtitle_output_codec {
+        HB_SCODEC_PASS = 0,
+        HB_SCODEC_SSA,
+        HB_SCODEC_SRT,
+        HB_SCODEC_TX3G,
+        HB_SCODEC_PGS,
+        HB_SCODEC_DVD,
+        HB_SCODEC_VTT
+    } codec;
+    uint32_t     codec_param;    /* Per-codec config info */
 
     /* SRT subtitle tracks only */
     const char * src_filename;
@@ -370,6 +389,14 @@ struct hb_dovi_conf_s
     unsigned bl_present_flag;
     unsigned dv_bl_signal_compatibility_id;
 };
+
+typedef enum
+{
+    HB_HDR_DYNAMIC_METADATA_NONE      = 0,
+    HB_HDR_DYNAMIC_METADATA_HDR10PLUS = 1 << 1,
+    HB_HDR_DYNAMIC_METADATA_DOVI      = 1 << 2,
+    HB_HDR_DYNAMIC_METADATA_ALL       = HB_HDR_DYNAMIC_METADATA_HDR10PLUS | HB_HDR_DYNAMIC_METADATA_DOVI
+} hb_hdr_dynamic_metadata_mode_t;
 
 int hb_str_ends_with(const char *base, const char *str);
 
@@ -436,6 +463,11 @@ const char* hb_video_quality_get_name(uint32_t codec);
 int         hb_video_quality_is_supported(uint32_t codec);
 int         hb_video_bitrate_is_supported(uint32_t codec);
 int         hb_video_multipass_is_supported(uint32_t codec, int constant_quality);
+
+int                hb_video_hdr_dynamic_metadata_is_supported(uint32_t codec, int hdr_dynamic_metadata, int profile);
+
+int                hb_hdr_dynamic_metadata_get_from_name(const char *name);
+const char*        hb_hdr_dynamic_metadata_get_name(int hdr_dynamic_metadata);
 
 int                hb_video_encoder_is_supported(int encoder);
 int                hb_video_encoder_get_count_of_analysis_passes(int encoder);
@@ -750,7 +782,7 @@ struct hb_job_s
     hb_ambient_viewing_environment_metadata_t ambient;
     hb_dovi_conf_t dovi;
 
-    enum {NONE = 0x0, ALL = 0x3, DOVI = 0x1, HDR_10_PLUS = 0x2} passthru_dynamic_hdr_metadata;
+    hb_hdr_dynamic_metadata_mode_t passthru_dynamic_hdr_metadata;
 
 
     hb_list_t     * list_chapter;
@@ -1152,9 +1184,10 @@ struct hb_subtitle_s
     // Codec private data for subtitles originating from FFMPEG sources
     hb_data_t   * extradata;
 
-    hb_fifo_t     * fifo_in;        /* SPU ES */
-    hb_fifo_t     * fifo_raw;       /* Decoded SPU */
-    hb_fifo_t     * fifo_out;       /* Correct Timestamps, ready to be muxed */
+    hb_fifo_t     * fifo_in;   /* Input to decoder */
+    hb_fifo_t     * fifo_raw;  /* Decoder output, input to sync */
+    hb_fifo_t     * fifo_sync; /* Sync output, input to encoder */
+    hb_fifo_t     * fifo_out;  /* Encoder output, input to mux */
     hb_mux_data_t * mux_data;
 #endif
 };
@@ -1174,6 +1207,7 @@ struct hb_attachment_s
 
 struct hb_coverart_s
 {
+    char    *name;
     uint8_t *data;
     uint32_t size;
     enum arttype {
@@ -1419,6 +1453,7 @@ struct hb_work_object_s
 #endif
 };
 
+extern hb_work_object_t hb_workpass;
 extern hb_work_object_t hb_sync_video;
 extern hb_work_object_t hb_sync_audio;
 extern hb_work_object_t hb_sync_subtitle;
@@ -1426,8 +1461,10 @@ extern hb_work_object_t hb_decvobsub;
 extern hb_work_object_t hb_decsrtsub;
 extern hb_work_object_t hb_decutf8sub;
 extern hb_work_object_t hb_dectx3gsub;
+extern hb_work_object_t hb_enctx3gsub;
 extern hb_work_object_t hb_decssasub;
 extern hb_work_object_t hb_decavsub;
+extern hb_work_object_t hb_encavsub;
 extern hb_work_object_t hb_encavcodec;
 extern hb_work_object_t hb_encqsv;
 extern hb_work_object_t hb_encvt;
@@ -1603,9 +1640,12 @@ struct hb_blend_object_s
     char                * name;
 
 #ifdef __LIBHB__
-    int                (* init)       ( hb_blend_object_t *, int in_pix_fmt, int in_chroma_location, int sub_pix_fmt );
+    int                (* init)       ( hb_blend_object_t *, int in_width, int in_height,
+                                        int in_pix_fmt, int in_chroma_location,
+                                        int in_color_range, int overlay_pix_fmt );
     hb_buffer_t *      (* work)       ( hb_blend_object_t *,
-                                        hb_buffer_t *, hb_buffer_list_t * );
+                                        hb_buffer_t *, hb_buffer_list_t *,
+                                        int changed );
     void               (* close)      ( hb_blend_object_t * );
 
     hb_blend_private_t * private_data;

@@ -684,7 +684,8 @@ namespace HandBrakeWPF.ViewModels
                        {
                            new PlaceHolderBucket { Name = Constants.SourceArg },
                            new PlaceHolderBucket { Name = Constants.DestinationArg },
-                           new PlaceHolderBucket { Name = Constants.ExitCodeArg }
+                           new PlaceHolderBucket { Name = Constants.ExitCodeArg },
+                           new PlaceHolderBucket { Name = Constants.DestinationFolder }
                        };
             }
         }
@@ -1196,7 +1197,19 @@ namespace HandBrakeWPF.ViewModels
             {
                 this.updateAvailable = value;
                 this.NotifyOfPropertyChange(() => this.UpdateAvailable);
+                this.NotifyOfPropertyChange(() => this.IsPortableModeUpdateAvailable);
+                this.NotifyOfPropertyChange(() => this.DownloadAvailable);
             }
+        }
+
+        public bool DownloadAvailable
+        {
+            get => !Portable.IsPortable() && UpdateAvailable;
+        }
+
+        public bool IsPortableModeUpdateAvailable
+        {
+            get => Portable.IsPortable() && UpdateAvailable;
         }
 
         public int DownloadProgressPercentage
@@ -1374,7 +1387,7 @@ namespace HandBrakeWPF.ViewModels
         public void DownloadUpdate()
         {
             this.UpdateMessage = Resources.OptionsView_PreparingUpdate;
-            this.updateService.DownloadFile(this.updateInfo.DownloadFile, this.updateInfo.Signature, this.DownloadComplete, this.DownloadProgress);
+            this.updateService.DownloadFile(this.updateInfo, this.DownloadComplete, this.DownloadProgress);
         }
 
         public void PerformUpdateCheck()
@@ -1869,11 +1882,6 @@ namespace HandBrakeWPF.ViewModels
             if (info.NewVersionAvailable)
             {
                 this.UpdateMessage = Resources.OptionsViewModel_NewUpdate;
-                this.UpdateAvailable = true;
-            }
-            else if (Environment.Is64BitOperatingSystem && !System.Environment.Is64BitProcess)
-            {
-                this.UpdateMessage = Resources.OptionsViewModel_64bitAvailable;
                 this.UpdateAvailable = true;
             }
             else

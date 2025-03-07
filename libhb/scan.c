@@ -1,6 +1,6 @@
 /* scan.c
 
-   Copyright (c) 2003-2024 HandBrake Team
+   Copyright (c) 2003-2025 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -341,21 +341,23 @@ static void ScanFunc( void * _data )
             j++;
         }
 
-        // VOBSUB and PGS width and height needs to be set to the
-        // title width and height for any stream type that does
-        // not provide this information (DVDs, BDs, VOBs, and M2TSs).
-        // Title width and height don't get set until we decode
-        // previews, so we can't set subtitle width/height till
-        // we get here.
         for (j = 0; j < hb_list_count(title->list_subtitle); j++)
         {
             hb_subtitle_t *subtitle = hb_list_item(title->list_subtitle, j);
             if ((subtitle->source == VOBSUB || subtitle->source == PGSSUB) &&
                 (subtitle->width <= 0 || subtitle->height <= 0))
             {
+                // VOBSUB and PGS width and height needs to be set to the
+                // title width and height for any stream type that does
+                // not provide this information (DVDs, BDs, VOBs, and M2TSs).
+                // Title width and height don't get set until we decode
+                // previews, so we can't set subtitle width/height till
+                // we get here.
                 subtitle->width  = title->geometry.width;
                 subtitle->height = title->geometry.height;
             }
+            // Initialize subtitle extradata if not set by demux already
+            hb_subtitle_extradata_init(subtitle);
         }
         i++;
     }

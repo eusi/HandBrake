@@ -1,6 +1,6 @@
 /* json.c
 
-   Copyright (c) 2003-2024 HandBrake Team
+   Copyright (c) 2003-2025 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -821,6 +821,9 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
         hb_dict_set(video_dict, "Turbo",
                             hb_value_bool(job->fastanalysispass));
     }
+    hb_dict_set(video_dict, "PasshtruHDRDynamicMetadata",
+                        hb_value_int(job->passthru_dynamic_hdr_metadata));
+
     if (job->encoder_preset != NULL)
     {
         hb_dict_set(video_dict, "Preset",
@@ -933,6 +936,12 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
 
     // process subtitle list
     hb_dict_t *subtitles_dict = hb_dict_get(dict, "Subtitle");
+    if (job->select_subtitle_config.external_filename != NULL)
+    {
+        hb_dict_t *search = hb_dict_get(subtitles_dict, "Search");
+        hb_dict_set_string(search, "ExternalFilename",
+                           job->select_subtitle_config.external_filename);
+    }
     hb_dict_t *subtitle_list = hb_dict_get(subtitles_dict, "SubtitleList");
     for (ii = 0; ii < hb_list_count(job->list_subtitle); ii++)
     {
@@ -972,6 +981,11 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
         if (subtitle->config.name != NULL)
         {
             hb_dict_set_string(subtitle_dict, "Name", subtitle->config.name);
+        }
+        if (subtitle->config.external_filename != NULL)
+        {
+            hb_dict_set_string(subtitle_dict, "ExternalFilename",
+                               subtitle->config.external_filename);
         }
         hb_value_array_append(subtitle_list, subtitle_dict);
     }
@@ -1115,7 +1129,9 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     const char       * video_preset = NULL, * video_tune = NULL;
     const char       * video_profile = NULL, * video_level = NULL;
     const char       * video_options = NULL;
+    int                passthru_dynamic_hdr_metadata = -1;
     int                subtitle_search_burn = 0;
+    const char       * subtitle_search_external_filename = NULL;
     json_int_t         range_start = -1, range_end = -1, range_seek_points = -1;
     int                vbitrate = -1;
     double             vquality = HB_INVALID_VIDEO_QUALITY;
@@ -1135,7 +1151,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     // PAR {Num, Den}
     "s?{s:i, s:i},"
     // Video {Codec, Quality, Bitrate, Preset, Tune, Profile, Level, Options
-    //       MultiPass, Turbo,
+    //       MultiPass, Turbo, PasshtruHDRDynamicMetadata
     //       ColorInputFormat, ColorOutputFormat, ColorRange,
     //       ColorPrimaries, ColorTransfer, ColorMatrix, ChromaLocation,
     //       MasteringDisplayColorVolume,
@@ -1145,7 +1161,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     //       HardwareDecode
     //       QSV {Decode, AsyncDepth, AdapterIndex}}
     "s:{s:o, s?F, s?i, s?s, s?s, s?s, s?s, s?s,"
-    "   s?b, s?b,"
+    "   s?b, s?b, s?i,"
     "   s?i, s?i, s?i,"
     "   s?i, s?i, s?i, s?i,"
     "   s?o,"
@@ -1156,8 +1172,8 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     "   s?{s?b, s?i, s?i}},"
     // Audio {CopyMask, FallbackEncoder, AudioList}
     "s?{s?o, s?o, s?o},"
-    // Subtitle {Search {Enable, Forced, Default, Burn}, SubtitleList}
-    "s?{s?{s:b, s?b, s?b, s?b}, s?o},"
+    // Subtitle {Search {Enable, Forced, Default, Burn, ExternalFilename}, SubtitleList}
+    "s?{s?{s:b, s?b, s?b, s?b, s?s}, s?o},"
     // Metadata
     "s?o,"
     // Filters {FilterList}
@@ -1196,6 +1212,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             "Options",              unpack_s(&video_options),
             "MultiPass",            unpack_b(&job->multipass),
             "Turbo",                unpack_b(&job->fastanalysispass),
+            "PasshtruHDRDynamicMetadata", unpack_i(&passthru_dynamic_hdr_metadata),
             "ColorInputFormat",     unpack_i(&job->input_pix_fmt),
             "ColorOutputFormat",    unpack_i(&job->output_pix_fmt),
             "ColorRange",           unpack_i(&job->color_range),
@@ -1224,6 +1241,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                 "Forced",           unpack_b(&job->select_subtitle_config.force),
                 "Default",          unpack_b(&job->select_subtitle_config.default_track),
                 "Burn",             unpack_b(&subtitle_search_burn),
+                "ExternalFilename", unpack_s(&subtitle_search_external_filename),
             "SubtitleList",         unpack_o(&subtitle_list),
         "Metadata",                 unpack_o(&meta_dict),
         "Filters",
@@ -1297,6 +1315,11 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         }
     }
 
+    if (passthru_dynamic_hdr_metadata > -1)
+    {
+        job->passthru_dynamic_hdr_metadata = passthru_dynamic_hdr_metadata;
+    }
+
     if (destfile != NULL && destfile[0] != 0)
     {
         hb_job_set_file(job, destfile);
@@ -1329,9 +1352,6 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         job->vquality = vquality;
     }
     // If neither were specified, defaults are used (set in job_setup())
-
-    job->select_subtitle_config.dest = subtitle_search_burn ?
-                                            RENDERSUB : PASSTHRUSUB;
 
     if (mastering_dict != NULL)
     {
@@ -1639,6 +1659,11 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         ii++;
     }
 
+    job->select_subtitle_config.dest = subtitle_search_burn ?
+                                            RENDERSUB : PASSTHRUSUB;
+    hb_update_str(&job->select_subtitle_config.external_filename,
+                  subtitle_search_external_filename);
+
     // process subtitle list
     if (subtitle_list != NULL &&
         hb_value_type(subtitle_list) == HB_VALUE_TYPE_ARRAY)
@@ -1655,11 +1680,13 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             const char *importfile = NULL;
             json_int_t offset = 0;
             const char *name = NULL;
+            const char *external_filename = NULL;
 
             result = json_unpack_ex(subtitle_dict, &error, 0,
-                                    "{s?i, s?s, s?{s:s}, s?{s:s}}",
+                                    "{s?i, s?s, s?s, s?{s:s}, s?{s:s}}",
                                     "Track", unpack_i(&track),
                                     "Name",  unpack_s(&name),
+                                    "ExternalFilename", unpack_s(&external_filename),
                                     // Support legacy "SRT" import
                                     "SRT",
                                         "Filename", unpack_s(&importfile),
@@ -1680,10 +1707,6 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                 if (subtitle != NULL)
                 {
                     sub_config = subtitle->config;
-                    if (name != NULL)
-                    {
-                        sub_config.name = name;
-                    }
                     result = json_unpack_ex(subtitle_dict, &error, 0,
                         "{s?b, s?b, s?b, s?I}",
                         "Default",  unpack_b(&sub_config.default_track),
@@ -1696,8 +1719,10 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                         hb_job_close(&job);
                         return NULL;
                     }
+                    sub_config.name = name;
                     sub_config.offset = offset;
                     sub_config.dest = burn ? RENDERSUB : PASSTHRUSUB;
+                    sub_config.external_filename = (char*)external_filename;
                     hb_subtitle_add(job, &sub_config, track);
                 }
             }
@@ -1731,10 +1756,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                     hb_job_close(&job);
                     return NULL;
                 }
-                if (name != NULL)
-                {
-                    sub_config.name = name;
-                }
+                sub_config.name = name;
                 sub_config.offset = offset;
                 sub_config.dest = burn ? RENDERSUB : PASSTHRUSUB;
                 strncpy(sub_config.src_codeset, srtcodeset, 39);
@@ -1743,6 +1765,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                 {
                     source = IMPORTSSA;
                 }
+                sub_config.external_filename = (char*)external_filename;
                 hb_import_subtitle_add(job, &sub_config, lang, source);
             }
         }

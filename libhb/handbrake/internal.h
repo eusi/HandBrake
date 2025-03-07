@@ -1,6 +1,6 @@
 /* internal.h
 
-   Copyright (c) 2003-2024 HandBrake Team
+   Copyright (c) 2003-2025 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -397,12 +397,14 @@ hb_data_t * hb_data_dup(const hb_data_t *src);
 enum
 {
     WORK_NONE = 0,
+    WORK_PASS,
     WORK_SYNC_VIDEO,
     WORK_SYNC_AUDIO,
     WORK_SYNC_SUBTITLE,
     WORK_DECVOBSUB,
     WORK_DECSRTSUB,
     WORK_DECTX3GSUB,
+    WORK_ENCTX3GSUB,
     WORK_DECSSASUB,
     WORK_RENDER,
     WORK_ENCAVCODEC,
@@ -422,7 +424,8 @@ enum
     WORK_ENCAVCODEC_AUDIO,
     WORK_MUX,
     WORK_READER,
-    WORK_DECAVSUB
+    WORK_DECAVSUB,
+    WORK_ENCAVSUB
 };
 
 extern hb_filter_object_t hb_filter_detelecine;
@@ -463,12 +466,13 @@ extern hb_filter_object_t hb_filter_unsharp_vt;
 #endif
 
 extern hb_motion_metric_object_t hb_motion_metric;
+extern hb_blend_object_t hb_blend;
 
 #if defined(__APPLE__)
 extern hb_motion_metric_object_t hb_motion_metric_vt;
+extern hb_blend_object_t hb_blend_vt;
 #endif
 
-extern hb_blend_object_t hb_blend;
 
 extern hb_work_object_t * hb_objects;
 

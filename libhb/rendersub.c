@@ -1,6 +1,6 @@
 /* rendersub.c
 
-   Copyright (c) 2003-2024 HandBrake Team
+   Copyright (c) 2003-2025 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -39,6 +39,7 @@ struct hb_filter_private_s
     int                sws_height;
 
     hb_buffer_list_t   rendered_sub_list;
+    int                changed;
 
     // VOBSUB && PGSSUB
     hb_buffer_list_t   sub_list; // List of active subs
@@ -462,7 +463,7 @@ static int vobsub_work(hb_filter_object_t *filter,
     render_vobsubs(pv, in);
 
     *buf_in = NULL;
-    *buf_out = pv->blend->work(pv->blend, in, &pv->rendered_sub_list);
+    *buf_out = pv->blend->work(pv->blend, in, &pv->rendered_sub_list, 1);
 
     hb_buffer_list_close(&pv->rendered_sub_list);
 
@@ -659,6 +660,7 @@ static void render_ssa_subs(hb_filter_private_t *pv, int64_t start)
             }
         }
     }
+    pv->changed = changed;
 }
 
 static void ssa_log(int level, const char *fmt, va_list args, void *data)
@@ -882,33 +884,18 @@ static int ssa_work(hb_filter_object_t *filter,
     render_ssa_subs(pv, in->s.start);
 
     *buf_in  = NULL;
-    *buf_out = pv->blend->work(pv->blend, in, &pv->rendered_sub_list);
+    *buf_out = pv->blend->work(pv->blend, in, &pv->rendered_sub_list, pv->changed);
 
     return HB_FILTER_OK;
 }
 
 static int cc608sub_post_init(hb_filter_object_t *filter, hb_job_t *job)
 {
-    // Text subtitles for which we create a dummy ASS header need
-    // to have the header rewritten with the correct dimensions.
-    int height = job->title->geometry.height - job->crop[0] - job->crop[1];
-    int width = job->title->geometry.width - job->crop[2] - job->crop[3];
-    int safe_height = 0.8 * job->title->geometry.height;
-    // Use fixed width font for CC
-    hb_set_ssa_extradata(&filter->subtitle->extradata, HB_FONT_MONO,
-                         .08 * safe_height, width, height);
     return ssa_post_init(filter, job);
 }
 
 static int textsub_post_init(hb_filter_object_t *filter, hb_job_t *job)
 {
-    // Text subtitles for which we create a dummy ASS header need
-    // to have the header rewritten with the correct dimensions.
-    int height = job->title->geometry.height - job->crop[0] - job->crop[1];
-    int width = job->title->geometry.width - job->crop[2] - job->crop[3];
-    hb_set_ssa_extradata(&filter->subtitle->extradata, HB_FONT_SANS,
-                         .066 * job->title->geometry.height,
-                         width, height);
     return ssa_post_init(filter, job);
 }
 
@@ -1020,7 +1007,7 @@ static int textsub_work(hb_filter_object_t *filter,
     render_ssa_subs(pv, in->s.start);
 
     *buf_in  = NULL;
-    *buf_out = pv->blend->work(pv->blend, in, &pv->rendered_sub_list);
+    *buf_out = pv->blend->work(pv->blend, in, &pv->rendered_sub_list, pv->changed);
 
     return HB_FILTER_OK;
 }
@@ -1131,18 +1118,23 @@ static int pgssub_work(hb_filter_object_t *filter,
     render_pgs_subs(pv, in);
 
     *buf_in = NULL;
-    *buf_out = pv->blend->work(pv->blend, in, &pv->rendered_sub_list);
+    *buf_out = pv->blend->work(pv->blend, in, &pv->rendered_sub_list, 1);
 
     hb_buffer_list_close(&pv->rendered_sub_list);
 
     return HB_FILTER_OK;
 }
 
-static hb_blend_object_t * hb_blend_init(int hw_pixfmt, int in_pix_fmt, int in_chroma_location, int sub_pix_fmt)
+static hb_blend_object_t * hb_blend_init(hb_filter_init_t init, int sub_pix_fmt)
 {
     hb_blend_object_t *blend;
-    switch (hw_pixfmt)
+    switch (init.hw_pix_fmt)
     {
+#if defined(__APPLE__)
+        case AV_PIX_FMT_VIDEOTOOLBOX:
+            blend = &hb_blend_vt;
+            break;
+#endif
         default:
             blend = &hb_blend;
             break;
@@ -1156,7 +1148,9 @@ static hb_blend_object_t * hb_blend_init(int hw_pixfmt, int in_pix_fmt, int in_c
     }
 
     memcpy(blend_copy, blend, sizeof(hb_blend_object_t));
-    if (blend_copy->init(blend_copy, in_pix_fmt, in_chroma_location, sub_pix_fmt))
+    if (blend_copy->init(blend_copy, init.geometry.width, init.geometry.height,
+                         init.pix_fmt, init.chroma_location,
+                         init.color_range, sub_pix_fmt))
     {
         free(blend_copy);
         hb_error("render_sub: blend init failed");
@@ -1280,9 +1274,7 @@ static int hb_rendersub_post_init(hb_filter_object_t *filter, hb_job_t *job)
         return 1;
     }
 
-    pv->blend = hb_blend_init(pv->input.hw_pix_fmt,
-                              pv->input.pix_fmt, pv->input.chroma_location,
-                              pv->pix_fmt_alpha);
+    pv->blend = hb_blend_init(pv->input, pv->pix_fmt_alpha);
 
     if (pv->blend == NULL)
     {

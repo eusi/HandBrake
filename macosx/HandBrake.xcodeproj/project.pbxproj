@@ -204,6 +204,8 @@
 		A93341EF243E15BE003A82C2 /* HandBrakeXPCService3.xpc in Copy Files */ = {isa = PBXBuildFile; fileRef = A93341D5243E158B003A82C2 /* HandBrakeXPCService3.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A93341F0243E15BE003A82C2 /* HandBrakeXPCService4.xpc in Copy Files */ = {isa = PBXBuildFile; fileRef = A93341E6243E158E003A82C2 /* HandBrakeXPCService4.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A93341F1243E15CE003A82C2 /* HandBrakeXPCService.xpc in Copy Files */ = {isa = PBXBuildFile; fileRef = A964D39522FDE8EE00DFCAEA /* HandBrakeXPCService.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A935B1662D68B68C00486A51 /* libcpuinfo.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A935B1652D68B67F00486A51 /* libcpuinfo.a */; };
+		A935B1672D68B6D300486A51 /* libcpuinfo.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A935B1652D68B67F00486A51 /* libcpuinfo.a */; };
 		A939DD8B1FC8826A00135F2A /* HBPresetsMenuBuilder.m in Sources */ = {isa = PBXBuildFile; fileRef = A939DD8A1FC8826A00135F2A /* HBPresetsMenuBuilder.m */; };
 		A93CD3172C47CAFC00B11335 /* HBTitleSelectionRange.m in Sources */ = {isa = PBXBuildFile; fileRef = A93CD3162C47CAFC00B11335 /* HBTitleSelectionRange.m */; };
 		A93E0ED31972957000FD67FB /* HBVideoController.m in Sources */ = {isa = PBXBuildFile; fileRef = A93E0ED11972957000FD67FB /* HBVideoController.m */; };
@@ -223,6 +225,7 @@
 		A957EBCD218DBE5900007988 /* HBAutoNamer.m in Sources */ = {isa = PBXBuildFile; fileRef = A957EBCC218DBE5900007988 /* HBAutoNamer.m */; };
 		A958EAC222E24D6400D83AF4 /* HBQueueTableViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = A958EAC422E24D6400D83AF4 /* HBQueueTableViewController.xib */; };
 		A958EAC522E24D6800D83AF4 /* HBQueueInfoViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = A958EAC722E24D6800D83AF4 /* HBQueueInfoViewController.xib */; };
+		A95967382D26A1E900EDF58D /* HBOutlineView.m in Sources */ = {isa = PBXBuildFile; fileRef = A95967372D26A1E900EDF58D /* HBOutlineView.m */; };
 		A95BA15D220C968500A2F9F9 /* HBQueueJobItem.m in Sources */ = {isa = PBXBuildFile; fileRef = A95BA15C220C968500A2F9F9 /* HBQueueJobItem.m */; };
 		A95BC1E71CD2548A008D6A33 /* volHighTemplate.pdf in Resources */ = {isa = PBXBuildFile; fileRef = A95BC1E51CD2548A008D6A33 /* volHighTemplate.pdf */; };
 		A95BC1E81CD2548A008D6A33 /* volLowTemplate.pdf in Resources */ = {isa = PBXBuildFile; fileRef = A95BC1E61CD2548A008D6A33 /* volLowTemplate.pdf */; };
@@ -236,6 +239,8 @@
 		A96664B51CCE48F700DA4A57 /* HBPictureHUDController.m in Sources */ = {isa = PBXBuildFile; fileRef = A96664B31CCE48F700DA4A57 /* HBPictureHUDController.m */; };
 		A96664BA1CCE493D00DA4A57 /* HBEncodingProgressHUDController.m in Sources */ = {isa = PBXBuildFile; fileRef = A96664B81CCE493D00DA4A57 /* HBEncodingProgressHUDController.m */; };
 		A96E20642B90B0A20043CFCD /* HBBadgeView.m in Sources */ = {isa = PBXBuildFile; fileRef = A96E20632B90B0A20043CFCD /* HBBadgeView.m */; };
+		A96E35732D44F35800642601 /* IOSurface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A96E35722D44F35800642601 /* IOSurface.framework */; };
+		A96E35742D44F35F00642601 /* IOSurface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A96E35722D44F35800642601 /* IOSurface.framework */; };
 		A96E461B278D99840016DCBB /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A96E461A278D99840016DCBB /* Sparkle */; };
 		A9706CB41AC1436F00BAEAA8 /* HBApplication.m in Sources */ = {isa = PBXBuildFile; fileRef = A9706CB31AC1436F00BAEAA8 /* HBApplication.m */; };
 		A9706CB71AC1437800BAEAA8 /* HBExceptionAlertController.m in Sources */ = {isa = PBXBuildFile; fileRef = A9706CB61AC1437800BAEAA8 /* HBExceptionAlertController.m */; };
@@ -612,6 +617,7 @@
 		A93341C4243E1583003A82C2 /* HandBrakeXPCService2.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = HandBrakeXPCService2.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		A93341D5243E158B003A82C2 /* HandBrakeXPCService3.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = HandBrakeXPCService3.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		A93341E6243E158E003A82C2 /* HandBrakeXPCService4.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = HandBrakeXPCService4.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
+		A935B1652D68B67F00486A51 /* libcpuinfo.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcpuinfo.a; path = external/contrib/lib/libcpuinfo.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		A939DD891FC8826A00135F2A /* HBPresetsMenuBuilder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HBPresetsMenuBuilder.h; sourceTree = "<group>"; };
 		A939DD8A1FC8826A00135F2A /* HBPresetsMenuBuilder.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HBPresetsMenuBuilder.m; sourceTree = "<group>"; };
 		A93B0DF61C804CF50051A3FA /* NSDictionary+HBAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSDictionary+HBAdditions.h"; sourceTree = "<group>"; };
@@ -665,6 +671,8 @@
 		A958605B2216A5E5002092B1 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A958EAC322E24D6400D83AF4 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/HBQueueTableViewController.xib; sourceTree = "<group>"; };
 		A958EAC622E24D6800D83AF4 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/HBQueueInfoViewController.xib; sourceTree = "<group>"; };
+		A95967362D26A1E900EDF58D /* HBOutlineView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HBOutlineView.h; sourceTree = "<group>"; };
+		A95967372D26A1E900EDF58D /* HBOutlineView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HBOutlineView.m; sourceTree = "<group>"; };
 		A9597A281A49749D00007771 /* HBRange+UIAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "HBRange+UIAdditions.h"; sourceTree = "<group>"; };
 		A9597A291A49749D00007771 /* HBRange+UIAdditions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "HBRange+UIAdditions.m"; sourceTree = "<group>"; };
 		A95BA15B220C968500A2F9F9 /* HBQueueJobItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HBQueueJobItem.h; sourceTree = "<group>"; };
@@ -725,6 +733,7 @@
 		A96CD1751BCC5F9100F372F1 /* HBMutablePreset.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HBMutablePreset.m; sourceTree = "<group>"; };
 		A96E20622B90B0A20043CFCD /* HBBadgeView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HBBadgeView.h; sourceTree = "<group>"; };
 		A96E20632B90B0A20043CFCD /* HBBadgeView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HBBadgeView.m; sourceTree = "<group>"; };
+		A96E35722D44F35800642601 /* IOSurface.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOSurface.framework; path = System/Library/Frameworks/IOSurface.framework; sourceTree = SDKROOT; };
 		A9706CB21AC1436F00BAEAA8 /* HBApplication.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HBApplication.h; sourceTree = "<group>"; };
 		A9706CB31AC1436F00BAEAA8 /* HBApplication.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HBApplication.m; sourceTree = "<group>"; };
 		A9706CB51AC1437800BAEAA8 /* HBExceptionAlertController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HBExceptionAlertController.h; sourceTree = "<group>"; };
@@ -1262,11 +1271,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A96E35732D44F35800642601 /* IOSurface.framework in Frameworks */,
 				A9C3A8F7278DFFA500839EDF /* Foundation.framework in Frameworks */,
 				A9A25D9C21182741005A8A0F /* CoreMedia.framework in Frameworks */,
 				A9AB9AA821181CC700BB3C7E /* CoreVideo.framework in Frameworks */,
 				A9AB9AA621181CA900BB3C7E /* VideoToolbox.framework in Frameworks */,
 				A9ABD1A91E2A0F8200EC8B65 /* CoreGraphics.framework in Frameworks */,
+				A935B1672D68B6D300486A51 /* libcpuinfo.a in Frameworks */,
 				A9ABD1A71E2A0F7500EC8B65 /* CoreText.framework in Frameworks */,
 				273F203014ADB9790021BE6D /* AudioToolbox.framework in Frameworks */,
 				273F203314ADB9F00021BE6D /* CoreServices.framework in Frameworks */,
@@ -1356,6 +1367,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A96E35742D44F35F00642601 /* IOSurface.framework in Frameworks */,
 				A9A25D9D21182753005A8A0F /* CoreMedia.framework in Frameworks */,
 				A9AB9AA5211819A500BB3C7E /* VideoToolbox.framework in Frameworks */,
 				A9ABD1AA1E2A0F8F00EC8B65 /* CoreGraphics.framework in Frameworks */,
@@ -1369,6 +1381,7 @@
 				A91CE2D01C7DABCE0068F46F /* libbz2.tbd in Frameworks */,
 				1CBC683520BE014800A26CC2 /* liblzma.a in Frameworks */,
 				1C53DE8D20BD598D006BBCA8 /* libspeex.a in Frameworks */,
+				A935B1662D68B68C00486A51 /* libcpuinfo.a in Frameworks */,
 				1C0695AF20BD193D001543DA /* libswresample.a in Frameworks */,
 				A900E6BD1D7B1B5A00CB6C0A /* libopus.a in Frameworks */,
 				A99E13392833B97A0006D720 /* libSvtAv1Enc.a in Frameworks */,
@@ -1413,7 +1426,6 @@
 		271BA4C714B1236D00BC1D2C /* Static Libraries */ = {
 			isa = PBXGroup;
 			children = (
-				A9E34AD4297871FE00C5DD82 /* libdovi.a */,
 				1CDCF0C1241F28D400FB62C6 /* libturbojpeg.a */,
 				1C280BF320BD58DD00D5ECC2 /* libspeex.a */,
 				1CBC683320BE014800A26CC2 /* liblzma.a */,
@@ -1442,6 +1454,7 @@
 				A9E165511C523016003EF30E /* libavfilter.a */,
 				1C15C82B1CD7722500368223 /* libharfbuzz.a */,
 				A9935867256C349B00A6875E /* libzimg.a */,
+				A935B1652D68B67F00486A51 /* libcpuinfo.a */,
 				A99E13372833B97A0006D720 /* libSvtAv1Enc.a */,
 			);
 			name = "Static Libraries";
@@ -1500,6 +1513,7 @@
 		273F203414ADBAC30021BE6D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A96E35722D44F35800642601 /* IOSurface.framework */,
 				A99B989F27957FCE00DCD062 /* Metal.framework */,
 				273F202214ADB8650021BE6D /* IOKit.framework */,
 				A95798DA278DEAE500AA7C7D /* AppKit.framework */,
@@ -1591,6 +1605,7 @@
 			isa = PBXGroup;
 			children = (
 				277EFE9217ED799E001D4A6A /* libfdk-aac.a */,
+				A9E34AD4297871FE00C5DD82 /* libdovi.a */,
 				22CC9E74191EBEA500C69D81 /* libx265.a */,
 			);
 			name = "Static Libraries (optional)";
@@ -2001,6 +2016,8 @@
 				A9F7102519A475EC00F61301 /* HBDockTile.m */,
 				A9EA43661A2210C400785E95 /* HBTableView.h */,
 				A9EA43671A2210C400785E95 /* HBTableView.m */,
+				A95967362D26A1E900EDF58D /* HBOutlineView.h */,
+				A95967372D26A1E900EDF58D /* HBOutlineView.m */,
 				A9D0FA751C1C284D0003F2A9 /* HBFocusRingView.h */,
 				A9D0FA761C1C284D0003F2A9 /* HBFocusRingView.m */,
 				A9C61F9C22E31CDB00C28E7C /* HBFlippedClipView.h */,
@@ -2271,7 +2288,7 @@
 			isa = PBXProject;
 			attributes = {
 				CLASSPREFIX = HB;
-				LastUpgradeCheck = 1610;
+				LastUpgradeCheck = 1620;
 				ORGANIZATIONNAME = HandBrake;
 				TargetAttributes = {
 					273F203814ADBC200021BE6D = {
@@ -2555,6 +2572,7 @@
 				A96127DF22E0994E0086E6DC /* HBQueueInfoViewController.m in Sources */,
 				A97ECB8222E1D85500570935 /* HBQueue.m in Sources */,
 				A93CD3172C47CAFC00B11335 /* HBTitleSelectionRange.m in Sources */,
+				A95967382D26A1E900EDF58D /* HBOutlineView.m in Sources */,
 				A92B148220CA9F7700146FD8 /* HBHUDView.m in Sources */,
 				A9150DAE243F7BE200694870 /* HBQueueDockTileController.m in Sources */,
 				A9B3B63922E2EA58001CEB9A /* HBQueueItemWorkingView.m in Sources */,

@@ -1,6 +1,6 @@
 /* sync.c
 
-   Copyright (c) 2003-2024 HandBrake Team
+   Copyright (c) 2003-2025 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -1181,9 +1181,12 @@ static void fixSubtitleOverlap( sync_stream_t * stream )
         // marker to indicate the end of a subtitle
         return;
     }
-    // Only SSA subs can overlap
+    // Theoretically only SSA subs can overlap,
+    // but there are some SRT subs out there with
+    // overlapping samples, so let's try to preserve them too
     if (stream->subtitle.subtitle->source      != SSASUB &&
         stream->subtitle.subtitle->source      != IMPORTSSA &&
+        stream->subtitle.subtitle->source      != IMPORTSRT &&
         stream->subtitle.subtitle->config.dest == PASSTHRUSUB &&
         buf->s.start <= stream->last_pts)
     {
@@ -2158,14 +2161,7 @@ static int InitAudio( sync_common_t * common, int index )
     w->private_data = pv;
     w->audio        = audio;
     w->fifo_in      = audio->priv.fifo_raw;
-    if (audio->config.out.codec & HB_ACODEC_PASS_FLAG)
-    {
-        w->fifo_out = audio->priv.fifo_out;
-    }
-    else
-    {
-        w->fifo_out = audio->priv.fifo_sync;
-    }
+    w->fifo_out     = audio->priv.fifo_sync;
 
     pv->common                  = common;
     pv->stream                  = &common->streams[1 + index];
@@ -2269,14 +2265,14 @@ static int InitSubtitle( sync_common_t * common, int index )
     pv->stream->last_scr_sequence = -1;
     pv->stream->last_duration     = (int64_t)AV_NOPTS_VALUE;
     pv->stream->subtitle.subtitle = subtitle;
-    pv->stream->fifo_out          = subtitle->fifo_out;
+    pv->stream->fifo_out          = subtitle->fifo_sync;
     pv->stream->fifo_in           = subtitle->fifo_in;
 
     w = hb_get_work(common->job->h, WORK_SYNC_SUBTITLE);
     w->private_data = pv;
     w->subtitle     = subtitle;
     w->fifo_in      = subtitle->fifo_raw;
-    w->fifo_out     = subtitle->fifo_out;
+    w->fifo_out     = subtitle->fifo_sync;
 
     memset(&pv->stream->subtitle.sanitizer, 0,
            sizeof(pv->stream->subtitle.sanitizer));
