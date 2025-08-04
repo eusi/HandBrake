@@ -567,7 +567,10 @@ HB_EXIT_CODE
     <value>If not enabled, scaled dimensions will be limited to source dimensions.</value>
   </data>
   <data name="PictureSettingsView_AutomaticKeepAR" xml:space="preserve">
-    <value>Changing the displays size will stretch the video</value>
+    <value>表示サイズを変更すると映像が引き延ばされます</value>
+  </data>
+  <data name="Video_ColourRange" xml:space="preserve">
+    <value>Color Range. Determines the values of the reference black and white. Set to limited to maximize compatibility.</value>
   </data>
   <data name="Video_ColourRange" xml:space="preserve">
     <value />
