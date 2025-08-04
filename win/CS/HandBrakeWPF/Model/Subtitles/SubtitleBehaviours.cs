@@ -25,6 +25,8 @@ namespace HandBrakeWPF.Model.Subtitles
         private string subtitleDefaultKeyword;
         private SubtitleBurnInBehaviourModes selectedBurnInBehaviour;
 
+        private bool subtitleTrackNamePassthru;
+
         public SubtitleBehaviours()
         {
             this.SelectedBehaviour = SubtitleBehaviourModes.None;
@@ -39,6 +41,7 @@ namespace HandBrakeWPF.Model.Subtitles
             this.SelectedLanguages = new BindingList<Language>(behaviours.SelectedLanguages.ToList());
             this.AddClosedCaptions = behaviours.AddClosedCaptions;
             this.AddForeignAudioScanTrack = behaviours.AddForeignAudioScanTrack;
+            this.SubtitleTrackNamePassthru = behaviours.SubtitleTrackNamePassthru;
             this.SubtitleDefaultKeyword = behaviours.SubtitleDefaultKeyword;
         }
 
@@ -110,9 +113,6 @@ namespace HandBrakeWPF.Model.Subtitles
             }
         }
 
-        /// <summary>
-        /// Gets or sets a value indicating whether add foreign audio scan track.
-        /// </summary>
         public string SubtitleDefaultKeyword
         {
             get
@@ -150,6 +150,21 @@ namespace HandBrakeWPF.Model.Subtitles
                 }
                 this.addClosedCaptions = value;
                 this.NotifyOfPropertyChange(() => this.AddClosedCaptions);
+            }
+        }
+
+        public bool SubtitleTrackNamePassthru
+        {
+            get => this.subtitleTrackNamePassthru;
+            set
+            {
+                if (value == this.subtitleTrackNamePassthru)
+                {
+                    return;
+                }
+
+                this.subtitleTrackNamePassthru = value;
+                this.NotifyOfPropertyChange(() => this.SubtitleTrackNamePassthru);
             }
         }
     }

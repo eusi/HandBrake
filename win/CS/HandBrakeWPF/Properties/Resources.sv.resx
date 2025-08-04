@@ -2199,16 +2199,16 @@ Välj ett annat förval.</value>
     <value>Anpassad (inte begränsad)</value>
   </data>
   <data name="PaddingMode_Fill" xml:space="preserve">
-    <value>Fyll (Surround)</value>
+    <value>Bredd och höjd</value>
   </data>
   <data name="PaddingMode_Height" xml:space="preserve">
-    <value>Höjd (Pillarbox)</value>
+    <value>Höjd (brevlådeformat)</value>
   </data>
   <data name="PaddingMode_None" xml:space="preserve">
     <value>Ingen</value>
   </data>
   <data name="PaddingMode_Width" xml:space="preserve">
-    <value>Bredd (Letterbox)</value>
+    <value>Bredd (pelarlådeformat)</value>
   </data>
   <data name="PictureSettingsView_Padding" xml:space="preserve">
     <value>Fyll:</value>
@@ -2678,7 +2678,7 @@ Observera att vissa kodekar såsom AV1 eller HEVC kräver att Microsofts AV1 ell
 Alternativt, välj kryssrutan 'Använd extern uppspelare' nedan.</value>
   </data>
   <data name="StaticPreviewView_ClosePlayer" xml:space="preserve">
-    <value>Välj uppspelare</value>
+    <value>Stäng uppspelare</value>
   </data>
   <data name="StaticPreviewView_Play" xml:space="preserve">
     <value>Spela upp</value>
@@ -2837,7 +2837,7 @@ För att tillåta flera samtidiga enkodningar, aktivera "Processisolering" i Ver
     <value>Starta senare</value>
   </data>
   <data name="QueueView_QueueStartTime" xml:space="preserve">
-    <value>Köns starttid:</value>
+    <value>Kön kommer starta automatiskt klockan:</value>
   </data>
   <data name="QueueView_EncodeShutdown" xml:space="preserve">
     <value>Stänger ner enkodning ...</value>
@@ -2938,8 +2938,52 @@ För att tillåta flera samtidiga enkodningar, aktivera "Processisolering" i Ver
   <data name="Options_RunAction" xml:space="preserve">
     <value>Kör skript / körbar fil:</value>
   </data>
-  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="OptionsViewModel_PortableMode" type="System.Resources.ResXNullRef, System.Windows.Forms">
+  <data name="OptionsViewModel_PortableMode" xml:space="preserve">
+    <value>HandBrake är för närvarande konfigurerat i portabelt läge. För att uppdatera en portabel installation måste du hämta den senaste uppdateringen från webbsidan.</value>
+  </data>
+  <data name="MetaData_Add" xml:space="preserve">
+    <value>Lägg till rad</value>
+  </data>
+  <data name="MainView_DebugMenu" xml:space="preserve">
+    <value>Felsökningsmeny</value>
+  </data>
+  <data name="MainView_DebugExportData" xml:space="preserve">
+    <value>Exportera felsökningsfil (JSON)</value>
+  </data>
+  <data name="MainView_DebugImportData" xml:space="preserve">
+    <value>Importera felsökningsfil (JSON)</value>
+  </data>
+  <data name="MainView_DebugQualitySweep" xml:space="preserve">
+    <value>Lägg till i kö - Kvalitetssvepning</value>
+  </data>
+  <data name="LogView_ChooseLogFile" xml:space="preserve">
+    <value>Välj loggfil :</value>
+  </data>
+  <data name="LogView_AutoScrolling" xml:space="preserve">
+    <value>Automatisk rullning</value>
+  </data>
+  <data name="LogLevel_Minimised" xml:space="preserve">
+    <value>Minimerad</value>
+  </data>
+  <data name="LogLevel_Standard" xml:space="preserve">
+    <value>Standard</value>
+  </data>
+  <data name="LogLevel_Extended" xml:space="preserve">
+    <value>Utökad</value>
+  </data>
+  <data name="QueueView_CancelDelayStart" xml:space="preserve">
+    <value>Avbryt fördröjning</value>
+  </data>
+  <data name="QueueView_StartQueueNow" xml:space="preserve">
+    <value>Starta kön (direkt)</value>
+  </data>
+  <data name="VideoColourRange_SameAsSource" xml:space="preserve">
+    <value />
+  </data>
+  <data name="VideoColourRange_Full" xml:space="preserve">
+    <value />
+  </data>
+  <data name="VideoColourRange_Limited" xml:space="preserve">
     <value />
   </data>
 </root>

@@ -194,7 +194,7 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         self.window.toolbarStyle = NSWindowToolbarStyleExpanded;
     }
 
-    self.toolbarDelegate = [[HBControllerToolbarDelegate alloc] init];
+    self.toolbarDelegate = [[HBControllerToolbarDelegate alloc] initWithTarget:self];
 
     NSToolbar *toolbar = [[NSToolbar alloc] initWithIdentifier:@"HBMainWindowToolbar2"];
     toolbar.delegate = self.toolbarDelegate;
@@ -543,8 +543,12 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 {
     SEL action = menuItem.action;
 
-    if (action == @selector(addToQueue:) || action == @selector(addAllTitlesToQueue:) ||
-        action == @selector(addTitlesToQueue:) || action == @selector(showAddPresetPanel:))
+    if (action == @selector(addToQueue:) ||
+        action == @selector(addAllTitlesToQueue:) ||
+        action == @selector(addTitlesToQueue:) ||
+        action == @selector(showAddPresetPanel:) ||
+        action == @selector(revealDestinationItemsInFinder:) ||
+        action == @selector(revealSourceItemsInFinder:))
     {
         return self.job && self.window.attachedSheet == nil;
     }
@@ -778,8 +782,9 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
 
         if (isDirectory.boolValue == YES)
         {
-            [self.job setDestinationFolderURL:self.destinationFolderURL sameAsSource:YES];
+            self.destinationFolderURL = sourceURL;
             self.destinationFolderToken = [HBSecurityAccessToken tokenWithObject:sourceURL];
+            [self.job setDestinationFolderURL:sourceURL sameAsSource:YES];
             return;
         }
     }
@@ -902,7 +907,19 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
         {
             if (titles.count)
             {
-                job.title = titles.firstObject;
+                // Match the title index if the scan returned a cached result
+                for (HBTitle *title in titles)
+                {
+                    if (title.index == job.titleIdx)
+                    {
+                        job.title = title;
+                    }
+                }
+
+                if (job.title == nil)
+                {
+                    job.title = titles.firstObject;
+                }
 
                 self.job = job;
                 job.undo = self.window.undoManager;
@@ -1252,6 +1269,22 @@ static void *HBControllerLogLevelContext = &HBControllerLogLevelContext;
                 self.job = job;
             }
         }
+    }
+}
+
+- (IBAction)revealDestinationItemsInFinder:(id)sender
+{
+    if (self.job.destinationURL)
+    {
+        [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:@[self.job.destinationFolderURL]];
+    }
+}
+
+- (IBAction)revealSourceItemsInFinder:(id)sender
+{
+    if (self.job.fileURL)
+    {
+        [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:@[self.job.fileURL]];
     }
 }
 

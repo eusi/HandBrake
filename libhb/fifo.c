@@ -11,10 +11,6 @@
 #include "libavcodec/avcodec.h"
 
 #include "handbrake/handbrake.h"
-#if HB_PROJECT_FEATURE_QSV
-#include "handbrake/qsv_libav.h"
-#include "handbrake/qsv_common.h"
-#endif
 
 #ifdef __APPLE__
 #include <CoreMedia/CoreMedia.h>
@@ -669,32 +665,6 @@ static int copy_hwframe_to_video_buffer(const AVFrame *frame, hb_buffer_t *buf)
     return ret;
 }
 
-static void copy_avframe_to_video_buffer(const AVFrame *frame, hb_buffer_t *buf)
-{
-    for (int pp = 0; pp <= buf->f.max_plane; pp++)
-    {
-        if (buf->plane[pp].stride == frame->linesize[pp])
-        {
-            memcpy(buf->plane[pp].data, frame->data[pp], frame->linesize[pp] * buf->plane[pp].height);
-        }
-        else
-        {
-            const int stride    = buf->plane[pp].stride;
-            const int height    = buf->plane[pp].height;
-            const int linesize  = frame->linesize[pp];
-            const int size = linesize < stride ? ABS(linesize) : stride;
-            uint8_t *dst = buf->plane[pp].data;
-            uint8_t *src = frame->data[pp];
-            for (int yy = 0; yy < height; yy++)
-            {
-                memcpy(dst, src, size);
-                dst += stride;
-                src += linesize;
-            }
-        }
-    }
-}
-
 hb_buffer_t * hb_buffer_shallow_dup(const hb_buffer_t *src)
 {
     hb_buffer_t *buf = NULL;
@@ -810,7 +780,13 @@ hb_buffer_t * hb_buffer_dup(const hb_buffer_t *src)
             {
                 buf->f = src->f;
                 hb_buffer_copy_props(buf, src);
-                copy_avframe_to_video_buffer(frame, buf);
+
+                for (int pp = 0; pp <= buf->f.max_plane; pp++)
+                {
+                    hb_image_copy_plane(buf->plane[pp].data, frame->data[pp],
+                                        buf->plane[pp].stride, frame->linesize[pp],
+                                        buf->plane[pp].height);
+                }
             }
         }
     }
@@ -1037,43 +1013,6 @@ void hb_buffer_swap_copy( hb_buffer_t *src, hb_buffer_t *dst )
     src->alloc = alloc;
 }
 
-#if HB_PROJECT_FEATURE_QSV
-static void free_qsv_resources(hb_buffer_t *b)
-{
-    // Reclaim QSV resources before dropping the buffer.
-    // when decoding without QSV, the QSV atom will be NULL.
-    if (b->storage != NULL && b->qsv_details.ctx != NULL)
-    {
-        AVFrame *frame = (AVFrame *)b->storage;
-        mfxFrameSurface1 *surface = (mfxFrameSurface1 *)frame->data[3];
-        if (surface)
-        {
-            hb_qsv_release_surface_from_pool_by_surface_pointer(b->qsv_details.qsv_frames_ctx, surface);
-            frame->data[3] = 0;
-        }
-    }
-    if (b->qsv_details.qsv_atom != NULL && b->qsv_details.ctx != NULL)
-    {
-        hb_qsv_stage *stage = hb_qsv_get_last_stage(b->qsv_details.qsv_atom);
-        if (stage != NULL)
-        {
-            hb_qsv_wait_on_sync(b->qsv_details.ctx, stage);
-            if (stage->out.sync->in_use > 0)
-            {
-                ff_qsv_atomic_dec(&stage->out.sync->in_use);
-            }
-            if (stage->out.p_surface->Data.Locked > 0)
-            {
-                ff_qsv_atomic_dec(&stage->out.p_surface->Data.Locked);
-            }
-        }
-        hb_qsv_flush_stages(b->qsv_details.ctx->pipes,
-                            (hb_qsv_list**)&b->qsv_details.qsv_atom, 1);
-    }
-}
-#endif
-
-
 static void free_buffer_resources(hb_buffer_t *b)
 {
     if (b->storage_type == AVFRAME)
@@ -1112,9 +1051,6 @@ void hb_buffer_close( hb_buffer_t ** _b )
         hb_unlock(buffers.lock);
 #endif
 
-#if HB_PROJECT_FEATURE_QSV
-        free_qsv_resources(b);
-#endif
         free_buffer_resources(b);
 
         if (buffer_pool && !hb_fifo_is_full(buffer_pool))

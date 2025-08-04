@@ -12,6 +12,8 @@
 
 @interface HBQueueToolbarDelegate ()
 
+@property (nonatomic, nullable, weak) id target;
+
 @property (nonatomic, readonly) id redConf;
 @property (nonatomic, readonly) id greenConf;
 
@@ -19,11 +21,13 @@
 
 @implementation HBQueueToolbarDelegate
 
-- (instancetype)init
+- (instancetype)initWithTarget:(id)target
 {
     self = [super init];
     if (self)
     {
+        _target = target;
+
         if (@available(macOS 12.0, *))
         {
             _redConf = [NSImageSymbolConfiguration configurationWithPaletteColors:@[NSColor.systemRedColor]];
@@ -57,6 +61,7 @@
                                     symbolName:@"play.fill"
                                          image:@"encode"
                                          style:style
+                                        target:self.target
                                         action:@selector(toggleStartCancel:)];
         if (@available(macOS 13.0, *))
         {
@@ -74,6 +79,7 @@
                                     symbolName:@"pause.fill"
                                          image:@"pauseencode"
                                          style:style
+                                        target:self.target
                                         action:@selector(togglePauseResume:)];
         if (@available(macOS 13.0, *))
         {
@@ -186,13 +192,16 @@
     }
     else if ([itemIdentifier isEqualToString:TOOLBAR_DETAILS])
     {
-        return [NSToolbarItem HB_toolbarItemWithIdentifier:itemIdentifier
-                                                     label:NSLocalizedString(@"Details", @"Queue Window Details Toolbar Item")
-                                              paletteLabel:NSLocalizedString(@"Details", @"Queue Window Details Toolbar Item")
-                                                symbolName:@"sidebar.right"
-                                                     image:@"details"
-                                                     style:HBToolbarItemStyleBordered | HBToolbarItemStyleButton
-                                                    action:@selector(toggleDetails:)];
+        NSToolbarItem *item = [NSToolbarItem HB_toolbarItemWithIdentifier:itemIdentifier
+                                                                    label:NSLocalizedString(@"Details", @"Queue Window Details Toolbar Item")
+                                                             paletteLabel:NSLocalizedString(@"Details", @"Queue Window Details Toolbar Item")
+                                                               symbolName:@"sidebar.right"
+                                                                    image:@"details"
+                                                                    style:HBToolbarItemStyleBordered | HBToolbarItemStyleButton
+                                                                   target:self.target
+                                                                   action:@selector(toggleDetails:)];
+        item.toolTip = NSLocalizedString(@"Toggle details sidebar", @"Queue Window Details Toolbar Item");
+        return item;
     }
     else if ([itemIdentifier isEqualToString:TOOLBAR_QUICKLOOK])
     {
@@ -202,6 +211,7 @@
                                     symbolName:@"eye"
                                          image:@"NSQuickLookTemplate"
                                          style:HBToolbarItemStyleBordered | HBToolbarItemStyleButton
+                                        target:self.target
                                         action:@selector(toggleQuickLook:)];
     }
     return nil;

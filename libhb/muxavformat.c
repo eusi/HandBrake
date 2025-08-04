@@ -230,7 +230,7 @@ static int set_extradata(hb_data_t *extradata, uint8_t **priv_data, int *priv_si
         //
         // So allocate extra bytes
         *priv_size = extradata->size;
-        *priv_data = av_malloc(extradata->size + AV_INPUT_BUFFER_PADDING_SIZE);
+        *priv_data = av_mallocz(extradata->size + AV_INPUT_BUFFER_PADDING_SIZE);
         if (priv_data == NULL)
         {
             hb_error("extradata: malloc failure");
@@ -365,10 +365,10 @@ static int avformatInit( hb_mux_object_t * m )
     {
         case HB_VCODEC_X264_8BIT:
         case HB_VCODEC_X264_10BIT:
-        case HB_VCODEC_QSV_H264:
         case HB_VCODEC_VT_H264:
         case HB_VCODEC_FFMPEG_VCE_H264:
         case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_QSV_H264:
         case HB_VCODEC_FFMPEG_MF_H264:
             track->st->codecpar->codec_id = AV_CODEC_ID_H264;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
@@ -407,8 +407,8 @@ static int avformatInit( hb_mux_object_t * m )
             track->st->codecpar->codec_id = AV_CODEC_ID_AV1;
             break;
 
-        case HB_VCODEC_QSV_AV1_10BIT:
-        case HB_VCODEC_QSV_AV1:
+        case HB_VCODEC_FFMPEG_QSV_AV1_10BIT:
+        case HB_VCODEC_FFMPEG_QSV_AV1:
         {
             const AVBitStreamFilter  *bsf;
             AVBSFContext             *ctx;
@@ -446,14 +446,14 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_X265_10BIT:
         case HB_VCODEC_X265_12BIT:
         case HB_VCODEC_X265_16BIT:
-        case HB_VCODEC_QSV_H265:
-        case HB_VCODEC_QSV_H265_10BIT:
         case HB_VCODEC_VT_H265:
         case HB_VCODEC_VT_H265_10BIT:
         case HB_VCODEC_FFMPEG_VCE_H265:
         case HB_VCODEC_FFMPEG_VCE_H265_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_H265:
         case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
+        case HB_VCODEC_FFMPEG_QSV_H265:
+        case HB_VCODEC_FFMPEG_QSV_H265_10BIT:
         case HB_VCODEC_FFMPEG_MF_H265:
             track->st->codecpar->codec_id  = AV_CODEC_ID_HEVC;
             if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
@@ -762,35 +762,17 @@ static int avformatInit( hb_mux_object_t * m )
             track->st->codecpar->ch_layout = ch_layout;
         }
 
-        const char *name;
-        if (audio->config.out.name == NULL)
-        {
-            switch (track->st->codecpar->ch_layout.nb_channels)
-            {
-                case 1:
-                    name = "Mono";
-                    break;
-
-                case 2:
-                    name = "Stereo";
-                    break;
-
-                default:
-                    name = "Surround";
-                    break;
-            }
-        }
-        else
-        {
-            name = audio->config.out.name;
-        }
         // Set audio track title
-        av_dict_set(&track->st->metadata, "title", name, 0);
-        if (job->mux == HB_MUX_AV_MP4)
+        const char *name = audio->config.out.name;
+        if (name != NULL && name[0] != 0)
         {
-            // Some software (MPC, mediainfo) use hdlr description
-            // for track title
-            av_dict_set(&track->st->metadata, "handler_name", name, 0);
+            av_dict_set(&track->st->metadata, "title", name, 0);
+            if (job->mux == HB_MUX_AV_MP4)
+            {
+                // Some software (MPC, mediainfo) use hdlr description
+                // for track title
+                av_dict_set(&track->st->metadata, "handler_name", name, 0);
+            }
         }
     }
 

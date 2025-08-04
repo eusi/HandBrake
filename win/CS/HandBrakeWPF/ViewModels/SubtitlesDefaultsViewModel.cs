@@ -214,7 +214,6 @@ namespace HandBrakeWPF.ViewModels
             this.SubtitleBehaviours.SelectedBurnInBehaviour = SubtitleBurnInBehaviourModes.None;
             this.SubtitleBehaviours.AddClosedCaptions = false;
             this.SubtitleBehaviours.AddForeignAudioScanTrack = false;
-            this.subtitleBehaviours.SubtitleDefaultKeyword = string.Empty;
             this.SubtitleBehaviours.SelectedLanguages.Clear();
 
             // Step 2, Setup Available Languages
@@ -231,7 +230,7 @@ namespace HandBrakeWPF.ViewModels
                 this.SubtitleBehaviours.SelectedBurnInBehaviour = behaviours.SelectedBurnInBehaviour;
                 this.SubtitleBehaviours.AddClosedCaptions = behaviours.AddClosedCaptions;
                 this.SubtitleBehaviours.AddForeignAudioScanTrack = behaviours.AddForeignAudioScanTrack;
-                this.subtitleBehaviours.SubtitleDefaultKeyword = behaviours.SubtitleDefaultKeyword;
+                this.SubtitleBehaviours.SubtitleTrackNamePassthru = behaviours.SubtitleTrackNamePassthru;
 
                 foreach (Language selectedItem in behaviours.SelectedLanguages)
                 {

@@ -53,9 +53,7 @@
 #include "handbrake/extradata.h"
 
 #if HB_PROJECT_FEATURE_QSV
-#include "libavutil/hwcontext_qsv.h"
 #include "handbrake/qsv_common.h"
-#include "handbrake/qsv_libav.h"
 #endif
 
 static void compute_frame_duration( hb_work_private_t *pv );
@@ -145,16 +143,6 @@ struct hb_work_private_s
     hb_audio_resample_t  * resample;
     int                    drop_samples;
     uint64_t               downmix_mask;
-
-#if HB_PROJECT_FEATURE_QSV
-    // QSV-specific settings
-    struct
-    {
-        int                decode;
-        hb_qsv_config      config;
-        const char       * codec_name;
-    } qsv;
-#endif
 
     AVFrame              * hw_frame;
     enum AVPixelFormat     hw_pix_fmt;
@@ -577,23 +565,6 @@ static void closePrivData( hb_work_private_t ** ppv )
         }
         if ( pv->context && pv->context->codec )
         {
-#if HB_PROJECT_FEATURE_QSV
-            /*
-             * FIXME: knowingly leaked.
-             *
-             * If we're using our FFmpeg QSV wrapper, qsv_decode_end() will call
-             * MFXClose() on the QSV session. Even if decoding is complete, we
-             * still need that session for QSV filtering and/or encoding, so we
-             * we can't close the context here until we implement a proper fix.
-             *
-             * Interestingly, this may cause crashes even when QSV-accelerated
-             * decoding and encoding sessions are independent (e.g. decoding via
-             * libavcodec, but encoding using libhb, without us requesting any
-             * form of communication between the two libmfx sessions).
-             */
-            //if (!(pv->qsv.decode && pv->job != NULL && (pv->job->vcodec & HB_VCODEC_QSV_MASK)))
-            hb_qsv_uninit_dec(pv->context);
-#endif
             hb_avcodec_free_context(&pv->context);
         }
         if ( pv->context )
@@ -1193,17 +1164,7 @@ static hb_buffer_t *copy_frame( hb_work_private_t *pv )
     reordered_data_t * reordered = NULL;
     hb_buffer_t      * out;
 
-#if HB_PROJECT_FEATURE_QSV
-    // no need to copy the frame data when decoding with QSV to opaque memory
-    if (hb_qsv_full_path_is_enabled(pv->job) && hb_qsv_get_memory_type(pv->job) == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
-    {
-        out = hb_qsv_copy_avframe_to_video_buffer(pv->job, pv->frame, (AVRational){1,1}, 0);
-    }
-    else
-#endif
-    {
-        out = hb_avframe_to_video_buffer(pv->frame, (AVRational){1,1});
-    }
+    out = hb_avframe_to_video_buffer(pv->frame, (AVRational){1,1});
 
     if (pv->frame->pts != AV_NOPTS_VALUE)
     {
@@ -1484,7 +1445,7 @@ int reinit_video_filters(hb_work_private_t * pv)
     {
         settings = hb_dict_init();
 #if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
-        if (hb_qsv_full_path_is_enabled(pv->job))
+        if (pv->frame->hw_frames_ctx && pv->job->hw_pix_fmt == AV_PIX_FMT_QSV)
         {
             hb_dict_set(settings, "w", hb_value_int(orig_width));
             hb_dict_set(settings, "h", hb_value_int(orig_height));
@@ -1540,7 +1501,7 @@ int reinit_video_filters(hb_work_private_t * pv)
     if (pv->title->rotation != HB_ROTATION_0)
     {
 #if HB_PROJECT_FEATURE_QSV
-        if (hb_qsv_full_path_is_enabled(pv->job))
+        if (pv->frame->hw_frames_ctx && pv->job->hw_pix_fmt == AV_PIX_FMT_QSV)
         {
             switch (pv->title->rotation)
             {
@@ -1870,70 +1831,16 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         pv->next_pts = 0;
     hb_buffer_list_clear(&pv->list);
 
-#if HB_PROJECT_FEATURE_QSV
-    if ((pv->qsv.decode = hb_qsv_decode_is_enabled(job)))
-    {
-        pv->qsv.codec_name = hb_qsv_decode_get_codec_name(w->codec_param);
-        pv->qsv.config.io_pattern = MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
-        if(hb_qsv_get_memory_type(job) == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
-        {
-            hb_qsv_info_t *info = hb_qsv_encoder_info_get(hb_qsv_get_adapter_index(), job->vcodec);
-            if (info != NULL)
-            {
-                // setup the QSV configuration
-                pv->qsv.config.io_pattern         = MFX_IOPATTERN_OUT_VIDEO_MEMORY;
-                pv->qsv.config.impl_requested     = info->implementation;
-                pv->qsv.config.async_depth        = job->qsv.async_depth;
-                pv->qsv.config.sync_need          =  0;
-                pv->qsv.config.usage_threaded     =  1;
-                pv->qsv.config.additional_buffers = 64; // FIFO_LARGE
-                if (info->capabilities & HB_QSV_CAP_RATECONTROL_LA)
-                {
-                    // more surfaces may be needed for the lookahead
-                    pv->qsv.config.additional_buffers = 160;
-                }
-                if (!pv->job->qsv.ctx)
-                {
-                    hb_error( "decavcodecvInit: no context" );
-                    return 1;
-                }
-                pv->job->qsv.ctx->full_path_is_enabled = 1;
-                if (!pv->job->qsv.ctx->hb_dec_qsv_frames_ctx)
-                {
-                    pv->job->qsv.ctx->hb_dec_qsv_frames_ctx = av_mallocz(sizeof(HBQSVFramesContext));
-                    if(!pv->job->qsv.ctx->hb_dec_qsv_frames_ctx)
-                    {
-                        hb_error( "decavcodecvInit: HBQSVFramesContext dec alloc failed" );
-                        return 1;
-                    }
-                }
-                if (!pv->job->qsv.ctx->dec_space)
-                {
-                    pv->job->qsv.ctx->dec_space = av_mallocz(sizeof(hb_qsv_space));
-                    if(!pv->job->qsv.ctx->dec_space)
-                    {
-                        hb_error( "decavcodecvInit: dec_space alloc failed" );
-                        return 1;
-                    }
-                    pv->job->qsv.ctx->dec_space->is_init_done = 1;
-                }
-            }
-        }
-    }
-#endif
-
     if( pv->job && pv->job->title && !pv->job->title->has_resolution_change )
     {
         pv->threads = HB_FFMPEG_THREADS_AUTO;
     }
 
-#if HB_PROJECT_FEATURE_QSV
-    if (pv->qsv.decode)
+    if (w->hw_device_ctx)
     {
-        pv->codec = avcodec_find_decoder_by_name(pv->qsv.codec_name);
+        pv->codec = w->hw_accel->find_decoder(w->codec_param);
     }
     else
-#endif
     {
         pv->codec = avcodec_find_decoder(w->codec_param);
     }
@@ -1942,6 +1849,8 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         hb_log( "decavcodecvInit: failed to find codec for id (%d)", w->codec_param );
         return 1;
     }
+
+    hb_deep_log(2, "decavcodecvInit: using decoder %s", pv->codec->name);
 
     pv->context = avcodec_alloc_context3( pv->codec );
     pv->context->workaround_bugs = FF_BUG_AUTODETECT;
@@ -1955,7 +1864,7 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         av_buffer_replace(&pv->context->hw_device_ctx, w->hw_device_ctx);
 
         if (job == NULL ||
-            (job->hw_pix_fmt == AV_PIX_FMT_NONE && job->hw_decode & HB_DECODE_SUPPORT_FORCE_HW))
+            (job->hw_pix_fmt == AV_PIX_FMT_NONE && job->hw_decode & HB_DECODE_FORCE_HW))
         {
             pv->hw_frame = av_frame_alloc();
         }
@@ -1968,18 +1877,6 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         avcodec_parameters_to_context(pv->context,
                                   ic->streams[pv->title->video_id]->codecpar);
 
-#if HB_PROJECT_FEATURE_QSV
-        if (pv->qsv.decode &&
-            pv->qsv.config.io_pattern == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
-        {
-            // assign callbacks and job to have access to qsv context from ffmpeg
-            pv->context->get_format      = hb_qsv_get_format;
-            pv->context->get_buffer2     = hb_qsv_get_buffer;
-            pv->context->opaque          = pv->job;
-            pv->context->hwaccel_context = 0;
-        }
-#endif
-
         // Set decoder opts
         AVDictionary * av_opts = NULL;
         if (pv->title->flags & HBTF_NO_IDR)
@@ -1988,19 +1885,16 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         }
 
 #if HB_PROJECT_FEATURE_QSV
-        if (pv->qsv.decode)
+        if (w->hw_accel && w->hw_accel->type == AV_HWDEVICE_TYPE_QSV)
         {
-            if (pv->context->codec_id == AV_CODEC_ID_HEVC)
-                av_dict_set( &av_opts, "load_plugin", "hevc_hw", 0 );
-#if defined(_WIN32) || defined(__MINGW32__)
-            if (hb_qsv_get_memory_type(job) == MFX_IOPATTERN_OUT_SYSTEM_MEMORY)
+            if (job && job->hw_pix_fmt != AV_PIX_FMT_NONE)
             {
-                hb_qsv_device_init(job);
-                pv->context->hw_device_ctx = av_buffer_ref(job->qsv.ctx->hb_hw_device_ctx);
-                pv->context->get_format = hb_qsv_get_format;
-                pv->context->opaque = pv->job;
+                hb_hwaccel_hwframes_ctx_init(pv->context, job->input_pix_fmt, job->hw_pix_fmt);
             }
-#endif
+            if (pv->context->codec_id == AV_CODEC_ID_HEVC)
+            {
+                av_dict_set( &av_opts, "load_plugin", "hevc_hw", 0 );
+            }
         }
 #endif
 
@@ -2189,15 +2083,6 @@ static int decodePacket( hb_work_object_t * w )
                 return HB_WORK_ERROR;
             }
         }
-
-#if HB_PROJECT_FEATURE_QSV
-        if (pv->qsv.decode &&
-            pv->qsv.config.io_pattern == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
-        {
-            // set the QSV configuration before opening the decoder
-            pv->context->hwaccel_context = &pv->qsv.config;
-        }
-#endif
 
         AVDictionary * av_opts = NULL;
         if (pv->title->flags & HBTF_NO_IDR)
@@ -2542,29 +2427,23 @@ static int decavcodecvInfo( hb_work_object_t *w, hb_work_info_t *info )
     info->color_range     = pv->context->color_range;
     info->chroma_location = pv->context->chroma_sample_location;
 
-    info->video_decode_support = HB_DECODE_SUPPORT_SW;
+    info->video_decode_support = HB_DECODE_SW;
 
 #if HB_PROJECT_FEATURE_QSV
     if (hb_qsv_available())
     {
-        if (hb_qsv_decode_is_codec_supported(hb_qsv_get_adapter_index(), pv->context->codec_id, pv->context->pix_fmt, pv->context->width, pv->context->height))
+        if (hb_qsv_decode_is_codec_supported(hb_qsv_get_adapter_index(), pv->context->codec_id,
+            pv->context->pix_fmt, pv->context->width, pv->context->height))
         {
-            info->video_decode_support |= HB_DECODE_SUPPORT_QSV;
+            info->video_decode_support |= HB_DECODE_QSV;
         }
     }
 #endif
 
-    if (pv->context->pix_fmt == AV_PIX_FMT_CUDA)
+    hb_hwaccel_t *hwaccel = hb_get_hwaccel_from_pix_fmt(pv->context->pix_fmt);
+    if (hwaccel != NULL)
     {
-        info->video_decode_support |= HB_DECODE_SUPPORT_NVDEC;
-    }
-    else if (pv->context->pix_fmt == AV_PIX_FMT_VIDEOTOOLBOX)
-    {
-        info->video_decode_support |= HB_DECODE_SUPPORT_VIDEOTOOLBOX;
-    }
-    else if (pv->context->pix_fmt == AV_PIX_FMT_D3D11)
-    {
-        info->video_decode_support |= HB_DECODE_SUPPORT_MF;
+        info->video_decode_support |= hwaccel->id;
     }
 
     return 1;

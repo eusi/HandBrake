@@ -1,5 +1,6 @@
     {
         "AlignAVStart": false,
+        "AudioAutomaticNamingBehavior": "unnamed",
         "AudioCopyMask": [
             "copy:aac",
             "copy:ac3",
@@ -31,6 +32,7 @@
         ],
         "AudioSecondaryEncoderMode": true,
         "AudioTrackSelectionBehavior": "first",
+        "AudioTrackNamePassthru": true,
         "ChapterMarkers": true,
         "ChildrenArray": [
         ],
@@ -105,8 +107,10 @@
         "SubtitleLanguageList": [
         ],
         "SubtitleTrackSelectionBehavior": "none",
+        "SubtitleTrackNamePassthru": true,
         "VideoAvgBitrate": 1800,
         "VideoColorMatrixCodeOverride": 0,
+        "VideoColorRange": "limited",
         "VideoEncoder": "x264",
         "VideoFramerate": "auto",
         "VideoFramerateMode": "vfr",
@@ -119,7 +123,6 @@
         "VideoOptionExtra": "",
         "VideoQualityType": 2,
         "VideoQualitySlider": 20.0,
-        "VideoQSVDecode": false,
         "VideoHWDecode": 0,
         "VideoMultiPass": false,
         "VideoTurboMultiPass": false,

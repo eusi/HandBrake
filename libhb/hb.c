@@ -84,8 +84,13 @@ int hb_avcodec_open(AVCodecContext *avctx, const AVCodec *codec,
     if ((thread_count == HB_FFMPEG_THREADS_AUTO || thread_count > 0) &&
         (codec->type == AVMEDIA_TYPE_VIDEO))
     {
+#if defined (__aarch64__) && defined(_WIN32)
+        avctx->thread_count = (thread_count == HB_FFMPEG_THREADS_AUTO) ?
+                               hb_get_cpu_count() + 1 : thread_count;
+#else
         avctx->thread_count = (thread_count == HB_FFMPEG_THREADS_AUTO) ?
                                hb_get_cpu_count() / 2 + 1 : thread_count;
+#endif
         avctx->thread_type = FF_THREAD_FRAME|FF_THREAD_SLICE;
     }
     else
@@ -441,7 +446,7 @@ void hb_scan( hb_handle_t * h, hb_list_t * paths, int title_index,
     hb_log(" - logical processor count: %d", hb_get_cpu_count());
 
 #if HB_PROJECT_FEATURE_QSV
-    if (!is_hardware_disabled())
+    if (!hb_is_hardware_disabled())
     {
         /* Print QSV info here so that it's in all scan and encode logs */
         hb_qsv_info_print();
@@ -481,6 +486,19 @@ hb_list_t * hb_get_titles( hb_handle_t * h )
 hb_title_set_t * hb_get_title_set( hb_handle_t * h )
 {
     return &h->title_set;
+}
+
+hb_list_t * hb_get_title_coverarts( hb_handle_t * h, int title )
+{
+    hb_title_t * sourceTitle = hb_list_item(h->title_set.list_title, title);
+    if (sourceTitle) 
+    {
+        hb_list_t * coverart = sourceTitle->metadata->list_coverart;
+        return coverart;
+    }
+    
+    hb_list_t * emptyList = hb_list_init();
+    return emptyList;
 }
 
 int hb_save_preview( hb_handle_t * h, int title, int preview, hb_buffer_t *buf, int format )
@@ -1775,6 +1793,10 @@ static void hb_add_internal( hb_handle_t * h, hb_job_t * job, hb_list_t *list_pa
     job_copy->list_attachment = NULL;
     job_copy->metadata        = NULL;
 
+#if HB_PROJECT_FEATURE_QSV
+    job_copy->qsv_ctx = hb_qsv_context_dup(job->qsv_ctx);
+#endif
+
     /* If we're doing Foreign Audio Search, copy all subtitles matching the
      * first audio track language we find in the audio list.
      *
@@ -2163,12 +2185,6 @@ int hb_global_init()
     hb_register(&hb_encx265);
 #endif
     hb_register(&hb_encsvtav1);
-#if HB_PROJECT_FEATURE_QSV
-    if (!disable_hardware)
-    {
-        hb_register(&hb_encqsv);
-    }
-#endif
 
     hb_x264_global_init();
     hb_common_global_init(disable_hardware);
@@ -2391,7 +2407,7 @@ hb_interjob_t * hb_interjob_get( hb_handle_t * h )
     return h->interjob;
 }
 
-int is_hardware_disabled(void)
+int hb_is_hardware_disabled(void)
 {
     return disable_hardware;
 }

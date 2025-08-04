@@ -24,7 +24,6 @@ namespace HandBrakeWPF.Services.Encode.Factories
 
     using HandBrakeWPF.Model.Filters;
     using HandBrakeWPF.Services.Interfaces;
-    using HandBrakeWPF.Utilities;
 
     using AudioEncoderRateType = Model.Models.AudioEncoderRateType;
     using AudioTrack = Model.Models.AudioTrack;
@@ -64,12 +63,29 @@ namespace HandBrakeWPF.Services.Encode.Factories
                                           Filters = CreateFilters(job),
                                           PAR = CreatePAR(job),
                                           Metadata = CreateMetadata(job),
+                                          CoverArts = CreateCoverArts(job),
                                           Source = CreateSource(job),
                                           Subtitle = CreateSubtitle(job),
                                           Video = CreateVideo(job)
                                       };
 
             return encode;
+        }
+
+        private List<CoverArt> CreateCoverArts(EncodeTask job)
+        {
+            if (job.CoverArts != null && job.PassthruMetadataEnabled)
+            {
+                List<CoverArt> coverArts = new List<CoverArt>();
+                foreach (var item in job.CoverArts)
+                {
+                    coverArts.Add(item); // TODO: Support enable / disable of individual files
+                }
+
+                return coverArts;
+            }
+
+            return new List<CoverArt>(); // Empty Coverarts will not pass through to the destination.  
         }
 
         private Source CreateSource(EncodeTask job)
@@ -106,18 +122,18 @@ namespace HandBrakeWPF.Services.Encode.Factories
             int hwDecode = 0;
             if (nvdec)
             {
-                hwDecode = (int)NativeConstants.HB_DECODE_SUPPORT_NVDEC;
+                hwDecode = (int)NativeConstants.HB_DECODE_NVDEC;
             }
 
             if (directx && HandBrakeHardwareEncoderHelper.IsDirectXAvailable)
             {
-                hwDecode = (int)NativeConstants.HB_DECODE_SUPPORT_MF;
+                hwDecode = (int)NativeConstants.HB_DECODE_MF;
             }
 
             bool qsv = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableQuickSyncDecoding);
             if (qsv)
             {
-                hwDecode |= (int)NativeConstants.HB_DECODE_SUPPORT_QSV;
+                hwDecode |= (int)NativeConstants.HB_DECODE_QSV;
             }
 
             Source source = new Source
@@ -242,6 +258,8 @@ namespace HandBrakeWPF.Services.Encode.Factories
                 video.Encoder = job.VideoEncoder.ShortName;
             }
 
+            video.ColorRange = job.VideoColourRange  != 0 ? (int)job.VideoColourRange : null;
+
             video.Level = job.VideoLevel?.ShortName;
             video.Preset = job.VideoPreset?.ShortName;
             video.Profile = job.VideoProfile?.ShortName;
@@ -274,13 +292,15 @@ namespace HandBrakeWPF.Services.Encode.Factories
 
             if (this.isEncodePath && (job.VideoEncoder?.IsQuickSync ?? false))
             {
-                video.QSV.Decode = HandBrakeHardwareEncoderHelper.IsQsvAvailable && enableQuickSyncDecoding;
+                video.HardwareDecode = HandBrakeHardwareEncoderHelper.IsQsvAvailable && enableQuickSyncDecoding ?
+                     NativeConstants.HB_DECODE_QSV | NativeConstants.HB_DECODE_FORCE_HW : 0 ;
             }
 
             // Allow use of the QSV decoder is configurable for non QSV encoders.
             if (this.isEncodePath &&  job.VideoEncoder != null && !job.VideoEncoder.IsHardwareEncoder && useQSVDecodeForNonQSVEnc && enableQuickSyncDecoding)
             {
-                video.QSV.Decode = HandBrakeHardwareEncoderHelper.IsQsvAvailable && useQSVDecodeForNonQSVEnc;
+                video.HardwareDecode = HandBrakeHardwareEncoderHelper.IsQsvAvailable && useQSVDecodeForNonQSVEnc ?
+                    NativeConstants.HB_DECODE_QSV | NativeConstants.HB_DECODE_FORCE_HW : 0;
             }
 
             if (this.isEncodePath && HandBrakeHardwareEncoderHelper.IsQsvAvailable && (HandBrakeHardwareEncoderHelper.QsvHardwareGeneration > 6) && (job.VideoEncoder?.IsQuickSync ?? false))
@@ -297,12 +317,12 @@ namespace HandBrakeWPF.Services.Encode.Factories
 
             if (this.isEncodePath && HandBrakeHardwareEncoderHelper.IsNVDecAvailable &&  this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableNvDecSupport) && job.VideoEncoder.IsNVEnc)
             {
-                video.HardwareDecode = (int)NativeConstants.HB_DECODE_SUPPORT_NVDEC;
+                video.HardwareDecode = NativeConstants.HB_DECODE_NVDEC;
             }
 
             if (HandBrakeHardwareEncoderHelper.IsDirectXAvailable && this.userSettingService.GetUserSetting<bool>(UserSettingConstants.EnableDirectXDecoding))
             {
-                video.HardwareDecode = (int)NativeConstants.HB_DECODE_SUPPORT_MF;
+                video.HardwareDecode = NativeConstants.HB_DECODE_MF | NativeConstants.HB_DECODE_FORCE_HW;
             }
 
 
@@ -512,16 +532,14 @@ namespace HandBrakeWPF.Services.Encode.Factories
             }
 
             // Padding Filter
-            if (job.Padding.Enabled)
+            if (job.Padding.Mode != PaddingMode.None)
             {
                 // Calculate the new Width / Height
                 int? width = job.Width;
                 int? height = job.Height;
-                if (job.Padding.Enabled)
-                {
-                    width = width + job.Padding.W;
-                    height = height + job.Padding.H;
-                }
+
+                width = width + job.Padding.W;
+                height = height + job.Padding.H;
 
                 // Setup the filter.
                 string padSettings = string.Format("width={0}:height={1}:color={2}:x={3}:y={4}", width, height, job.Padding.Color, job.Padding.X, job.Padding.Y);

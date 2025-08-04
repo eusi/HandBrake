@@ -49,6 +49,18 @@ typedef struct
     options_map_t *map;
 } combo_opts_t;
 
+static options_map_t d_audio_autonaming_opts[] =
+{
+    {N_("None"),    "none",          0},
+    {N_("Unnamed"), "unnamed",       1},
+    {N_("All"),     "all",         2},
+};
+combo_opts_t audio_autonaming_opts =
+{
+    sizeof(d_audio_autonaming_opts)/sizeof(options_map_t),
+    d_audio_autonaming_opts
+};
+
 static options_map_t d_subtitle_track_sel_opts[] =
 {
     {N_("None"),                              "none",  0},
@@ -236,6 +248,18 @@ combo_opts_t rotate_opts =
 {
     sizeof(d_rotate_opts)/sizeof(options_map_t),
     d_rotate_opts
+};
+
+static options_map_t d_color_range_opts[] =
+{
+    {N_("Same as source"), "auto",     0},
+    {N_("Limited"),        "limited",  1},
+    {N_("Full"),           "full",     2},
+};
+combo_opts_t color_range_opts =
+{
+    sizeof(d_color_range_opts)/sizeof(options_map_t),
+    d_color_range_opts
 };
 
 static options_map_t d_resolution_opts[] =
@@ -576,6 +600,12 @@ combo_name_map_t combo_name_map[] =
         generic_opt_get
     },
     {
+        "AudioAutomaticNamingBehavior",
+        &audio_autonaming_opts,
+        small_opts_set,
+        generic_opt_get
+    },
+    {
         "AudioTrackSelectionBehavior",
         &audio_track_sel_opts,
         small_opts_set,
@@ -722,6 +752,12 @@ combo_name_map_t combo_name_map[] =
     {
         "rotate",
         &rotate_opts,
+        small_opts_set,
+        generic_opt_get
+    },
+    {
+        "VideoColorRange",
+        &color_range_opts,
         small_opts_set,
         generic_opt_get
     },
@@ -4650,7 +4686,8 @@ ghb_validate_audio(GhbValue *settings, GtkWindow *parent)
         {
             mux_s = "WebM";
             // WebM only supports Vorbis and Opus codecs
-            if (codec != HB_ACODEC_VORBIS && codec != HB_ACODEC_OPUS)
+            if (codec != HB_ACODEC_VORBIS && codec != HB_ACODEC_VORBIS_PASS &&
+                codec != HB_ACODEC_OPUS && codec != HB_ACODEC_OPUS_PASS)
             {
                 a_unsup = hb_audio_encoder_get_short_name(codec);
                 codec = hb_audio_encoder_get_default(mux->format);

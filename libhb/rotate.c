@@ -10,12 +10,6 @@
 #include "handbrake/common.h"
 #include "handbrake/avfilter_priv.h"
 
-#if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
-#include "handbrake/qsv_common.h"
-#include "libavutil/hwcontext_qsv.h"
-#include "libavutil/hwcontext.h"
-#endif
-
 static int rotate_init(hb_filter_object_t * filter, hb_filter_init_t * init);
 
 const char rotate_template[] =
@@ -90,16 +84,6 @@ static int qsv_rotate_init(hb_filter_private_t * pv, hb_filter_init_t * init, in
             break;
     }
 
-    if (hb_qsv_hw_filters_via_video_memory_are_enabled(init->job))
-    {
-        int result = hb_qsv_create_ffmpeg_vpp_pool(init, width, height);
-        if (result < 0)
-        {
-            hb_error("hb_create_ffmpeg_pool vpp allocation failed");
-            return result;
-        }
-    }
-
     if (trans != NULL)
     {
         hb_dict_t * avfilter = hb_dict_init();
@@ -115,7 +99,7 @@ static int qsv_rotate_init(hb_filter_private_t * pv, hb_filter_init_t * init, in
         {
             hb_dict_set(avsettings, "transpose", hb_value_string(trans));
         }
-        hb_dict_set_int(avsettings, "async_depth", init->job->qsv.async_depth);
+        hb_dict_set_int(avsettings, "async_depth", init->job->hw_device_async_depth);
         hb_dict_set(avfilter, "vpp_qsv", avsettings);
         pv->avfilters = avfilter;
     }
@@ -129,7 +113,7 @@ static int qsv_rotate_init(hb_filter_private_t * pv, hb_filter_init_t * init, in
             avfilter = hb_dict_init();
 
             hb_dict_set(avsettings, "transpose", hb_value_string("vflip"));
-            hb_dict_set_int(avsettings, "async_depth", init->job->qsv.async_depth);
+            hb_dict_set_int(avsettings, "async_depth", init->job->hw_device_async_depth);
             hb_dict_set(avfilter, "vpp_qsv", avsettings);
             pv->avfilters = avfilter;
         }
@@ -138,7 +122,7 @@ static int qsv_rotate_init(hb_filter_private_t * pv, hb_filter_init_t * init, in
             avfilter = hb_dict_init();
 
             hb_dict_set(avsettings, "transpose", hb_value_string("hflip"));
-            hb_dict_set_int(avsettings, "async_depth", init->job->qsv.async_depth);
+            hb_dict_set_int(avsettings, "async_depth", init->job->hw_device_async_depth);
             hb_dict_set(avfilter, "vpp_qsv", avsettings);
             pv->avfilters = avfilter;
         }
@@ -195,7 +179,7 @@ static int rotate_init(hb_filter_object_t * filter, hb_filter_init_t * init)
     }
 
 #if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
-    if (hb_qsv_hw_filters_via_video_memory_are_enabled(init->job) || hb_qsv_hw_filters_via_system_memory_are_enabled(init->job))
+    if (init->hw_pix_fmt == AV_PIX_FMT_QSV)
     {
         qsv_rotate_init(pv, init, angle, flip);
         return 0;

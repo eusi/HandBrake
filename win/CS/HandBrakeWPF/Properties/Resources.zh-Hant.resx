@@ -2190,16 +2190,16 @@ You can drag/drop or enter the text above.</value>
     <value>自訂（不限制）</value>
   </data>
   <data name="PaddingMode_Fill" xml:space="preserve">
-    <value>填充（環繞）</value>
+    <value />
   </data>
   <data name="PaddingMode_Height" xml:space="preserve">
-    <value>按高度（左右黑邊）</value>
+    <value />
   </data>
   <data name="PaddingMode_None" xml:space="preserve">
     <value>無</value>
   </data>
   <data name="PaddingMode_Width" xml:space="preserve">
-    <value>按寬度（上下黑邊）</value>
+    <value />
   </data>
   <data name="PictureSettingsView_Padding" xml:space="preserve">
     <value>填充：</value>
@@ -2931,6 +2931,15 @@ To allow multiple simultaneous encodes, turn on "Process Isolation" in Tools Men
   </data>
   <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="OptionsViewModel_PortableMode" type="System.Resources.ResXNullRef, System.Windows.Forms">
+    <value />
+  </data>
+  <data name="VideoColourRange_SameAsSource" xml:space="preserve">
+    <value />
+  </data>
+  <data name="VideoColourRange_Full" xml:space="preserve">
+    <value />
+  </data>
+  <data name="VideoColourRange_Limited" xml:space="preserve">
     <value />
   </data>
 </root>

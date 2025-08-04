@@ -15,8 +15,10 @@ namespace HandBrakeWPF.Services.Encode.Model
     using HandBrake.Interop.Interop.Interfaces.Model.Encoders;
     using HandBrake.Interop.Interop.Interfaces.Model.Filters;
     using HandBrake.Interop.Interop.Interfaces.Model.Picture;
+    using HandBrake.Interop.Interop.Json.Shared;
 
     using HandBrakeWPF.Model.Filters;
+    using HandBrakeWPF.Model.Video;
     using HandBrakeWPF.Services.Encode.Model.Models;
 
     using AudioTrack = Models.AudioTrack;
@@ -43,6 +45,7 @@ namespace HandBrakeWPF.Services.Encode.Model
             this.MetaData = new ObservableCollection<MetaDataValue>();
             this.Padding = new PaddingFilter();
             this.VideoTunes = new List<VideoTune>();
+            this.CoverArts = new ObservableCollection<CoverArt>();
         }
 
         public EncodeTask(EncodeTask task)
@@ -140,6 +143,7 @@ namespace HandBrakeWPF.Services.Encode.Model
             this.VideoBitrate = task.VideoBitrate;
             this.VideoEncoder = task.VideoEncoder;
             this.VideoEncodeRateType = task.VideoEncodeRateType;
+            this.VideoColourRange = task.VideoColourRange;
             this.VideoLevel = task.VideoLevel;
             this.VideoProfile = task.VideoProfile;
             this.VideoPreset = task.VideoPreset;
@@ -155,6 +159,7 @@ namespace HandBrakeWPF.Services.Encode.Model
             /* Other */
             this.PassthruMetadataEnabled = task.PassthruMetadataEnabled;
             this.MetaData = new ObservableCollection<MetaDataValue>(task.MetaData);
+            this.CoverArts = new ObservableCollection<CoverArt>(task.CoverArts);
         }
 
         /* Source */
@@ -275,6 +280,8 @@ namespace HandBrakeWPF.Services.Encode.Model
 
         public HBVideoEncoder VideoEncoder { get; set; }
 
+        public VideoColourRange VideoColourRange { get; set; }
+
         public VideoProfile VideoProfile { get; set; }
 
         public VideoLevel VideoLevel { get; set; }
@@ -325,6 +332,7 @@ namespace HandBrakeWPF.Services.Encode.Model
         /* Metadata */
         public bool PassthruMetadataEnabled { get; set; }
         public ObservableCollection<MetaDataValue> MetaData { get; set; }
+        public ObservableCollection<CoverArt> CoverArts { get; set; }
 
         /* Previews */
 

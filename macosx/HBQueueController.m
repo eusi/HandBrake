@@ -60,7 +60,7 @@
                                            dispatch_queue_attr_make_with_autorelease_frequency(DISPATCH_QUEUE_SERIAL,
                                                                                                DISPATCH_AUTORELEASE_FREQUENCY_WORK_ITEM));
 
-        if (@available(macOS 10.14, *))
+        if (@available(macOS 10.15, *))
         {
             UNUserNotificationCenter *center = UNUserNotificationCenter.currentNotificationCenter;
             center.delegate = self;
@@ -123,7 +123,7 @@
     }
 
     // Set up toolbar
-    self.toolbarDelegate = [[HBQueueToolbarDelegate alloc] init];
+    self.toolbarDelegate = [[HBQueueToolbarDelegate alloc] initWithTarget:self];
 
     NSToolbar *toolbar = [[NSToolbar alloc] initWithIdentifier:@"HBQueueWindowToolbar2"];
     toolbar.delegate = self.toolbarDelegate;
@@ -226,8 +226,7 @@
             return self.queue.canEncode;
         }
     }
-
-    if (action == @selector(togglePauseResume:))
+    else if (action == @selector(togglePauseResume:))
     {
         if (self.queue.canPause)
         {
@@ -237,21 +236,30 @@
         {
             menuItem.title = NSLocalizedString(@"Resume Encoding", @"Queue -> pause/resume men");
         }
-
         return self.queue.canPause || self.queue.canResume;
     }
-
-    if (action == @selector(removeAll:) || action == @selector(resetAll:))
+    else if (action == @selector(toggleDetails:))
+    {
+        NSSplitViewItem *detailsItem = self.splitViewController.splitViewItems[1];
+        if (detailsItem.isCollapsed)
+        {
+            menuItem.title = NSLocalizedString(@"Show Sidebar", @"Queue -> sidebar menu");
+        }
+        else
+        {
+            menuItem.title = NSLocalizedString(@"Hide Sidebar", @"Queue -> sidebar menu");
+        }
+        return YES;
+    }
+    else if (action == @selector(removeAll:) || action == @selector(resetAll:))
     {
         return self.queue.items.count > 0;
     }
-
-    if (action == @selector(resetFailed:))
+    else if (action == @selector(resetFailed:))
     {
         return self.queue.failedItemsCount > 0;
     }
-
-    if (action == @selector(removeCompleted:))
+    else if (action == @selector(removeCompleted:))
     {
         return self.queue.completedItemsCount > 0;
     }
@@ -265,13 +273,11 @@
     {
         return self.queue.isEncoding || self.queue.canEncode;
     }
-
-    if (action == @selector(togglePauseResume:))
+    else if (action == @selector(togglePauseResume:))
     {
         return self.queue.canPause || self.queue.canResume;
     }
-
-    if (action == @selector(toggleDetails:) ||
+    else if (action == @selector(toggleDetails:) ||
         action == @selector(toggleQuickLook:))
     {
         return YES;
@@ -439,7 +445,7 @@ NSString * const HBQueueItemNotificationShowCategory = @"HBQueueItemNotification
 
 - (void)showNotificationWithTitle:(NSString *)title description:(NSString *)description url:(NSURL *)fileURL playSound:(BOOL)playSound
 {
-    if (@available(macOS 10.14, *))
+    if (@available(macOS 10.15, *))
     {
         UNMutableNotificationContent *notification = [[UNMutableNotificationContent alloc] init];
         notification.title = title;

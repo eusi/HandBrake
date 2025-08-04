@@ -84,7 +84,7 @@ int hb_nvenc_get_cuda_version()
 
 int hb_check_nvenc_available()
 {
-    if (is_hardware_disabled())
+    if (hb_is_hardware_disabled())
     {
         return 0;
     }
@@ -246,7 +246,7 @@ const char * hb_map_nvenc_preset_name (const char * preset)
     return "p4"; // Default to Medium
 }
 
-int hb_nvenc_are_filters_supported(hb_list_t *filters)
+static int hb_nvenc_are_filters_supported(hb_list_t *filters)
 {
     int ret = 1;
 
@@ -261,6 +261,19 @@ int hb_nvenc_are_filters_supported(hb_list_t *filters)
                 // Mode 0 doesn't require access to the frame data
                 supported = hb_dict_get_int(filter->settings, "mode") == 0;
                 break;
+            case HB_FILTER_CROP_SCALE:
+            {
+                // Crop is not supported
+                int top    = hb_dict_get_int(filter->settings, "crop-top");
+                int bottom = hb_dict_get_int(filter->settings, "crop-bottom");
+                int left   = hb_dict_get_int(filter->settings, "crop-left");
+                int right  = hb_dict_get_int(filter->settings, "crop-right");
+                supported = top == 0 && bottom == 0 && left == 0 && right == 0;
+                break;
+            }
+            case HB_FILTER_FORMAT:
+            case HB_FILTER_AVFILTER:
+                break;
             default:
                 supported = 0;
         }
@@ -274,3 +287,22 @@ int hb_nvenc_are_filters_supported(hb_list_t *filters)
 
     return ret;
 }
+
+static const int nv_encoders[] =
+{
+    HB_VCODEC_FFMPEG_NVENC_H264,
+    HB_VCODEC_FFMPEG_NVENC_H265,HB_VCODEC_FFMPEG_NVENC_H265_10BIT,
+    HB_VCODEC_FFMPEG_NVENC_AV1, HB_VCODEC_FFMPEG_NVENC_AV1_10BIT,
+    HB_VCODEC_INVALID
+};
+
+hb_hwaccel_t hb_hwaccel_nvdec =
+{
+    .id         = HB_DECODE_NVDEC,
+    .name       = "nvdec hwaccel",
+    .encoders   = nv_encoders,
+    .type       = AV_HWDEVICE_TYPE_CUDA,
+    .hw_pix_fmt = AV_PIX_FMT_CUDA,
+    .can_filter = hb_nvenc_are_filters_supported,
+    .caps       = HB_HWACCEL_CAP_SCAN
+};

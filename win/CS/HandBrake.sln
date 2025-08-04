@@ -54,8 +54,8 @@ Global
 		{CC58646B-D0A4-469E-B947-A00C5D271103} = {5CB7BC74-449C-4E95-98AB-E1E4387E514B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {F2A9851D-E91D-41D4-9C3C-636A61503FCB}
-		RESX_Rules = {"EnabledRules":["StringFormat"]}
 		RESX_TaskErrorCategory = Message
+		RESX_Rules = {"EnabledRules":["StringFormat"]}
+		SolutionGuid = {F2A9851D-E91D-41D4-9C3C-636A61503FCB}
 	EndGlobalSection
 EndGlobal

@@ -12,8 +12,6 @@
 #include "handbrake/hbffmpeg.h"
 #if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
 #include "handbrake/qsv_common.h"
-#include "libavutil/hwcontext_qsv.h"
-#include "libavutil/hwcontext.h"
 #endif
 
 static int crop_scale_init(hb_filter_object_t * filter,
@@ -99,18 +97,8 @@ static int crop_scale_init(hb_filter_object_t * filter, hb_filter_init_t * init)
     hb_dict_t * avsettings = hb_dict_init();
 
 #if HB_PROJECT_FEATURE_QSV && (defined( _WIN32 ) || defined( __MINGW32__ ))
-    if (hb_qsv_hw_filters_via_video_memory_are_enabled(init->job) || hb_qsv_hw_filters_via_system_memory_are_enabled(init->job))
+    if (init->hw_pix_fmt == AV_PIX_FMT_QSV)
     {
-        if (hb_qsv_hw_filters_via_video_memory_are_enabled(init->job))
-        {
-            int result = hb_qsv_create_ffmpeg_vpp_pool(init, width, height);
-            if (result < 0)
-            {
-                hb_error("hb_create_ffmpeg_pool vpp allocation failed");
-                return result;
-            }
-        }
-
         if (top > 0 || bottom > 0 || left > 0 || right > 0)
         {
             hb_dict_set_int(avsettings, "cx", left);
@@ -121,21 +109,15 @@ static int crop_scale_init(hb_filter_object_t * filter, hb_filter_init_t * init)
 
         hb_dict_set_int(avsettings, "w", width);
         hb_dict_set_int(avsettings, "h", height);
-        hb_dict_set_int(avsettings, "async_depth", init->job->qsv.async_depth);
-        int hw_generation = hb_qsv_hardware_generation(hb_qsv_get_platform(hb_qsv_get_adapter_index()));
-        if (init->job->qsv.ctx->vpp_scale_mode)
+        hb_dict_set_int(avsettings, "async_depth", init->job->hw_device_async_depth);
+        if (init->job->qsv_ctx->vpp_scale_mode)
         {
-            hb_dict_set_string(avsettings, "scale_mode", init->job->qsv.ctx->vpp_scale_mode);
-            hb_log("qsv: scaling filter mode %s", init->job->qsv.ctx->vpp_scale_mode);
+            hb_dict_set_string(avsettings, "scale_mode", init->job->qsv_ctx->vpp_scale_mode);
+            hb_log("qsv: scaling filter mode %s", init->job->qsv_ctx->vpp_scale_mode);
         }
-        else if (hw_generation >= QSV_G8)
+        else
         {
-            hb_dict_set_string(avsettings, "scale_mode", "compute");
-            hb_log("qsv: scaling filter mode %s", "compute");
-        }
-        if (init->job->qsv.ctx->vpp_interpolation_method)
-        {
-            hb_dict_set_string(avsettings, "method", init->job->qsv.ctx->vpp_interpolation_method);
+            hb_dict_set_string(avsettings, "scale_mode", "hq");
         }
         hb_dict_set(avfilter, "vpp_qsv", avsettings);
     }

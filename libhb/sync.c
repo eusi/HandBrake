@@ -407,27 +407,13 @@ static hb_buffer_t * CreateBlackBuf( sync_stream_t * stream,
                 }
             }
 
-#if HB_PROJECT_FEATURE_QSV
-            if (hb_qsv_get_memory_type(stream->common->job) == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
+            if (stream->common->job->hw_pix_fmt != AV_PIX_FMT_NONE)
             {
-                buf = hb_qsv_copy_video_buffer_to_hw_video_buffer(stream->common->job, buf, hb_qsv_hw_filters_via_video_memory_are_enabled(stream->common->job));
-            }
-            else
-#endif
-            if (hb_hwaccel_is_full_hardware_pipeline_enabled(stream->common->job))
-            {
-                buf = hb_hwaccel_copy_video_buffer_to_hw_video_buffer(stream->common->job, &buf);
+                buf = stream->common->job->hw_accel->upload(stream->common->job, &buf);
             }
         }
         else
         {
-#if HB_PROJECT_FEATURE_QSV
-            if (hb_qsv_get_memory_type(stream->common->job) == MFX_IOPATTERN_OUT_VIDEO_MEMORY)
-            {
-                buf = hb_qsv_buffer_dup(stream->common->job, buf, hb_qsv_hw_filters_via_video_memory_are_enabled(stream->common->job));
-            }
-            else
-#endif
             {
                 buf = hb_buffer_dup(buf);
             }
@@ -2951,11 +2937,12 @@ static int syncVideoWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
     // Fix of LA case allowing use of LA up to 40 in full encode path,
     // as currently for such support we cannot allocate >64 slices per texture
     // due to MSFT limitation, not impacting other cases
-    if (pv->common->job->qsv.ctx && (pv->common->job->qsv.ctx->la_is_enabled == 1)
-        && pv->common->job->qsv.ctx->full_path_is_enabled)
+    hb_job_t *job = pv->common->job;
+    if (job->hw_pix_fmt == AV_PIX_FMT_QSV &&
+        job->qsv_ctx->la_is_enabled == 1)
     {
         pv->stream->max_len = SYNC_MIN_VIDEO_QUEUE_LEN;
-        pv->common->job->qsv.ctx->la_is_enabled++;
+        pv->common->job->qsv_ctx->la_is_enabled++;
     }
 #endif
 
@@ -3360,7 +3347,17 @@ static int syncSubtitleWork( hb_work_object_t * w, hb_buffer_t ** buf_in,
         return HB_WORK_DONE;
     }
 
-    *buf_in = NULL;
+    if (pv->common->job->indepth_scan)
+    {
+        // When doing subtitle indepth scan, the pipeline ends at sync,
+        // do not add the subtitles to the queue
+        return HB_WORK_OK;
+    }
+    else
+    {
+        *buf_in = NULL;
+    }
+
     QueueBuffer(pv->stream, in);
     Synchronize(pv->stream);
 

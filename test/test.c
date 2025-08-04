@@ -60,6 +60,7 @@
 #define DEBLOCK_DEFAULT_PRESET       "medium"
 #define COLORSPACE_DEFAULT_PRESET    "bt709"
 #define HDR_DYNAMIC_METADATA_DEFAULT_PRESET "all"
+#define AUDIO_AUTONAMING_BEHAVIOUR_DEFAULT_PRESET "unnamed"
 
 /* Options */
 static int     debug               = HB_DEBUG_ALL;
@@ -195,6 +196,7 @@ static char *   queue_import_name    = NULL;
 static int      cfr           = -1;
 static int      optimize      = -1;
 static int      ipod_atom     = -1;
+static char *   color_range   = NULL;
 static int      color_matrix_code = -1;
 static int      preview_count = 10;
 static int      store_previews = 0;
@@ -210,10 +212,14 @@ static int      qsv_async_depth    = -1;
 static int      qsv_adapter        = -1;
 static int      qsv_decode         = -1;
 #endif
-static int      hw_decode          = -1;
+static int      hw_decode          = 0;
 static int      keep_duplicate_titles = 0;
 static int      hdr_dynamic_metadata_disable = 0;
 static char *   hdr_dynamic_metadata  = NULL;
+static int      metadata_passthru = -1;
+static int      audio_name_passthru = -1;
+static char *   audio_autonaming_behaviour = NULL;
+static int      sub_name_passthru   = -1;
 
 /* Exit cleanly on Ctrl-C */
 static volatile hb_error_code done_error = HB_ERROR_NONE;
@@ -1409,6 +1415,10 @@ static void ShowHelp(void)
 "       --align-av          Add audio silence or black video frames to start\n"
 "                           of streams so that all streams start at exactly\n"
 "                           the same time\n"
+"   --keep-metadata         Preserve the source's common metadata\n"
+"   --no-metadata           Disable preset 'keep-metadata'\n"
+"                           of streams so that all streams start at exactly\n"
+"                           the same time\n"
 "   --inline-parameter-sets Create adaptive streaming compatible output.\n"
 "                           Inserts parameter sets (SPS and PPS) inline\n"
 "                           in the video stream before each IDR.\n"
@@ -1511,6 +1521,7 @@ static void ShowHelp(void)
 "                           Use 'videotoolbox' to enable VideoToolbox    \n"
 #else
 "                           Use 'nvdec' to enable NVDec                  \n"
+"                           Use 'qsv' to enable QSV decoding             \n"
 #endif
 "   --disable-hw-decoding   Disable hardware decoding of the video track,\n"
 "                           forcing software decoding instead\n"
@@ -1669,6 +1680,14 @@ static void ShowHelp(void)
         }
     }
     fprintf(out,
+"       --keep-aname        Passthru the source audio track(s) name(s).\n"
+"       --no-keep-aname     Disable the source audio track(s) name(s) passthru.\n"
+"       --automatic-naming-behaviour\n"
+"                           Set the audio track(s) automatic naming behaviour:\n"
+"                               off\n"
+"                               unnamed\n"
+"                               all\n"
+"                           Disable the source audio track(s) name(s) passthru.\n"
 "   -A, --aname <string>    Set audio track name(s).\n"
 "                           Separate tracks by commas.\n"
 "\n"
@@ -1720,6 +1739,12 @@ static void ShowHelp(void)
 "   --modulus <number>      Set storage width and height modulus\n"
 "                           Dimensions will be made divisible by this number.\n"
 "                           (default: set by preset, typically 2)\n"
+"   --color-range <string>\n"
+"                           Set the color range of the output.\n"
+"                               auto\n"
+"                               limited\n"
+"                               full\n"
+"                           (default: set by preset, typically limited)\n"
 "   -M, --color-matrix <string>\n"
 "                           Set the color space signaled by the output:\n"
 "                           Overrides color signalling with no conversion.\n"
@@ -1895,6 +1920,8 @@ static void ShowHelp(void)
 "                           or less is selected. This should locate subtitles\n"
 "                           for short foreign language segments. Best used in\n"
 "                           conjunction with --subtitle-forced.\n"
+"      --keep-subname       Passthru the source subtitle track(s) name(s).\n"
+"      --no-keep-subname    Disable the source subtitle track(s) name(s) passthru.\n"
 "  -S, --subname <string>   Set subtitle track name(s).\n"
 "                           Separate tracks by commas.\n"
 "  -F, --subtitle-forced[=string]\n"
@@ -2245,6 +2272,8 @@ static int ParseOptions( int argc, char ** argv )
     #define KEEP_DUPLICATE_TITLES         332
     #define MAX_DURATION                  333
     #define HDR_DYNAMIC_METADATA          334
+    #define AUDIO_AUTONAMING_BEHAVIOUR    335
+    #define COLOR_RANGE                   336
 
     for( ;; )
     {
@@ -2292,6 +2321,8 @@ static int ParseOptions( int argc, char ** argv )
             { "no-inline-parameter-sets", no_argument, &inline_parameter_sets, 0 },
             { "align-av",    no_argument,       &align_av_start, 1 },
             { "no-align-av", no_argument,       &align_av_start, 0 },
+            { "keep-metadata", no_argument,     &metadata_passthru, 1 },
+            { "no-metadata",   no_argument,     &metadata_passthru, 0 },
             { "audio-lang-list", required_argument, NULL, AUDIO_LANG_LIST },
             { "all-audio",   no_argument,       &audio_all, 1 },
             { "first-audio", no_argument,       &audio_all, 0 },
@@ -2421,8 +2452,14 @@ static int ParseOptions( int argc, char ** argv )
             { "preset-export-description", required_argument, NULL, PRESET_EXPORT_DESC },
             { "queue-import-file",  required_argument, NULL, QUEUE_IMPORT },
 
+            { "keep-aname",    no_argument,     &audio_name_passthru, 1 },
+            { "no-keep-aname", no_argument,     &audio_name_passthru, 0 },
+            { "automatic-naming-behaviour", required_argument, NULL, AUDIO_AUTONAMING_BEHAVIOUR },
             { "aname",       required_argument, NULL,    'A' },
+            { "keep-subname",    no_argument,   &sub_name_passthru, 1 },
+            { "no-keep-subname", no_argument,   &sub_name_passthru, 0 },
             { "subname",     required_argument, NULL,    'S' },
+            { "color-range", required_argument, NULL,    COLOR_RANGE },
             { "color-matrix",required_argument, NULL,    'M' },
             { "previews",    required_argument, NULL,    PREVIEWS },
             { "start-at-preview", required_argument, NULL, START_AT_PREVIEW },
@@ -3178,6 +3215,21 @@ static int ParseOptions( int argc, char ** argv )
             case AUDIO_FALLBACK:
                 acodec_fallback = strdup( optarg );
                 break;
+            case COLOR_RANGE:
+            {
+                free(color_range);
+                color_range = NULL;
+                if (optarg != NULL)
+                {
+                    if (!strcmp(optarg, "auto")    ||
+                        !strcmp(optarg, "limited") ||
+                        !strcmp( optarg, "full"))
+                    {
+                        color_range = strdup(optarg);
+                    }
+                }
+                break;
+            }
             case 'M':
                 if( optarg != NULL )
                 {
@@ -3224,14 +3276,14 @@ static int ParseOptions( int argc, char ** argv )
                 {
                     if (!strcmp(optarg, "nvdec"))
                     {
-                        hw_decode = HB_DECODE_SUPPORT_NVDEC;
+                        hw_decode = HB_DECODE_NVDEC;
                     }
                     else if (!strcmp(optarg, "videotoolbox"))
                     {
 #if defined( __APPLE_CC__ )
                         if (__builtin_available(macOS 13, *))
                         {
-                            hw_decode = HB_DECODE_SUPPORT_VIDEOTOOLBOX;
+                            hw_decode = HB_DECODE_VIDEOTOOLBOX;
                         }
                         else
                         {
@@ -3239,13 +3291,23 @@ static int ParseOptions( int argc, char ** argv )
                         }
 #endif
                     }
+#if HB_PROJECT_FEATURE_QSV
+                    else if (!strcmp(optarg, "qsv"))
+                    {
+                        hw_decode = HB_DECODE_QSV;
+                    }
+#endif
                     else if (!strcmp(optarg, "mf"))
                     {
-                        hw_decode = HB_DECODE_SUPPORT_MF;
+                        hw_decode = HB_DECODE_MF;
                     }
                     else
                     {
                         hw_decode = 0;
+                    }
+                    if (hw_decode > 0)
+                    {
+                        hw_decode |= HB_DECODE_FORCE_HW;
                     }
                 } break;
             case KEEP_DUPLICATE_TITLES:
@@ -3260,6 +3322,17 @@ static int ParseOptions( int argc, char ** argv )
                 else
                 {
                     hdr_dynamic_metadata = strdup(HDR_DYNAMIC_METADATA_DEFAULT_PRESET);
+                }
+                break;
+            case AUDIO_AUTONAMING_BEHAVIOUR:
+                free(audio_autonaming_behaviour);
+                if (optarg != NULL)
+                {
+                    audio_autonaming_behaviour = strdup(optarg);
+                }
+                else
+                {
+                    audio_autonaming_behaviour = strdup(AUDIO_AUTONAMING_BEHAVIOUR_DEFAULT_PRESET);
                 }
                 break;
             case ':':
@@ -3812,6 +3885,10 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     {
         hb_dict_set(preset, "AlignAVStart", hb_value_bool(align_av_start));
     }
+    if (metadata_passthru != -1)
+    {
+        hb_dict_set(preset, "MetadataPassthru", hb_value_bool(metadata_passthru));
+    }
     if (inline_parameter_sets != -1)
     {
         hb_dict_set(preset, "InlineParameterSets",
@@ -3913,6 +3990,10 @@ static hb_dict_t * PreparePreset(const char *preset_name)
         hb_dict_set(preset, "SubtitleTrackSelectionBehavior",
                     hb_value_string(selection));
     }
+    if (sub_name_passthru != -1)
+    {
+        hb_dict_set(preset, "SubtitleTrackNamePassthru", hb_value_bool(sub_name_passthru));
+    }
 
     if (audio_copy_list != NULL)
     {
@@ -3970,6 +4051,14 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     {
         hb_dict_set(preset, "AudioTrackSelectionBehavior",
                     hb_value_string(audio_all == 1 ? "all" : "first"));
+    }
+    if (audio_name_passthru != -1)
+    {
+        hb_dict_set(preset, "AudioTrackNamePassthru", hb_value_bool(audio_name_passthru));
+    }
+    if (audio_autonaming_behaviour != NULL)
+    {
+        hb_dict_set(preset, "AudioAutomaticNamingBehavior", hb_value_string(audio_autonaming_behaviour));
     }
 
     // Audio overrides
@@ -4390,6 +4479,11 @@ static hb_dict_t * PreparePreset(const char *preset_name)
                     hb_value_string(cfr == 0 ? "vfr" :
                                     cfr == 1 ? "cfr" : "pfr"));
     }
+    if (color_range != NULL)
+    {
+        hb_dict_set(preset, "VideoColorRange",
+                    hb_value_string(color_range));
+    }
     if (color_matrix_code > 0)
     {
         hb_dict_set(preset, "VideoColorMatrixCodeOverride",
@@ -4398,17 +4492,17 @@ static hb_dict_t * PreparePreset(const char *preset_name)
 #if HB_PROJECT_FEATURE_QSV
     if (qsv_async_depth >= 0)
     {
-        hb_dict_set(preset, "VideoQSVAsyncDepth",
+        hb_dict_set(preset, "VideoAsyncDepth",
                         hb_value_int(qsv_async_depth));
     }
     if (qsv_adapter >= 0)
     {
-        hb_dict_set(preset, "VideoQSVAdapterIndex",
+        hb_dict_set(preset, "VideoAdapterIndex",
                         hb_value_int(qsv_adapter));
     }
     if (qsv_decode != -1)
     {
-        hb_dict_set(preset, "VideoQSVDecode", hb_value_int(qsv_decode));
+        hw_decode = qsv_decode ? HB_DECODE_QSV : 0;
     }
 #endif
     if (hw_decode != -1)
@@ -4785,7 +4879,7 @@ static hb_dict_t * PreparePreset(const char *preset_name)
 }
 
 
-static int add_sub(hb_value_array_t *list, hb_title_t *title, int track, int out_track, int *one_burned)
+static int add_sub(hb_value_array_t *list, hb_title_t *title, int track, int out_track, int *one_burned, int keep_name)
 {
     hb_subtitle_t *subtitle;
     // Check that the track exists
@@ -4814,11 +4908,18 @@ static int add_sub(hb_value_array_t *list, hb_title_t *title, int track, int out
         }
         *one_burned = 1;
     }
+
+    const char *name = keep_name && subtitle->name != NULL && subtitle->name[0] != 0 ? subtitle->name : NULL;
+
     hb_dict_t *subtitle_dict = hb_dict_init();
     hb_dict_set(subtitle_dict, "Track", hb_value_int(track));
     hb_dict_set(subtitle_dict, "Default", hb_value_bool(def));
     hb_dict_set(subtitle_dict, "Forced", hb_value_bool(force));
     hb_dict_set(subtitle_dict, "Burn", hb_value_bool(burn));
+    if (name)
+    {
+        hb_dict_set(subtitle_dict, "Name", hb_value_string(name));
+    }
     hb_value_array_append(list, subtitle_dict);
     return 0;
 }
@@ -4998,6 +5099,15 @@ PrepareJob(hb_handle_t *h, hb_title_t *title, hb_dict_t *preset_dict)
         if (range_seek_points)
             hb_dict_set(range_dict, "SeekPoints",
                     hb_value_int(range_seek_points));
+    }
+
+    if (hb_value_get_bool(hb_dict_get(preset_dict, "MetadataPassthru")) == 0)
+    {
+        hb_dict_t *metadata_dict = hb_dict_get(job_dict, "Metadata");
+        hb_dict_clear(metadata_dict);
+
+        hb_dict_t *arts_array = hb_dict_get(job_dict, "CoverArts");
+        hb_value_array_clear(arts_array);
     }
 
     hb_dict_t *source_dict = hb_dict_get(job_dict, "Source");
@@ -5382,12 +5492,44 @@ PrepareJob(hb_handle_t *h, hb_title_t *title, hb_dict_t *preset_dict)
                 fprintf(stderr, "Dropping excess audio track names\n");
             }
         }
-        // If exactly one name was specified, apply it to the reset
+        // If exactly one name was specified, apply it to the rest
         // of the tracks
         if (ii == 1 && *anames[0]) for (; ii < track_count; ii++)
         {
             audio_dict = hb_value_array_get(audio_array, ii);
             hb_dict_set(audio_dict, "Name", hb_value_string(anames[0]));
+        }
+
+        int keep_name = hb_value_get_bool(hb_dict_get(preset_dict, "AudioTrackNamePassthru"));
+        hb_audio_autonaming_behavior_t behavior = HB_AUDIO_AUTONAMING_NONE;
+
+        const char *behavior_name = hb_value_get_string(hb_dict_get(preset_dict, "AudioAutomaticNamingBehavior"));
+        behavior = hb_audio_autonaming_behavior_get_from_name(behavior_name);
+
+        for (ii = 0; ii < track_count; ii++)
+        {
+            audio_dict = hb_value_array_get(audio_array, ii);
+
+            if (hb_dict_get(audio_dict, "Name") == NULL)
+            {
+                int track = hb_value_get_int(hb_dict_get(audio_dict, "Track"));
+                hb_audio_config_t *audio = hb_list_audio_config_item(title->list_audio, track);
+
+                if (audio != NULL)
+                {
+                    const char *mixdown_name = hb_dict_get_string(audio_dict, "Mixdown");
+                    int mixdown = hb_mixdown_get_from_name(mixdown_name);
+
+                    const char *name = hb_audio_name_generate(audio->in.name,
+                                                              audio->in.channel_layout,
+                                                              mixdown, keep_name, behavior);
+
+                    if (name)
+                    {
+                        hb_dict_set(audio_dict, "Name", hb_value_string(name));
+                    }
+                }
+            }
         }
     }
 
@@ -5417,13 +5559,15 @@ PrepareJob(hb_handle_t *h, hb_title_t *title, hb_dict_t *preset_dict)
                 continue;
             }
 
+            int keep_name = hb_value_get_bool(hb_dict_get(preset_dict, "SubtitleTrackNamePassthru"));
+
             int first, last, track;
             if (sscanf(subtracks[ii], "%d-%d", &first, &last ) == 2)
             {
                 for (track = first - 1; track < last; track++)
                 {
                     if (add_sub(subtitle_array, title, track - 1,
-                                out_track + 1, &one_burned) == 0)
+                                out_track + 1, &one_burned, keep_name) == 0)
                     {
                         out_track++;
                     }
@@ -5432,7 +5576,7 @@ PrepareJob(hb_handle_t *h, hb_title_t *title, hb_dict_t *preset_dict)
             else if (sscanf(subtracks[ii], "%d", &track) == 1)
             {
                 if (add_sub(subtitle_array, title, track - 1,
-                            out_track + 1, &one_burned) == 0)
+                            out_track + 1, &one_burned, keep_name) == 0)
                 {
                     out_track++;
                 }

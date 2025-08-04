@@ -1,4 +1,4 @@
-﻿// --------------------------------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------
 // <copyright file="NativeConstants.cs" company="HandBrake Project (https://handbrake.fr)">
 //   This file is part of the HandBrake source code - It may be used under the terms of the GNU General Public License.
 // </copyright>
@@ -51,11 +51,11 @@ namespace HandBrake.Interop.Interop.HbLib
         public const uint HB_VCODEC_H265_MASK = 0x10000000;
         public const uint HB_VCODEC_QSV_MASK  = 0x00040000;
 
-        public const uint HB_VCODEC_QSV_H264 = (0x00000060 | HB_VCODEC_QSV_MASK | HB_VCODEC_H264_MASK);
-        public const uint HB_VCODEC_QSV_H265 = (0x00000061 | HB_VCODEC_QSV_MASK | HB_VCODEC_H265_MASK);
-        public const uint HB_VCODEC_QSV_H265_10BIT = (0x00000062 | HB_VCODEC_QSV_MASK | HB_VCODEC_H265_MASK);
-        public const uint HB_VCODEC_QSV_AV1 = (0x00000070 | HB_VCODEC_QSV_MASK | HB_VCODEC_AV1_MASK);
-        public const uint HB_VCODEC_QSV_AV1_10BIT = (0x08000071 | HB_VCODEC_QSV_MASK | HB_VCODEC_AV1_MASK);
+        public const uint HB_VCODEC_FFMPEG_QSV_H264 = (0x00000060 | HB_VCODEC_QSV_MASK | HB_VCODEC_H264_MASK);
+        public const uint HB_VCODEC_FFMPEG_QSV_H265 = (0x00000061 | HB_VCODEC_QSV_MASK | HB_VCODEC_H265_MASK);
+        public const uint HB_VCODEC_FFMPEG_QSV_H265_10BIT = (0x00000062 | HB_VCODEC_QSV_MASK | HB_VCODEC_H265_MASK);
+        public const uint HB_VCODEC_FFMPEG_QSV_AV1 = (0x00000070 | HB_VCODEC_QSV_MASK | HB_VCODEC_AV1_MASK);
+        public const uint HB_VCODEC_FFMPEG_QSV_AV1_10BIT = (0x08000071 | HB_VCODEC_QSV_MASK | HB_VCODEC_AV1_MASK);
 
         // Muxers
         public const uint HB_MUX_MASK_MP4 = 0x030000;
@@ -67,12 +67,14 @@ namespace HandBrake.Interop.Interop.HbLib
         public const uint HB_MUX_AV_WEBM = 0x400000;
 
         // Video Decoders
-        public const uint HB_DECODE_SUPPORT_SW = 0x01;
-        public const uint HB_DECODE_SUPPORT_QSV = 0x02;
-        public const uint HB_DECODE_SUPPORT_NVDEC = 0x04;
-        public const uint HB_DECODE_SUPPORT_VIDEOTOOLBOX = 0x08;
-        public const uint HB_DECODE_SUPPORT_MF = 0x10;
+        public const uint HB_DECODE_SW = 0x01;
+        public const uint HB_DECODE_QSV = 0x02;
+        public const uint HB_DECODE_NVDEC = 0x04;
+        public const uint HB_DECODE_VIDEOTOOLBOX = 0x08;
+        public const uint HB_DECODE_MF = 0x10;
 
-        public const uint HB_DECODE_SUPPORT_HWACCEL = (HB_DECODE_SUPPORT_NVDEC | HB_DECODE_SUPPORT_VIDEOTOOLBOX | HB_DECODE_SUPPORT_MF);
+        public const uint HB_DECODE_HWACCEL = (HB_DECODE_NVDEC | HB_DECODE_VIDEOTOOLBOX | HB_DECODE_QSV | HB_DECODE_MF);
+        public const uint HB_DECODE_FORCE_HW = 0x80000000;
+
     }
 }

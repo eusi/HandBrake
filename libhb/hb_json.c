@@ -11,7 +11,6 @@
 #include "handbrake/handbrake.h"
 #include "handbrake/hb_json.h"
 #include "libavutil/base64.h"
-#include "handbrake/qsv_common.h"
 
 /**
  * Convert an hb_state_t to a jansson dict
@@ -494,6 +493,26 @@ static hb_dict_t* hb_title_to_dict_internal( hb_title_t *title )
     }
     hb_dict_set(dict, "SubtitleList", subtitle_list);
 
+    // process cover arts
+    if (title->metadata && title->metadata->list_coverart)
+    {
+        hb_value_array_t *art_array = hb_value_array_init();
+        for (ii = 0; ii < hb_list_count(title->metadata->list_coverart); ii++)
+        {
+            hb_coverart_t *art = hb_list_item(title->metadata->list_coverart, ii);
+            hb_dict_t *coverart_dict = json_pack_ex(&error, 0,
+                                                    "{s:o, s:o, s:o}",
+                                                    "ID", hb_value_int(ii),
+                                                    "Name",  hb_value_string(art->name),
+                                                    "Type",  hb_value_int(art->type));
+            if (coverart_dict)
+            {
+                hb_value_array_append(art_array, coverart_dict);
+            }
+        }
+        hb_dict_set(dict, "CoverArts", art_array);
+    }
+
     return dict;
 }
 
@@ -573,13 +592,6 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     json_error_t error;
     int subtitle_search_burn;
     int ii;
-    int adapter_index = 0;
-
-#if HB_PROJECT_FEATURE_QSV
-    if (job->qsv.ctx){
-        adapter_index = job->qsv.ctx->dx_index;
-    }
-#endif
 
     if (job == NULL || job->title == NULL)
         return NULL;
@@ -599,8 +611,8 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
     "s:{s:o, s:o, s:o, s:o, s:o},"
     // PAR {Num, Den}
     "s:{s:o, s:o},"
-    // Video {Encoder, HardwareDecode, QSV {Decode, AsyncDepth, AdapterIndex}}
-    "s:{s:o, s:o, s:{s:o, s:o, s:o}},"
+    // Video {Encoder, HardwareDecode, AdapterIndex, AsyncDepth}
+    "s:{s:o, s:o, s:o, s:o},"
     // Audio {CopyMask, FallbackEncoder, AudioList []}
     "s:{s:[], s:o, s:[]},"
     // Subtitles {Search {Enable, Forced, Default, Burn}, SubtitleList []}
@@ -629,10 +641,8 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
         "Video",
             "Encoder",          hb_value_int(job->vcodec),
             "HardwareDecode",   hb_value_int(job->hw_decode),
-            "QSV",
-                "Decode",       hb_value_bool(job->qsv.decode),
-                "AsyncDepth",   hb_value_int(job->qsv.async_depth),
-                "AdapterIndex", hb_value_int(adapter_index),
+            "AdapterIndex",     hb_value_int(job->hw_device_index),
+            "AsyncDepth",       hb_value_int(job->hw_device_async_depth),
         "Audio",
             "CopyMask",
             "FallbackEncoder",  hb_value_int(job->acodec_fallback),
@@ -697,12 +707,12 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
         if (job->frame_to_start > 0)
         {
             hb_dict_set(range_dict, "Start",
-                        hb_value_int(job->frame_to_start + 1));
+                        hb_value_int(job->frame_to_start));
         }
         if (job->frame_to_stop > 0)
         {
             hb_dict_set(range_dict, "End",
-                        hb_value_int(job->frame_to_start + job->frame_to_stop));
+                        hb_value_int(job->frame_to_start + job->frame_to_stop - 1));
         }
     }
     else
@@ -990,6 +1000,26 @@ hb_dict_t* hb_job_to_dict( const hb_job_t * job )
         hb_value_array_append(subtitle_list, subtitle_dict);
     }
 
+    // process cover arts
+    if (job->metadata && job->metadata->list_coverart)
+    {
+        hb_value_array_t *art_array = hb_value_array_init();
+        for (ii = 0; ii < hb_list_count(job->metadata->list_coverart); ii++)
+        {
+            hb_coverart_t *art = hb_list_item(job->metadata->list_coverart, ii);
+            hb_dict_t *art_dict = json_pack_ex(&error, 0,
+                                               "{s:o, s:o, s:o}",
+                                               "ID", hb_value_int(ii),
+                                               "Name",  hb_value_string(art->name),
+                                               "Type",  hb_value_int(art->type));
+            if (art_dict)
+            {
+                hb_value_array_append(art_array, art_dict);
+            }
+        }
+        hb_dict_set(dict, "CoverArts", art_array);
+    }
+
     return dict;
 }
 
@@ -1135,8 +1165,8 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     json_int_t         range_start = -1, range_end = -1, range_seek_points = -1;
     int                vbitrate = -1;
     double             vquality = HB_INVALID_VIDEO_QUALITY;
-    int                adapter_index = -1;
     hb_dict_t        * meta_dict = NULL;
+    hb_value_array_t * art_array = NULL;
 
     result = json_unpack_ex(dict, &error, 0,
     "{"
@@ -1158,8 +1188,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     //       ContentLightLevel,
     //       DolbyVisionConfigurationRecord
     //       ColorPrimariesOverride, ColorTransferOverride, ColorMatrixOverride,
-    //       HardwareDecode
-    //       QSV {Decode, AsyncDepth, AdapterIndex}}
+    //       HardwareDecode, AdapterIndex, AsyncDepth
     "s:{s:o, s?F, s?i, s?s, s?s, s?s, s?s, s?s,"
     "   s?b, s?b, s?i,"
     "   s?i, s?i, s?i,"
@@ -1168,13 +1197,14 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     "   s?o,"
     "   s?o,"
     "   s?i, s?i, s?i,"
-    "   s?i,"
-    "   s?{s?b, s?i, s?i}},"
+    "   s?i, s?i, s?i},"
     // Audio {CopyMask, FallbackEncoder, AudioList}
     "s?{s?o, s?o, s?o},"
     // Subtitle {Search {Enable, Forced, Default, Burn, ExternalFilename}, SubtitleList}
     "s?{s?{s:b, s?b, s?b, s?b, s?s}, s?o},"
     // Metadata
+    "s?o,"
+    // Cover arts
     "s?o,"
     // Filters {FilterList}
     "s?{s?o}"
@@ -1227,10 +1257,8 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
             "ColorTransferOverride",  unpack_i(&job->color_transfer_override),
             "ColorMatrixOverride",    unpack_i(&job->color_matrix_override),
             "HardwareDecode",         unpack_i(&job->hw_decode),
-            "QSV",
-                "Decode",           unpack_b(&job->qsv.decode),
-                "AsyncDepth",       unpack_i(&job->qsv.async_depth),
-                "AdapterIndex",     unpack_i(&adapter_index),
+            "AdapterIndex",           unpack_i(&job->hw_device_index),
+            "AsyncDepth",             unpack_i(&job->hw_device_async_depth),
         "Audio",
             "CopyMask",             unpack_o(&acodec_copy_mask),
             "FallbackEncoder",      unpack_o(&acodec_fallback),
@@ -1244,6 +1272,7 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
                 "ExternalFilename", unpack_s(&subtitle_search_external_filename),
             "SubtitleList",         unpack_o(&subtitle_list),
         "Metadata",                 unpack_o(&meta_dict),
+        "CoverArts",                unpack_o(&art_array),
         "Filters",
             "FilterList",           unpack_o(&filter_list)
     );
@@ -1256,6 +1285,35 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     {
         hb_value_free(&job->metadata->dict);
         job->metadata->dict = hb_value_dup(meta_dict);
+    }
+    if (art_array != NULL)
+    {
+        if (hb_value_type(art_array) == HB_VALUE_TYPE_ARRAY)
+        {
+            int count = hb_value_array_len(art_array);
+            for (int ii = hb_list_count(job->metadata->list_coverart) - 1; ii >= 0; ii--)
+            {
+                int found = 0;
+                for (int jj = count; jj >= 0; jj--)
+                {
+                    hb_dict_t *art_dict = hb_value_array_get(art_array, jj);
+                    if (art_dict)
+                    {
+                        int index = hb_dict_get_int(art_dict, "ID");
+                        if (index == ii)
+                        {
+                            found = 1;
+                            break;
+                        }
+                    }
+                }
+
+                if (found == 0)
+                {
+                    hb_metadata_rem_coverart(job->metadata, ii);
+                }
+            }
+        }
     }
     // Lookup mux id
     if (hb_value_type(mux) == HB_VALUE_TYPE_STRING)
@@ -1309,9 +1367,9 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
         else if (!strcasecmp(range_type, "frame"))
         {
             if (range_start > 0)
-                job->frame_to_start = range_start - 1;
+                job->frame_to_start = range_start;
             if (range_end > 0)
-                job->frame_to_stop = range_end - job->frame_to_start;
+                job->frame_to_stop = range_end - job->frame_to_start + 1;
         }
     }
 
@@ -1331,11 +1389,6 @@ hb_job_t* hb_dict_to_job( hb_handle_t * h, hb_dict_t *dict )
     hb_job_set_encoder_level(job, video_level);
     hb_job_set_encoder_options(job, video_options);
 
-#if HB_PROJECT_FEATURE_QSV
-    if (job->qsv.ctx) {
-        job->qsv.ctx->dx_index = adapter_index;
-    }
-#endif
     // If both vbitrate and vquality were specified, vbitrate is used;
     // we need to ensure the unused rate control mode is always set to an
     // invalid value, as if both values are valid, behavior is undefined

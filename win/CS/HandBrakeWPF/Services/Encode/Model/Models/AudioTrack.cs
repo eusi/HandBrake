@@ -62,6 +62,9 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
 
         public AudioTrack(AudioTrack track, bool setScannedTrack)
         {
+            this.PassthruTracks = track.PassthruTracks;
+            this.TrackNamingBehaviour = track.TrackNamingBehaviour;
+
             this.bitrate = track.Bitrate;
             this.drc = track.DRC;
             this.encoder = track.Encoder;
@@ -90,8 +93,12 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
             this.SetupLimits();
         }
 
-        public AudioTrack(AudioBehaviourTrack track, Audio sourceTrack, IList<HBAudioEncoder> passthruEncoders, HBAudioEncoder fallbackEncoder, OutputFormat container)
+        public AudioTrack(AudioBehaviourTrack track, Audio sourceTrack, IList<HBAudioEncoder> passthruEncoders, HBAudioEncoder fallbackEncoder, OutputFormat container, Func<bool> passthruTracks,
+            Func<AudioTrackNamingBehaviour> trackNamingBehaviour)
         {
+            this.PassthruTracks = passthruTracks;
+            this.TrackNamingBehaviour = trackNamingBehaviour;
+
             HBAudioEncoder validatedEncoder = track.Encoder;
             if (track.IsPassthru)
             {
@@ -140,13 +147,41 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
             
             if (!string.IsNullOrEmpty(this.scannedTrack?.Name))
             {
-                this.TrackName = this.scannedTrack.Name;
+                this.PassthruTrackName();
             }
 
             this.SetupLimits();
+            this.AutoNameTrack();
         }
 
         /* Audio Track Properties */
+
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public Audio ScannedTrack
+        {
+            get
+            {
+                return this.scannedTrack;
+            }
+
+            set
+            {
+                this.scannedTrack = value;
+                this.NotifyOfPropertyChange(() => this.ScannedTrack);
+                this.NotifyOfPropertyChange(() => this.TrackReference);
+
+                // previously null should only happen on import / creation.
+                if (!string.IsNullOrEmpty(this.scannedTrack?.Name))
+                {
+                    this.TrackName = this.scannedTrack.Name;
+                }
+
+                this.GetDefaultMixdownIfNull();
+
+                this.PassthruTrackName();
+                this.AutoNameTrack();
+            }
+        }
 
         public double DRC
         {
@@ -196,6 +231,7 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
                     this.mixDown = value;
                     this.NotifyOfPropertyChange(() => this.MixDown);
                     this.SetupLimits();
+                    this.SetupTrackName();
                 }
             }
         }
@@ -230,6 +266,8 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
                 {
                     this.EncoderRateType = AudioEncoderRateType.Bitrate; // Default to bitrate.
                 }
+
+                this.SetupTrackName();
             }
         }
 
@@ -309,8 +347,6 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
             }
         }
 
-        /* UI Only Properties */ 
-
         [JsonIgnore]
         public string AudioEncoderDisplayValue
         {
@@ -357,29 +393,6 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
                 double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out samplerate);
 
                 this.SampleRate = samplerate;
-            }
-        }
-
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public Audio ScannedTrack
-        {
-            get
-            {
-                return this.scannedTrack;
-            }
-
-            set
-            {
-                this.scannedTrack = value;
-                this.NotifyOfPropertyChange(() => this.ScannedTrack);
-                this.NotifyOfPropertyChange(() => this.TrackReference);
-
-                if (!string.IsNullOrEmpty(this.scannedTrack?.Name))
-                {
-                    this.TrackName = this.scannedTrack.Name;
-                }
-                
-                this.GetDefaultMixdownIfNull();
             }
         }
 
@@ -477,7 +490,52 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
             }
         }
 
+        [JsonIgnore]
+        public Func<bool> PassthruTracks { get; set; }
+
+        [JsonIgnore]
+        public Func<AudioTrackNamingBehaviour> TrackNamingBehaviour { get; set; }
+
         /* Helper Methods */
+        public void PassthruTrackName()
+        {
+            if (PassthruTracks != null)
+            {
+                bool passthru = PassthruTracks();
+                if (this.ScannedTrack != null && passthru)
+                {
+                    this.TrackName = this.ScannedTrack.Name;
+                }
+            }
+        }
+
+        public void AutoNameTrack()
+        {
+            if (TrackNamingBehaviour != null)
+            {
+                AudioTrackNamingBehaviour behaviour = TrackNamingBehaviour();
+
+                if (this.ScannedTrack != null)
+                {
+                    ulong layout = (ulong)this.scannedTrack.ChannelLayout;
+                    bool keep = PassthruTracks != null ? PassthruTracks() : true;
+                    HBMixdown currentMixdown = HandBrakeEncoderHelpers.GetMixdown(this.mixDown);
+                    this.TrackName = HandBrakeEncoderHelpers.GetAutonameAudioTrack(this.TrackName,
+                        layout, currentMixdown.Id, keep, (int)behaviour);
+                }
+            }
+        }
+
+        public void SetupTrackName()
+        {
+            if (this.trackName == "Mono"   ||
+                this.trackName == "Stereo" ||
+                this.trackName == "Surround")
+            {
+                this.AutoNameTrack();
+                this.NotifyOfPropertyChange(() => this.TrackName);
+            }
+        }
 
         private void SetupLimits()
         {
@@ -602,7 +660,7 @@ namespace HandBrakeWPF.Services.Encode.Model.Models
                 this.MixDown = sanitisedMixdown.ShortName;
             }
         }
-
+        
         public override string ToString()
         {
             return string.Format("Audio Track: Title {0}", this.ScannedTrack.ToString());

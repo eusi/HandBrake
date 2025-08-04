@@ -60,10 +60,6 @@ void hb_job_setup_passes(hb_handle_t *h, hb_job_t *job, hb_list_t *list_pass);
  */
 typedef struct hb_buffer_s hb_buffer_t;
 
-#if HB_PROJECT_FEATURE_QSV
-#include "handbrake/qsv_libav.h"
-#endif
-
 struct hb_buffer_settings_s
 {
     enum { OTHER_BUF, AUDIO_BUF, VIDEO_BUF, SUBTITLE_BUF, FRAME_BUF } type;
@@ -150,15 +146,6 @@ struct hb_buffer_s
         int           height;
         int           size;
     } plane[4]; // 3 Color components + alpha
-
-#if HB_PROJECT_FEATURE_QSV
-    struct qsv
-    {
-        void               * qsv_atom;
-        hb_qsv_context     * ctx;
-        HBQSVFramesContext * qsv_frames_ctx;
-    } qsv_details;
-#endif
 
     void  *storage;
     enum  { STANDARD, AVFRAME, COREMEDIA } storage_type;
@@ -264,6 +251,28 @@ static inline int hb_image_height(int pix_fmt, int height, int plane)
     return height;
 }
 
+static inline void hb_image_copy_plane(uint8_t *restrict dst, const uint8_t *restrict src,
+                                       const int stride_dst, const int stride_src, const int height)
+{
+    if (src != dst)
+    {
+        if (stride_src == stride_dst)
+        {
+            memcpy(dst, src, stride_dst * height);
+        }
+        else
+        {
+            const int size = stride_src < stride_dst ? ABS(stride_src) : stride_dst;
+            for (int yy = 0; yy < height; yy++)
+            {
+                memcpy(dst, src, size);
+                dst += stride_dst;
+                src += stride_src;
+            }
+        }
+    }
+}
+
 /***********************************************************************
  * Threads: scan.c, work.c, reader.c, muxcommon.c
  **********************************************************************/
@@ -281,7 +290,7 @@ hb_work_object_t * hb_muxer_init( hb_job_t * );
 hb_work_object_t * hb_get_work( hb_handle_t *, int );
 hb_work_object_t * hb_audio_decoder( hb_handle_t *, int );
 hb_work_object_t * hb_audio_encoder( hb_handle_t *, int );
-hb_work_object_t * hb_video_decoder( hb_handle_t *, int, int, void *);
+hb_work_object_t * hb_video_decoder( hb_handle_t *, int, int, void *, hb_hwaccel_t *hw_accel);
 hb_work_object_t * hb_video_encoder( hb_handle_t *, int );
 
 /***********************************************************************
@@ -408,7 +417,6 @@ enum
     WORK_DECSSASUB,
     WORK_RENDER,
     WORK_ENCAVCODEC,
-    WORK_ENCQSV,
     WORK_ENCVT,
     WORK_ENCX264,
     WORK_ENCX265,
