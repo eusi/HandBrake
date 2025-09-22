@@ -417,6 +417,53 @@ combo_opts_t trellis_opts =
     d_trellis_opts
 };
 
+// The list of display languages selectable in the preferences.
+// Please keep this list up to date with the actually translated
+// languages in po/LINGUAS. The country codes are glibc locales.
+static options_map_t d_ui_language_opts[] =
+{
+    {N_("Use System Language"),         "",       0},
+//  {"Afrikaans (Afrikaans)",           "af_ZA",  1},
+//  {"Basque (Euskara)",                "eu_ES",  2},
+    {"Български (Bulgarian)",           "bg_BG",  3},
+    {"Català (Catalan)",                "ca_ES",  4},
+    {"简体中文 (Simplified Chinese)",       "zh_CN",  5},
+//  {"正體中文 (Traditional Chinese)",      "zh_TW",  6},
+    {"Corsu (Corsican)",                "co_CO",  7},
+//  {"Hrvatski (Croatian)",             "hr_HR",  8},
+//  {"čeština (Czech)",                 "cs_CZ",  9},
+//  {"Dansk (Danish)",                  "da_DK", 10},
+    {"Nederlands (Dutch)",              "nl_NL", 11},
+    {"English",                         "en_US", 12},
+    {"Suomi (Finnish)",                 "fi_FI", 13},
+    {"Français (French)",               "fr_FR", 14},
+//  {"ქართული (Georgian)",              "ka_GE", 15},
+    {"Deutsch (Deutsch)",               "de_DE", 16},
+//  {"עברית (Hebrew)",                  "he_IL", 17},
+    {"Italiano (Italian)",              "it_IT", 18},
+    {"日本語 (Japanese)",                  "ja_JP", 19},
+    {"한국어 (Korean)",                    "ko_KR", 20},
+//  {"Norsk (Norwegian)",               "no_NO", 21},
+//  {"Polski (Polish)",                 "pl_PL", 22},
+//  {"Portugues (Portuguese)",          "pt_PT", 23},
+    {"Português do Brasil (Brazilian Portuguese)", "pt_BR", 24},
+//  {"Română (Romanian)",               "ro_RO", 25},
+//  {"Русский (Russian)",               "ru_RU", 26},
+//  {"සිංහල (Sinhala)",                 "si_LK", 27},
+//  {"slovenčina (Slovak)",             "sk_SK", 28},
+    {"slovenščina (Slovenian)",         "sl_SI", 29},
+    {"Español (Spanish)",               "es_ES", 30},
+    {"Svenska (Swedish)",               "sv_SE", 31},
+//  {"ไทย (Thai)",                      "th_TH", 32},
+//  {"Türkçe (Turkish)",                "tr_TR", 33},
+//  {"Українська (Ukranian)",           "uk_UA", 34},
+};
+combo_opts_t ui_language_opts =
+{
+    sizeof(d_ui_language_opts)/sizeof(options_map_t),
+    d_ui_language_opts
+};
+
 typedef struct
 {
     int      filter_id;
@@ -782,6 +829,12 @@ combo_name_map_t combo_name_map[] =
     {
         "PicturePadColor",
         &pad_color_opts,
+        small_opts_set,
+        generic_opt_get
+    },
+    {
+        "UiLanguage",
+        &ui_language_opts,
         small_opts_set,
         generic_opt_get
     },
@@ -1360,7 +1413,7 @@ ghb_mix_opts_filter(GtkComboBox *combo, gint acodec)
 }
 
 static void
-grey_mix_opts(signal_user_data_t *ud, gint acodec, uint64_t layout)
+grey_mix_opts(signal_user_data_t *ud, gint acodec, const char *layout)
 {
     ghb_log_func();
 
@@ -1369,7 +1422,7 @@ grey_mix_opts(signal_user_data_t *ud, gint acodec, uint64_t layout)
          mix = hb_mixdown_get_next(mix))
     {
         grey_builder_combo_box_item("AudioMixdown", mix->amixdown,
-                !hb_mixdown_is_supported(mix->amixdown, acodec, layout));
+                !hb_mixdown_is_supported_s(mix->amixdown, acodec, layout));
     }
 }
 
@@ -1443,8 +1496,18 @@ ghb_grey_combo_options(signal_user_data_t *ud)
 
     acodec = ghb_settings_audio_encoder_codec(ud->settings, "AudioEncoder");
 
-    uint64_t layout = aconfig != NULL ? aconfig->in.channel_layout : UINT64_MAX;
-    guint32 in_codec = aconfig != NULL ? aconfig->in.codec : 0;
+    const char *layout = "7.1";
+    guint32 in_codec = 0;
+    char layout_name[256];
+
+    if (aconfig != NULL)
+    {
+        hb_layout_get_name(aconfig->in.ch_layout,
+            layout_name, sizeof(layout_name));
+        layout = layout_name;
+        in_codec = aconfig->in.codec;
+    }
+
     fallback = ghb_select_fallback(ud->settings, acodec);
     gint copy_mask = ghb_get_copy_mask(ud->settings);
     acodec = ghb_select_audio_codec(mux->format, in_codec, acodec,
@@ -1453,12 +1516,12 @@ ghb_grey_combo_options(signal_user_data_t *ud)
 }
 
 gint
-ghb_get_best_mix(uint64_t layout, gint acodec, gint mix)
+ghb_get_best_mix(const char *layout, gint acodec, gint mix)
 {
     if (mix == HB_AMIXDOWN_NONE)
         mix = HB_INVALID_AMIXDOWN;
 
-    return hb_mixdown_get_best(acodec, layout, mix);
+    return hb_mixdown_get_best_s(acodec, layout, mix);
 }
 
 // Set up the model for the combo box

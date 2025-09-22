@@ -27,18 +27,21 @@ static hb_buffer_t * upload(void *hw_frames_ctx, hb_buffer_t **buf_in)
     ret = av_hwframe_get_buffer(hw_frames_ctx, hw_frame, 0);
     if (ret < 0)
     {
+        hb_log("hwaccel: failed to get hwframe buffer");
         goto fail;
     }
 
     av_frame_copy_props(hw_frame, &frame);
     if (ret < 0)
     {
+        hb_log("hwaccel: failed to copy props");
         goto fail;
     }
 
     av_hwframe_transfer_data(hw_frame, &frame, 0);
     if (ret < 0)
     {
+        hb_log("hwaccel: failed to transfer data");
         goto fail;
     }
 
@@ -154,11 +157,17 @@ static int is_rotation_supported(hb_hwaccel_t *hwaccel, int rotation)
     return rotation != HB_ROTATION_0 && (hwaccel->caps & HB_HWACCEL_CAP_ROTATE) == 0 ? 0 : 1;
 }
 
-int hb_hwaccel_can_use_full_hw_pipeline(hb_hwaccel_t *hwaccel, hb_list_t *list_filter, int encoder, int rotation)
+static int is_color_range_supported(hb_hwaccel_t *hwaccel, int color_range)
+{
+    return color_range != 0 && (hwaccel->caps & HB_HWACCEL_CAP_COLOR_RANGE) == 0 ? 0 : 1;
+}
+
+int hb_hwaccel_can_use_full_hw_pipeline(hb_hwaccel_t *hwaccel, hb_list_t *list_filter, int encoder, int rotation, int color_range)
 {
     return hwaccel != NULL &&
         hwaccel->can_filter(list_filter) &&
         is_rotation_supported(hwaccel, rotation) &&
+        is_color_range_supported(hwaccel, color_range) &&
         is_encoder_supported(hwaccel, encoder);
 }
 

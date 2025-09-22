@@ -106,7 +106,7 @@ namespace HandBrakeWPF.ViewModels
         private string prePostFilenameText;
         private bool showPrePostFilenameBox;
         private bool whenDonePerformActionImmediately;
-        private DarkThemeMode darkThemeMode;
+        private AppThemeMode appThemeMode;
         private bool alwaysUseDefaultPath;
         private bool pauseOnLowBattery;
         private int lowBatteryLevel;
@@ -124,12 +124,11 @@ namespace HandBrakeWPF.ViewModels
         private bool keepDuplicateTitles;
         private bool maxDurationEnabled;
         private DefaultRangeMode selectedDefaultRangeMode;
-
         private string queueDoneAction;
-
         private string queueDoneArguments;
-
         private bool queueDoneCustomActionEnabled;
+
+        private PresetUiType selectedPresetUiType;
 
         public OptionsViewModel(
             IUserSettingService userSettingService,
@@ -151,7 +150,7 @@ namespace HandBrakeWPF.ViewModels
             this.OnLoad();
 
             this.SelectedTab = OptionsTab.General;
-            this.UpdateMessage = Resources.OptionsViewModel_CheckForUpdatesMsg;
+           // this.UpdateMessage = Resources.OptionsViewModel_CheckForUpdatesMsg;
             this.RemoveExtensionCommand = new SimpleRelayCommand<string>(this.RemoveExcludedExtension);
         }
 
@@ -203,6 +202,8 @@ namespace HandBrakeWPF.ViewModels
         }
 
         public bool CheckForUpdatesAllowed { get; set; }
+
+        public bool IsUpdateFound { get; set; }
 
         public bool ResetWhenDoneAction
         {
@@ -283,16 +284,22 @@ namespace HandBrakeWPF.ViewModels
             }
         }
 
-        public BindingList<DarkThemeMode> DarkThemeModes { get; } = new BindingList<DarkThemeMode>(EnumHelper<DarkThemeMode>.GetEnumList().ToList());
+        public BindingList<AppThemeMode> DarkThemeModes { get; } = new BindingList<AppThemeMode>()
+                                                                   {
+                                                                       AppThemeMode.System,
+                                                                       AppThemeMode.Light,
+                                                                       AppThemeMode.Dark,
+                                                                       AppThemeMode.None
+                                                                   };
 
-        public DarkThemeMode DarkThemeMode
+        public AppThemeMode AppThemeMode
         {
-            get => this.darkThemeMode;
+            get => this.appThemeMode;
             set
             {
-                if (value == this.darkThemeMode) return;
-                this.darkThemeMode = value;
-                this.NotifyOfPropertyChange(() => this.DarkThemeMode);
+                if (value == this.appThemeMode) return;
+                this.appThemeMode = value;
+                this.NotifyOfPropertyChange(() => this.AppThemeMode);
             }
         }
 
@@ -306,6 +313,23 @@ namespace HandBrakeWPF.ViewModels
                 if (value == this.selectedPresetDisplayMode) return;
                 this.selectedPresetDisplayMode = value;
                 this.NotifyOfPropertyChange(() => this.SelectedPresetDisplayMode);
+            }
+        }
+
+        public BindingList<PresetUiType> PresetUiTypes { get; } = new BindingList<PresetUiType>(EnumHelper<PresetUiType>.GetEnumList().ToList());
+        
+        public PresetUiType SelectedPresetUiType
+        {
+            get => this.selectedPresetUiType;
+            set
+            {
+                if (value == this.selectedPresetUiType)
+                {
+                    return;
+                }
+
+                this.selectedPresetUiType = value;
+                this.NotifyOfPropertyChange(() => this.SelectedPresetUiType);
             }
         }
 
@@ -1178,8 +1202,20 @@ namespace HandBrakeWPF.ViewModels
             {
                 this.updateMessage = value;
                 this.NotifyOfPropertyChange(() => this.UpdateMessage);
+
+                if (!string.IsNullOrEmpty(this.updateMessage))
+                {
+                    IsUpdateMessageSet = true;
+                }
+                else
+                {
+                    this.IsUpdateMessageSet = false;
+                }
+                this.NotifyOfPropertyChange(() => this.IsUpdateMessageSet);
             }
         }
+
+        public bool IsUpdateMessageSet { get; set; }
 
         public bool UpdateAvailable
         {
@@ -1385,6 +1421,8 @@ namespace HandBrakeWPF.ViewModels
         {
             this.UpdateMessage = Resources.OptionsView_CheckingForUpdates;
             this.updateService.CheckForUpdates(this.UpdateCheckComplete);
+            this.IsUpdateFound = true;
+            this.NotifyOfPropertyChange(() =>this.IsUpdateFound);
         }
 
         public void BrowseWhenDoneAudioFile()
@@ -1498,9 +1536,10 @@ namespace HandBrakeWPF.ViewModels
             this.ShowPreviewOnSummaryTab = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowPreviewOnSummaryTab);
             this.ShowAddAllToQueue = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowAddAllToQueue);
             this.ShowAddSelectionToQueue = this.userSettingService.GetUserSetting<bool>(UserSettingConstants.ShowAddSelectionToQueue);
-            this.DarkThemeMode = (DarkThemeMode)this.userSettingService.GetUserSetting<int>(UserSettingConstants.DarkThemeMode);
+            this.AppThemeMode = (AppThemeMode)this.userSettingService.GetUserSetting<int>(UserSettingConstants.DarkThemeMode);
             this.SelectedPresetDisplayMode = (PresetDisplayMode)this.userSettingService.GetUserSetting<int>(UserSettingConstants.PresetMenuDisplayMode);
-
+            this.SelectedPresetUiType = (PresetUiType)this.userSettingService.GetUserSetting<int>(UserSettingConstants.PresetUiType);
+            
             // #############################
             // When Done
             // #############################
@@ -1680,6 +1719,7 @@ namespace HandBrakeWPF.ViewModels
 
 
             // Warnings
+            // Reset Settings where incompatible drivers are found
             ThreadPool.QueueUserWorkItem(
                 delegate
                 {
@@ -1688,13 +1728,24 @@ namespace HandBrakeWPF.ViewModels
                         GpuInfo info = SystemInfo.GetGPUInfo.FirstOrDefault(s => s.IsIntel);
                         if (info != null)
                         {
-                            this.DisplayIntelDriverWarning = !info.IsIntelDriverSupported;
+                            if (!info.IsIntelDriverSupported)
+                            {
+                                this.DisplayIntelDriverWarning = !info.IsIntelDriverSupported;
+                                this.EnableQuickSyncDecoding = false;
+                                this.UseQSVDecodeForNonQSVEnc = false;
+                                this.Save();
+                            }
                         }
 
                         info = SystemInfo.GetGPUInfo.FirstOrDefault(s => s.IsNvidia);
                         if (info != null)
                         {
-                            this.DisplayNvidiaDriverWarning = !info.IsNvidiaDriverSupported;
+                            if (!info.IsNvidiaDriverSupported)
+                            {
+                                this.DisplayNvidiaDriverWarning = true;
+                                this.EnableNvDecSupport = false;
+                                this.Save();
+                            }
                         }
 
                         this.NotifyOfPropertyChange(() => this.DisplayIntelDriverWarning);
@@ -1769,13 +1820,15 @@ namespace HandBrakeWPF.ViewModels
             this.userSettingService.SetUserSetting(UserSettingConstants.DaysBetweenUpdateCheck, this.CheckForUpdatesFrequency);
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowStatusInTitleBar, this.ShowStatusInTitleBar);
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowPreviewOnSummaryTab, this.ShowPreviewOnSummaryTab);
-            this.userSettingService.SetUserSetting(UserSettingConstants.DarkThemeMode, this.DarkThemeMode);
+            this.userSettingService.SetUserSetting(UserSettingConstants.DarkThemeMode, this.AppThemeMode);
             this.userSettingService.SetUserSetting(UserSettingConstants.UiLanguage, this.SelectedLanguage?.Culture);
             this.userSettingService.SetUserSetting(UserSettingConstants.RightToLeftUi, this.SelectedRightToLeftMode);
 
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowAddAllToQueue, this.ShowAddAllToQueue);
             this.userSettingService.SetUserSetting(UserSettingConstants.ShowAddSelectionToQueue, this.ShowAddSelectionToQueue);
             this.userSettingService.SetUserSetting(UserSettingConstants.PresetMenuDisplayMode, this.SelectedPresetDisplayMode);
+            this.userSettingService.SetUserSetting(UserSettingConstants.PresetUiType, this.SelectedPresetUiType);
+
 
             /* When Done */
             this.userSettingService.SetUserSetting(UserSettingConstants.WhenCompleteAction, (int)this.WhenDone);
@@ -1872,7 +1925,7 @@ namespace HandBrakeWPF.ViewModels
             this.updateInfo = info;
             if (info.NewVersionAvailable)
             {
-                this.UpdateMessage = Resources.OptionsViewModel_NewUpdate;
+                this.UpdateMessage = string.Format(Resources.OptionsViewModel_NewUpdate, info.Version);
                 this.UpdateAvailable = true;
             }
             else
@@ -1925,6 +1978,10 @@ namespace HandBrakeWPF.ViewModels
                 }
                 catch (Exception exc)
                 {
+                    this.IsUpdateFound = false;
+                    this.UpdateMessage = Resources.Options_UpdateNotComplete;
+                    this.DownloadProgressPercentage = 0;
+                    this.NotifyOfPropertyChange(() => this.IsUpdateFound);
                     Console.WriteLine(exc);
                 }
             }

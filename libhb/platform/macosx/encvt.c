@@ -240,12 +240,10 @@ static void hb_vt_check_result(OSStatus err, CFStringRef propertyKey)
 {
     if (err != noErr)
     {
-        static const int VAL_BUF_LEN = 256;
-        char valBuf[VAL_BUF_LEN];
-
+        char valBuf[256];
         Boolean haveStr = CFStringGetCString(propertyKey,
                                              valBuf,
-                                             VAL_BUF_LEN,
+                                             256,
                                              kCFStringEncodingUTF8);
         if (haveStr)
         {
@@ -400,8 +398,10 @@ static OSType hb_vt_encoder_pixel_format_xlat(int vcodec, int profile, int color
             {
                 case HB_VT_H265_PROFILE_MAIN_10:
                     pix_fmt = hb_vt_get_best_pix_fmt(vcodec, "main-10");
+                    break;
                 case HB_VT_H265_PROFILE_MAIN_422_10:
                     pix_fmt = hb_vt_get_best_pix_fmt(vcodec, "main422-10");
+                    break;
             }
             break;
         default:
@@ -1152,12 +1152,10 @@ static OSStatus hb_vt_init_session(hb_work_object_t *w, hb_job_t *job, hb_work_p
 
         if (err == noErr)
         {
-            static const int VAL_BUF_LEN = 256;
-            char valBuf[VAL_BUF_LEN];
-
+            char valBuf[256];
             Boolean haveStr = CFStringGetCString(encoderID,
                                                  valBuf,
-                                                 VAL_BUF_LEN,
+                                                 256,
                                                  kCFStringEncodingUTF8);
             if (haveStr)
             {

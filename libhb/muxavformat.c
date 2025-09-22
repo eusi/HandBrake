@@ -277,6 +277,12 @@ static int avformatInit( hb_mux_object_t * m )
                      hb_list_count( job->list_subtitle );
     m->tracks = calloc(max_tracks, sizeof(hb_mux_data_t*));
 
+    if (m->tracks == NULL)
+    {
+        hb_error("muxavformat: calloc failed");
+        goto error;
+    }
+
     AVDictionary * av_opts = NULL;
     switch (job->mux)
     {
@@ -751,9 +757,7 @@ static int avformatInit( hb_mux_object_t * m )
         track->st->codecpar->sample_rate = audio->config.out.samplerate;
         if (audio->config.out.codec & HB_ACODEC_PASS_FLAG)
         {
-            AVChannelLayout ch_layout = {0};
-            av_channel_layout_from_mask(&ch_layout, audio->config.in.channel_layout);
-            track->st->codecpar->ch_layout = ch_layout;
+            av_channel_layout_copy(&track->st->codecpar->ch_layout, audio->config.in.ch_layout);
         }
         else
         {
@@ -1050,6 +1054,13 @@ static int avformatInit( hb_mux_object_t * m )
         }
     }
 
+    // Enable bitexact to avoid having
+    // libavf putting an "Encoded by" metadata
+    if (job->mux == HB_MUX_AV_MP4)
+    {
+        m->oc->flags |= AVFMT_FLAG_BITEXACT;
+    }
+
     if (job->metadata)
     {
         hb_deep_log(2, "Writing Metadata to output file...");
@@ -1207,11 +1218,14 @@ static int avformatInit( hb_mux_object_t * m )
     return 0;
 
 error:
-    for (ii = 0; ii < m->ntracks; ii++)
+    if (m->tracks)
     {
-        if (m->tracks[ii]->oc != NULL)
+        for (ii = 0; ii < m->ntracks; ii++)
         {
-            avformat_free_context(m->tracks[ii]->oc);
+            if (m->tracks[ii] != NULL && m->tracks[ii]->oc != NULL)
+            {
+                avformat_free_context(m->tracks[ii]->oc);
+            }
         }
     }
     av_dict_free(&av_opts);

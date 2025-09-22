@@ -59,6 +59,13 @@ hb_display_t * hb_display_init(const char         * driver_name,
 void           hb_display_close(hb_display_t ** _d);
 
 /************************************************************************
+ * Operating system info utilities
+ ***********************************************************************/
+const char * hb_get_system_name(void);
+const char * hb_get_system_version(void);
+const char * hb_get_system_build(void);
+
+/************************************************************************
  * CPU info utilities
  ***********************************************************************/
 enum hb_cpu_platform
@@ -130,6 +137,7 @@ char * hb_strndup(const char * src, size_t len);
 /************************************************************************
  * File utils
  ***********************************************************************/
+void hb_set_temporary_directory(const char *tmp_dir);
 const char * hb_get_temporary_directory(void);
 char * hb_get_temporary_filename( char *fmt, ... );
 size_t hb_getline(char **lineptr, size_t *n, FILE *fp);

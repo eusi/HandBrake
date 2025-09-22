@@ -9,6 +9,7 @@
 
 #include "handbrake/handbrake.h"
 #include "handbrake/hbffmpeg.h"
+#include "libavutil/cpu.h"
 
 static int get_frame_type(int type)
 {
@@ -670,6 +671,12 @@ hb_dovi_conf_t hb_dovi_ff_to_hb(AVDOVIDecoderConfigurationRecord dovi)
     return hb_dovi;
 }
 
+int hb_ff_mixdown_ch_xlat(AVChannelLayout *channel_layout, int hb_mixdown, int *downmix_mode)
+{
+    uint64_t layout = hb_ff_mixdown_xlat(hb_mixdown, downmix_mode);
+    return av_channel_layout_from_mask(channel_layout, layout);
+}
+
 uint64_t hb_ff_mixdown_xlat(int hb_mixdown, int *downmix_mode)
 {
     uint64_t ff_layout = 0;
@@ -783,6 +790,13 @@ int hb_av_can_use_zscale(enum AVPixelFormat pix_fmt,
 {
 
 #if defined (__aarch64__) && defined(_WIN32)
+    {
+        return 0;
+    }
+#endif
+
+#if ARCH_X86_64 || ARCH_X86_32
+    if ((av_get_cpu_flags() & AV_CPU_FLAG_AVX2) == 0)
     {
         return 0;
     }

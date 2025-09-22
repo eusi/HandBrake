@@ -11,7 +11,7 @@ jobs:
     name: Build on Ubuntu
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Cargo-C Toolchain Cache
       id: linux-cargo-c-toolchain
@@ -21,7 +21,7 @@ jobs:
           ~/.cargo/bin/cargo-capi
           ~/.cargo/bin/cargo-cbuild
           ~/.cargo/bin/cargo-cinstall
-        key: linux-cargo-c-toolchain
+        key: ${{ runner.os }}-${{ runner.arch }}-linux-cargo-c-toolchain
 
     - name: Setup Environment
       run: |

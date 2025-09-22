@@ -10,7 +10,64 @@ Download available from Microsoft:
 - [For x64 (AMD or Intel CPUs)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe)
 - [For Arm64 (Qualcomm or other)](https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-arm64.exe)
 
+## HandBrake 1.10.2
+
+### All platforms
+
+#### Video
+
+- Fixed a crash that could happen when encoding high depth video
+
+#### Third-party libraries
+
+- Updated libraries
+  - HarfBuzz 11.4.5 (subtitles)
+  - SVT-AV1 3.1.2 (AV1 video encoding)
+
+### Mac
+
+- Added a workaround to avoid a rare crash on Apple Silicon Macs
+
+### Windows
+
+- Fixed some incorrect behaviour on CQ/RF calcuations and handling of presets
+- The app will now automatically disable QSV or NVDec decoders if an out-of-date driver is detected.
+
+
+## HandBrake 1.10.1
+
+### All platforms
+
+#### Video
+
+- Fixed a visual corruption issue that could happen when encoding with x265
+- Fixed SVT-AV1 presets 10, 9, and 8 not working properly with SSIM tune
+
+#### Third-party libraries
+
+- Updated libraries
+  - HarfBuzz 11.4.2 (subtitles)
+
+### Linux
+
+- Fixed preview audio when running the flatpak build
+- Fixed Vorbis passthru checkbox not being applied when the title changes
+
+### Mac
+
+- Improved custom border color validation
+
+### Windows
+
+- Added new translation
+  - Romanian (Română)
+- Fixed arm64 build
+- Fixed audio track name generation
+
+
 ## HandBrake 1.10.0
+
+### All platforms
 
 #### General
 
@@ -28,6 +85,7 @@ Download available from Microsoft:
 #### Video
 
 - Added an option to choose the encoder color range
+- Improved Framerate Shaper metrics performance for high resolution frames
 - Fixed VCN encoder presets (#6974)
 - Updated NVEnc CQ range (#6418)
 
@@ -54,6 +112,7 @@ Download available from Microsoft:
   - FFmpeg 7.1.1 (decoding and filters)
   - HarfBuzz 11.3.3 (subtitles)
   - libass 0.17.4 (subtitles)
+  - libdovi 3.3.2 (Dolby Vision dynamic metadata)
   - libiconv 1.18 (character encoding support)
   - libjpeg-turbo 3.1.1 (preview image compression)
   - liblzma (xz) 5.8.1 (LZMA video decoding, e.g. TIFF)
@@ -83,9 +142,8 @@ Download available from Microsoft:
 - Updated Auto Naming Preferences to add "{angle}" as a filename generation option (#6086)
 - Reduced CPU usage when using VideoToolbox decoders and encoders
 - Encoded files are now excluded from Time Machine until they are completed
-- Fixed queue jobs not being reloaded properly when the source is an .iso file
+- Fixed queue jobs not being reloaded properly when the source is a .iso file
 - Fixed "Same as source" destination option, it didn't work properly in some case
-- Fixed reloading jobs from the queue when the source is a .iso file
 - Updated existing and maintained locales
 
 ### Windows
@@ -93,6 +151,7 @@ Download available from Microsoft:
 - Added a new preference "Default Range Mode for titles". See Preferences -> Advanced (#6385)
 - Added a new preference to run a custom action when the queue completes. See Preferences -> When Done (#4851)
 - Added "{destination_folder}" as option on the "Encode Completed" "Send File To" option.
+- Added support for DirectX based AV1 video decoding when using the Media Foundation encoder on ARM devices
 - Updated Auto Naming Preferences to add "{angle}" as a filename generation option (#6086)
 - Performance Optimisations for ARM64 devices running Windows
 - Minor miscellaneous UI improvements.

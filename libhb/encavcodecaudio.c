@@ -175,7 +175,10 @@ static int encavcodecaInit(hb_work_object_t *w, hb_job_t *job)
             // audio, and will error out unless we translate the layout
             if (in_channel_layout == AV_CH_LAYOUT_5POINT1)
                 out_channel_layout  = AV_CH_LAYOUT_5POINT1_BACK;
-            if (hb_layout_get_discrete_channel_count(in_channel_layout) > 2)
+
+            AVChannelLayout ch_layout = {0};
+            av_channel_layout_from_mask(&ch_layout, out_channel_layout);
+            if (hb_layout_get_discrete_channel_count(&ch_layout) > 2)
                 av_dict_set(&av_opts, "mapping_family", "1", 0);
             break;
 
@@ -272,7 +275,7 @@ static int encavcodecaInit(hb_work_object_t *w, hb_job_t *job)
     pv->input_buf         = malloc(pv->input_samples * sizeof(float));
     // Some encoders in libav (e.g. fdk-aac) fail if the output buffer
     // size is not some minimum value.  8K seems to be enough :(
-    pv->max_output_bytes  = MAX(AV_INPUT_BUFFER_MIN_SIZE,
+    pv->max_output_bytes  = MAX(16384,
                                 (pv->input_samples *
                                  av_get_bytes_per_sample(context->sample_fmt)));
 

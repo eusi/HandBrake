@@ -899,11 +899,12 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         }
         else
         {
-            int    size;
+            long   size;
             char * log;
 
             pv->file = hb_fopen(filename, "rb");
-            if (!pv->file) {
+            if (!pv->file)
+            {
                 if (strerror_r(errno, reason, 79) != 0)
                     strcpy(reason, "unknown -- strerror_r() failed");
 
@@ -915,6 +916,17 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
             fseek( pv->file, 0, SEEK_END );
             size = ftell( pv->file );
             fseek( pv->file, 0, SEEK_SET );
+
+            if (size == -1)
+            {
+                hb_error( "encavcodecInit: Failed to read %s", filename);
+                free(filename);
+                ret = 1;
+                fclose( pv->file );
+                pv->file = NULL;
+                goto done;
+            }
+
             log = malloc( size + 1 );
             log[size] = '\0';
             if (size > 0 &&
@@ -1599,10 +1611,14 @@ static int apply_encoder_level(AVCodecContext *context, AVDictionary **av_opts, 
         case HB_VCODEC_FFMPEG_FFV1:
             level_names = hb_ffv1_level_names;
             level_values = hb_ffv1_level_values;
+            if (!strcasecmp(encoder_level, "auto"))
+            {
+                encoder_level = "3";
+            }
             break;
     }
 
-    context->level = FF_LEVEL_UNKNOWN;
+    context->level = AV_FIELD_UNKNOWN;
 
     if (level_names == NULL || level_values == NULL)
     {

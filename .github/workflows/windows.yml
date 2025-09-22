@@ -11,7 +11,7 @@ jobs:
     name: CLI / LibHB (ARM)
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Environment Setup
       run: |
         sudo apt-get install automake autoconf build-essential libtool libtool-bin make meson nasm patch tar yasm zlib1g-dev ninja-build gzip pax
@@ -66,7 +66,7 @@ jobs:
     name: CLI / LibHB
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Cargo-C Toolchain Cache
       id: windows-cargo-c-toolchain
@@ -76,7 +76,7 @@ jobs:
           ~/.cargo/bin/cargo-capi
           ~/.cargo/bin/cargo-cbuild
           ~/.cargo/bin/cargo-cinstall
-        key: windows-cargo-c-toolchain
+        key: ${{ runner.os }}-${{ runner.arch }}-windows-cargo-c-toolchain
 
     - name: Setup Environment
       run: |
@@ -135,10 +135,10 @@ jobs:
       SigningCertificate: ${{ secrets.HandBrakeTeam_SignFile }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Download LibHandBrake
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
        name: LibHandBrake
        path: win/CS/HandBrakeWPF/bin/publish
@@ -206,10 +206,10 @@ jobs:
       SigningCertificate: ${{ secrets.HandBrakeTeam_SignFile }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
        
     - name: Download LibHandBrake_ARM64
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
        name: LibHandBrake_ARM64
        path: win/CS/HandBrakeWPF/bin/publish
