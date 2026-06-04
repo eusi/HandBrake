@@ -1,6 +1,6 @@
 /* application.c
  *
- * Copyright (C) 2008-2025 John Stebbins <stebbins@stebbins>
+ * Copyright (C) 2008-2026 John Stebbins <stebbins@stebbins>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -763,8 +763,10 @@ ghb_application_activate (GApplication *app)
     const char *ui_language = ghb_dict_get_string(ud->prefs, "UiLanguage");
     if (ui_language && ui_language[0])
     {
-        g_autofree char *locale = g_strdup_printf("%s.UTF-8", ui_language);
-        setlocale(LC_ALL, locale);
+        // Set the LANGUAGE environment variable for gettext.
+        // This accepts short locale codes (e.g. "fr", "de", "pt_BR")
+        // that match the .po filenames in gtk/po/.
+        g_setenv("LANGUAGE", ui_language, TRUE);
     }
 
     self->builder = create_builder_or_die(BUILDER_NAME);

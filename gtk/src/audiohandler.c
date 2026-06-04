@@ -1,6 +1,6 @@
 /* audiohandler.c
  *
- * Copyright (C) 2008-2025 John Stebbins <stebbins@stebbins>
+ * Copyright (C) 2008-2026 John Stebbins <stebbins@stebbins>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -343,6 +343,10 @@ int ghb_get_copy_mask(GhbValue *settings)
     if (ghb_dict_get_bool(settings, "AudioAllowOPUSPass"))
     {
         mask |= HB_ACODEC_OPUS_PASS;
+    }
+    if (ghb_dict_get_bool(settings, "AudioAllowPCMPass"))
+    {
+        mask |= HB_ACODEC_PCM_PASS;
     }
     return mask;
 }

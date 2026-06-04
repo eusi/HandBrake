@@ -541,9 +541,9 @@ Usando una di queste modalità, potrebbero esserci dei problemi nella visualizza
   </data>
   <data name="AudioView_Quality" xml:space="preserve">
     <value>Imposta un livello di qualità specifico per l'audio.
-1 è la qualità più bassa mentre 5 è quella più alta.
+Valori più alti corrispondono a una qualità più alta.
 
-Il Bitrate cambierà da sorgente a sorgente.</value>
+La frequenza di dati cambierà da sorgente a sorgente.</value>
   </data>
   <data name="OptionsView_DestinationReplacementOptions" xml:space="preserve">
     <value>Le seguenti possono essere usate singolarmente o contemporaneamente per formare un percorso di destinazione.

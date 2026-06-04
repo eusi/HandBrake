@@ -1,6 +1,6 @@
 /* test.c
 
-   Copyright (c) 2003-2025 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -1367,6 +1367,8 @@ static void ShowHelp(void)
 "                           only, default: 1)\n"
 "       --min-duration      Set the minimum title duration (in seconds).\n"
 "                           Shorter titles will be ignored (default: 10).\n"
+"       --max-duration      Set the maximum title duration (in seconds).\n"
+"                           Longer titles will be ignored.\n"
 "       --scan              Scan selected title only.\n"
 "       --main-feature      Detect and select the main feature title.\n"
 "       --keep-duplicate-titles\n"
@@ -4589,7 +4591,27 @@ static hb_dict_t * PreparePreset(const char *preset_name)
     }
     if (anamorphic_mode != -1)
     {
-        hb_dict_set(preset, "PicturePAR", hb_value_int(anamorphic_mode));
+        const char *mode;
+        switch (anamorphic_mode)
+        {
+            case HB_ANAMORPHIC_NONE:
+                mode = "off";
+                break;
+            case HB_ANAMORPHIC_STRICT:
+                mode = "strict";
+                break;
+            case HB_ANAMORPHIC_LOOSE:
+                mode = "loose";
+                break;
+            case HB_ANAMORPHIC_CUSTOM:
+                mode = "custom";
+                break;
+            case HB_ANAMORPHIC_AUTO:
+            default:
+                mode = "auto";
+                break;
+        }
+        hb_dict_set(preset, "PicturePAR", hb_value_string(mode));
     }
     if (keep_display_aspect != -1)
     {

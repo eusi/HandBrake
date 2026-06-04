@@ -1,6 +1,6 @@
 /* vce_common.c
  *
- * Copyright (c) 2003-2025 HandBrake Team
+ * Copyright (c) 2003-2026 HandBrake Team
  * This file is part of the HandBrake source code.
  * Homepage: <http://handbrake.fr/>.
  * It may be used under the terms of the GNU General Public License v2.
@@ -184,7 +184,8 @@ int hb_vce_av1_available()
 
 int hb_map_vce_preset_name(int vcodec, const char *preset)
 {
-    if (vcodec == HB_VCODEC_FFMPEG_VCE_AV1)
+    if (vcodec == HB_VCODEC_FFMPEG_VCE_AV1 ||
+        vcodec == HB_VCODEC_FFMPEG_VCE_AV1_10BIT)
     {
         if (strcmp(preset, "high quality") == 0) {
             return AMF_VIDEO_ENCODER_AV1_QUALITY_PRESET_HIGH_QUALITY;

@@ -1,6 +1,6 @@
 /* presets.c
  *
- * Copyright (C) 2008-2025 John Stebbins <stebbins@stebbins>
+ * Copyright (C) 2008-2026 John Stebbins <stebbins@stebbins>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -519,6 +519,10 @@ ghb_preset_to_settings(GhbValue *settings, GhbValue *preset)
                 case HB_ACODEC_OPUS:
                 case HB_ACODEC_OPUS_PASS:
                     ghb_dict_set_bool(settings, "AudioAllowOPUSPass", 1);
+                    break;
+                case HB_ACODEC_PCM:
+                case HB_ACODEC_PCM_PASS:
+                    ghb_dict_set_bool(settings, "AudioAllowPCMPass", 1);
                     break;
             }
         }
@@ -1400,6 +1404,7 @@ ghb_presets_menu_init(signal_user_data_t *ud)
                     char * preset_path;
                     char * detail_action;
 
+                    g_string_replace(preset_str, "'", "\\'", 0);
                     preset_path = g_string_free(preset_str, FALSE);
                     if (preset_enabled)
                         detail_action = g_strdup_printf("app.preset-select('%s')", preset_path);
@@ -1794,6 +1799,10 @@ GhbValue* ghb_create_copy_mask(GhbValue *settings)
     if (ghb_dict_get_bool(settings, "AudioAllowOPUSPass"))
     {
         ghb_array_append(copy_mask, ghb_string_value_new("copy:opus"));
+    }
+    if (ghb_dict_get_bool(settings, "AudioAllowPCMPass"))
+    {
+        ghb_array_append(copy_mask, ghb_string_value_new("copy:pcm"));
     }
     return copy_mask;
 }

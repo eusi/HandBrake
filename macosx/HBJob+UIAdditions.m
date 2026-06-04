@@ -40,7 +40,7 @@ static HBMixdownTransformer    *mixdownTransformer;
 
 - (BOOL)mp4OptionsEnabled
 {
-    return ((self.container & HB_MUX_MASK_MP4) != 0);
+    return ((self.container & HB_MUX_MASK_MP4 || self.container & HB_MUX_MASK_MOV) != 0);
 }
 
 + (NSSet<NSString *> *)keyPathsForValuesAffectingMp4OptionsEnabled
@@ -80,6 +80,10 @@ static HBMixdownTransformer    *mixdownTransformer;
         if (container->format & HB_MUX_MASK_MP4)
         {
             title = @"MP4";
+        }
+        else if (container->format & HB_MUX_MASK_MOV)
+        {
+            title = @"MOV";
         }
         else if (container->format & HB_MUX_MASK_MKV)
         {
@@ -226,6 +230,10 @@ static HBMixdownTransformer    *mixdownTransformer;
     if (self.container & HB_MUX_MASK_MP4)
     {
         containerName = @"MP4";
+    }
+    else if (self.container & HB_MUX_MASK_MOV)
+    {
+        containerName = @"MOV";
     }
     else if (self.container & HB_MUX_MASK_MKV)
     {
@@ -608,9 +616,10 @@ static HBMixdownTransformer    *mixdownTransformer;
     {
         if (audioTrack.isEnabled)
         {
+            const char *encoder_name = hb_audio_encoder_get_name(audioTrack.encoder);
             NSMutableString *detailString = [NSMutableString stringWithFormat:HBKitLocalizedString(@"%@ ▸ Encoder: %@", @"Audio description"),
-                                      self.audio.sourceTracks[audioTrack.sourceTrackIdx].displayName,
-                                      @(hb_audio_encoder_get_name(audioTrack.encoder))];
+                                             self.audio.sourceTracks[audioTrack.sourceTrackIdx].displayName,
+                                             encoder_name ? @(encoder_name) : HBKitLocalizedString(@"Unknown", @"HBJob -> video short description encoder name")];
 
             if ((audioTrack.encoder & HB_ACODEC_PASS_FLAG) == 0)
             {
@@ -1058,6 +1067,10 @@ static HBMixdownTransformer    *mixdownTransformer;
     {
         return @"MP4";
     }
+    if (container & HB_MUX_MASK_MOV)
+    {
+        return @"MOV";
+    }
     else if (container & HB_MUX_MASK_MKV)
     {
         return @"MKV";
@@ -1090,6 +1103,10 @@ static HBMixdownTransformer    *mixdownTransformer;
     if ([value isEqualToString:@"MP4"])
     {
         return @(HB_MUX_AV_MP4);
+    }
+    if ([value isEqualToString:@"MOV"])
+    {
+        return @(HB_MUX_AV_MOV);
     }
     else if ([value isEqualToString:@"MKV"])
     {

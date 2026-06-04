@@ -1,6 +1,6 @@
 /* muxavformat.c
 
-   Copyright (c) 2003-2025 HandBrake Team
+   Copyright (c) 2003-2026 HandBrake Team
    This file is part of the HandBrake source code
    Homepage: <http://handbrake.fr/>.
    It may be used under the terms of the GNU General Public License v2.
@@ -8,6 +8,7 @@
  */
 
 #include <time.h>
+#include "handbrake/common.h"
 #include "libavcodec/bsf.h"
 #include "libavformat/avformat.h"
 #include "libavutil/avstring.h"
@@ -179,6 +180,7 @@ static char* lookup_lang_code(int mux, char *iso639_2)
     switch (mux)
     {
         case HB_MUX_AV_MP4:
+        case HB_MUX_AV_MOV:
             out = iso639_2;
             break;
         case HB_MUX_AV_MKV:
@@ -303,6 +305,19 @@ static int avformatInit( hb_mux_object_t * m )
                 av_dict_set(&av_opts, "movflags", "+disable_chpl+write_colr", 0);
             break;
 
+        case HB_MUX_AV_MOV:
+            m->time_base.num = 1;
+            m->time_base.den = 90000;
+            muxer_name = "mov";
+            meta_mux = META_MUX_MOV;
+
+            av_dict_set(&av_opts, "strict", "experimental", 0);
+            if (job->optimize)
+                av_dict_set(&av_opts, "movflags", "faststart+disable_chpl+write_colr+negative_cts_offsets", 0);
+            else
+                av_dict_set(&av_opts, "movflags", "+disable_chpl+write_colr+negative_cts_offsets", 0);
+            break;
+
         case HB_MUX_AV_MKV:
             // libavformat is essentially hard coded such that it only
             // works with a timebase of 1/1000
@@ -377,7 +392,7 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_FFMPEG_QSV_H264:
         case HB_VCODEC_FFMPEG_MF_H264:
             track->st->codecpar->codec_id = AV_CODEC_ID_H264;
-            if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
+            if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) && job->inline_parameter_sets)
             {
                 track->st->codecpar->codec_tag = MKTAG('a','v','c','3');
             }
@@ -409,6 +424,7 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_FFMPEG_NVENC_AV1:
         case HB_VCODEC_FFMPEG_NVENC_AV1_10BIT:
         case HB_VCODEC_FFMPEG_VCE_AV1:
+        case HB_VCODEC_FFMPEG_VCE_AV1_10BIT:
         case HB_VCODEC_FFMPEG_MF_AV1:
             track->st->codecpar->codec_id = AV_CODEC_ID_AV1;
             break;
@@ -462,7 +478,7 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_FFMPEG_QSV_H265_10BIT:
         case HB_VCODEC_FFMPEG_MF_H265:
             track->st->codecpar->codec_id  = AV_CODEC_ID_HEVC;
-            if (job->mux == HB_MUX_AV_MP4 && job->inline_parameter_sets)
+            if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) && job->inline_parameter_sets)
             {
                 track->st->codecpar->codec_tag = MKTAG('h','e','v','1');
             }
@@ -474,6 +490,42 @@ static int avformatInit( hb_mux_object_t * m )
 
         case HB_VCODEC_FFMPEG_FFV1:
             track->st->codecpar->codec_id = AV_CODEC_ID_FFV1;
+            break;
+
+        case HB_VCODEC_FFMPEG_PRORES:
+        case HB_VCODEC_VT_PRORES:
+            track->st->codecpar->codec_id = AV_CODEC_ID_PRORES;
+            if (job->encoder_profile != NULL && *job->encoder_profile)
+            {
+                if (!strcasecmp(job->encoder_profile, "proxy"))
+                {
+                    track->st->codecpar->codec_tag = MKTAG('a', 'p', 'c', 'o');
+                }
+                else if (!strcasecmp(job->encoder_profile, "lt"))
+                {
+                    track->st->codecpar->codec_tag = MKTAG('a', 'p', 'c', 's');
+                }
+                else if (!strcasecmp(job->encoder_profile, "standard"))
+                {
+                    track->st->codecpar->codec_tag = MKTAG('a', 'p', 'c', 'n');
+                }
+                else if (!strcasecmp(job->encoder_profile, "hq"))
+                {
+                    track->st->codecpar->codec_tag = MKTAG('a', 'p', 'c', 'h');
+                }
+                else if (!strcasecmp(job->encoder_profile, "4444"))
+                {
+                    track->st->codecpar->codec_tag = MKTAG('a', 'p', '4', 'h');
+                }
+                else if (!strcasecmp(job->encoder_profile, "4444xq"))
+                {
+                    track->st->codecpar->codec_tag = MKTAG('a', 'p', '4', 'x');
+                }
+                else
+                {
+                    track->st->codecpar->codec_tag = MKTAG('a', 'p', 'c', 'n');
+                }
+            }
             break;
 
         default:
@@ -593,7 +645,7 @@ static int avformatInit( hb_mux_object_t * m )
 
     hb_reduce(&vrate.num, &vrate.den, vrate.num, vrate.den);
 
-    if (job->mux == HB_MUX_AV_MP4 && standard_rate &&
+    if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) && standard_rate &&
         job->cfr == 1 && vrate.den * 90000L % vrate.num)
     {
         // Set the the correct video time base to avoid
@@ -629,10 +681,18 @@ static int avformatInit( hb_mux_object_t * m )
         track->st->codecpar->initial_padding = audio->priv.init_delay *
                                         audio->config.out.samplerate / 90000;
         track->st->codecpar->frame_size = audio->config.out.samples_per_frame;
-        if (job->mux == HB_MUX_AV_MP4)
+        if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY))
         {
             track->st->time_base.num = 1;
             track->st->time_base.den = audio->config.out.samplerate;
+            // PCM in MP4 requires frame_size = 1 (one sample per packet)
+            // to satisfy QuickTime's ASBD mBytesPerPacket requirements
+            if ((audio->config.out.codec & HB_ACODEC_MASK) == HB_ACODEC_FFPCM16 ||
+                (audio->config.out.codec & HB_ACODEC_MASK) == HB_ACODEC_FFPCM24 ||
+                (audio->config.out.codec & HB_ACODEC_MASK) == HB_ACODEC_PCM)
+            {
+                track->st->codecpar->frame_size = 1;
+            }
         }
         else
         {
@@ -660,6 +720,24 @@ static int avformatInit( hb_mux_object_t * m )
                 break;
             case HB_ACODEC_MP2:
                 track->st->codecpar->codec_id = AV_CODEC_ID_MP2;
+                break;
+            case HB_ACODEC_PCM:
+                if (audio->config.out.codec & HB_ACODEC_PASS_FLAG)
+                {
+                    track->st->codecpar->codec_id = audio->config.in.codec_param;
+                }
+                else
+                {
+                    track->st->codecpar->codec_id = AV_CODEC_ID_PCM_S16LE;
+                }
+                break;
+            case HB_ACODEC_FFPCM16:
+                track->st->codecpar->codec_id = AV_CODEC_ID_PCM_S16LE;
+                track->st->codecpar->bits_per_coded_sample = 16;
+                break;
+            case HB_ACODEC_FFPCM24:
+                track->st->codecpar->codec_id = AV_CODEC_ID_PCM_S24LE;
+                track->st->codecpar->bits_per_coded_sample = 24;
                 break;
             case HB_ACODEC_LAME:
             case HB_ACODEC_MP3:
@@ -849,7 +927,7 @@ static int avformatInit( hb_mux_object_t * m )
     // So check to see if any of the subtitles are flagged to be
     // the default.  The default will be the enabled track, else
     // enable the first track.
-    if (job->mux == HB_MUX_AV_MP4 && subtitle_default == -1)
+    if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) && subtitle_default == -1)
     {
         subtitle_default = 0;
     }
@@ -936,10 +1014,11 @@ static int avformatInit( hb_mux_object_t * m )
             case SSASUB:
             case IMPORTSSA:
             {
-                if (job->mux == HB_MUX_AV_MP4 &&
+                if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) &&
                     subtitle->config.external_filename == NULL)
                 {
                     track->st->codecpar->codec_id = AV_CODEC_ID_MOV_TEXT;
+                    track->st->codecpar->codec_tag = MKTAG('t','x','3','g');
                 }
                 else
                 {
@@ -953,10 +1032,11 @@ static int avformatInit( hb_mux_object_t * m )
             case UTF8SUB:
             case IMPORTSRT:
             {
-                if (job->mux == HB_MUX_AV_MP4 &&
+                if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) &&
                     subtitle->config.external_filename == NULL)
                 {
                     track->st->codecpar->codec_id = AV_CODEC_ID_MOV_TEXT;
+                    track->st->codecpar->codec_tag = MKTAG('t','x','3','g');
                 }
                 else
                 {
@@ -1056,7 +1136,7 @@ static int avformatInit( hb_mux_object_t * m )
 
     // Enable bitexact to avoid having
     // libavf putting an "Encoded by" metadata
-    if (job->mux == HB_MUX_AV_MP4)
+    if (job->mux & HB_MUX_MASK_ISOBFF_FAMILY)
     {
         m->oc->flags |= AVFMT_FLAG_BITEXACT;
     }
@@ -1141,7 +1221,7 @@ static int avformatInit( hb_mux_object_t * m )
                         goto error;
                     }
 
-                    if (job->mux == HB_MUX_AV_MP4)
+                    if (job->mux & HB_MUX_MASK_ISOBFF_FAMILY)
                     {
                         st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
                         st->codecpar->codec_id = codec_id;
@@ -1283,7 +1363,7 @@ static int avformatMux(hb_mux_object_t *m, hb_mux_data_t *track, hb_buffer_t *bu
     AVFormatContext * oc;
 
     oc = track->oc != NULL ? track->oc : m->oc;
-    if (track->type == MUX_TYPE_VIDEO && (job->mux & HB_MUX_MASK_MP4))
+    if (track->type == MUX_TYPE_VIDEO && (job->mux & HB_MUX_MASK_ISOBFF_FAMILY))
     {
         // compute dts duration for MP4 files
         hb_buffer_t * tmp;
@@ -1295,7 +1375,7 @@ static int avformatMux(hb_mux_object_t *m, hb_mux_data_t *track, hb_buffer_t *bu
     }
     if (buf == NULL)
     {
-        if (job->mux == HB_MUX_AV_MP4 &&
+        if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) &&
             track->oc == NULL && track->type == MUX_TYPE_SUBTITLE)
         {
             // Write a final "empty" subtitle to terminate the last
@@ -1450,7 +1530,7 @@ static int avformatMux(hb_mux_object_t *m, hb_mux_data_t *track, hb_buffer_t *bu
 
         case MUX_TYPE_SUBTITLE:
         {
-            if (job->mux == HB_MUX_AV_MP4 && track->oc == NULL)
+            if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) && track->oc == NULL)
             {
                 /* Write an empty sample */
                 if ( track->duration < pts )
@@ -1610,7 +1690,7 @@ static int avformatEnd(hb_mux_object_t *m)
     }
 
     // Write MP4 cover art
-    if (job->mux == HB_MUX_AV_MP4 && job->metadata)
+    if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) && job->metadata)
     {
         hb_list_t *list_coverart = job->metadata->list_coverart;
         for (int ii = 0; ii < hb_list_count(list_coverart); ii++)

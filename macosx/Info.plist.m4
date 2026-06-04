@@ -59,8 +59,10 @@ dnl
 	<string>public.app-category.video</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>${MACOSX_DEPLOYMENT_TARGET}</string>
+	<key>LSRequiresNativeExecution</key>
+	<true />
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2003-2025 __HB_name Team.
+	<string>Copyright © 2003-2026 __HB_name Team.
 GPLv2 license.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>

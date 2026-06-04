@@ -1300,8 +1300,8 @@ Resets the queue job to pending and ready to run again.</property>
     <property name="title" translatable="yes">About HandBrake</property>
     <property name="modal">1</property>
     <property name="program-name">HandBrake</property>
-    <property name="copyright" translatable="yes">Copyright © 2008-2024 John Stebbins
-Copyright © 2004-2024, HandBrake Devs</property>
+    <property name="copyright" translatable="yes">Copyright © 2008-2026 John Stebbins
+Copyright © 2004-2026, HandBrake Devs</property>
     <property name="comments" translatable="yes">Multithreaded video transcoder</property>
     <property name="website">https://handbrake.fr</property>
     <property name="website-label">https://handbrake.fr</property>
@@ -5268,6 +5268,21 @@ This permits Opus passthru to be selected when automatic passthru selection is e
                         <layout>
                           <property name="column">2</property>
                           <property name="row">5</property>
+                        </layout>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkCheckButton" id="AudioAllowPCMPass">
+                        <property name="label" translatable="yes">PCM</property>
+                        <property name="focusable">1</property>
+                        <property name="tooltip-text" translatable="yes">Enable this if your playback device supports PCM.
+This permits PCM passthru to be selected when automatic passthru selection is enabled.</property>
+                        <property name="halign">start</property>
+                        <property name="active">1</property>
+                        <signal name="toggled" handler="audio_passthru_widget_changed_cb" swapped="no"/>
+                        <layout>
+                          <property name="column">1</property>
+                          <property name="row">6</property>
                         </layout>
                       </object>
                     </child>
