@@ -1396,6 +1396,18 @@ skip_preview:
             hb_log("scan: hdr10+ dynamic metadata found");
         }
 
+        if (title->spherical_mapping.projection > HB_SPHERICAL_UNSET)
+        {
+            hb_log("scan: spherical mapping: %s",
+                   av_spherical_projection_name(title->spherical_mapping.projection));
+        }
+
+        if (title->stereo_3d.type > HB_STEREO3D_UNSET)
+        {
+            hb_log("scan: stereo 3d: %s",
+                   av_stereo3d_type_name(title->stereo_3d.type));
+        }
+
         if (title->video_decode_support != HB_DECODE_SW)
         {
             hb_log("scan: supported video decoders:%s%s%s",

@@ -5124,7 +5124,7 @@ hb_buffer_t * hb_ts_decode_pkt( hb_stream_t *stream, const uint8_t * pkt,
                 if ((pes[7] >> 6) != 0)
                 {
                     // if we have a dts use it otherwise use the pts
-                    // We simulate a psuedo-PCR here by sampling a timestamp
+                    // We simulate a pseudo-PCR here by sampling a timestamp
                     // about every 600ms.
                     int64_t timestamp;
                     timestamp = pes_timestamp(pes + (pes[7] & 0x40 ? 14 : 9));
@@ -6143,6 +6143,18 @@ static hb_title_t *ffmpeg_title_scan( hb_stream_t *stream, hb_title_t *title )
                     {
                         AVDOVIDecoderConfigurationRecord *dovi = (AVDOVIDecoderConfigurationRecord *)sd.data;
                         title->dovi = hb_dovi_ff_to_hb(*dovi);
+                        break;
+                    }
+                    case AV_PKT_DATA_STEREO3D:
+                    {
+                        AVStereo3D *stereo = (AVStereo3D *)sd.data;
+                        title->stereo_3d = hb_stereo_3d_ff_to_hb(*stereo);
+                        break;
+                    }
+                    case AV_PKT_DATA_SPHERICAL:
+                    {
+                        AVSphericalMapping *spherical_mapping = (AVSphericalMapping *)sd.data;
+                        title->spherical_mapping = hb_spherical_ff_to_hb(*spherical_mapping);
                         break;
                     }
                     default:

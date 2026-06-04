@@ -130,6 +130,11 @@ static const char * const h264_nvenc_profile_names[] =
     "auto", "baseline", "main", "high", NULL  // "high444p" not supported.
 };
 
+static const char * const h264_nvenc_10bit_profile_names[] =
+{
+    "auto", "high10", NULL
+};
+
 static const char * const h265_nvenc_profile_names[] =
 {
     "auto", "main", NULL
@@ -189,6 +194,16 @@ static const int hb_mpeg2_level_values[] =
 static const char * const hb_prores_profile_names[] =
 {
     "auto", "proxy", "lt", "standard", "hq", "4444", "4444xq", NULL
+};
+
+static const char * const hb_dnxhr_profile_names[] =
+{
+    "auto", "lb", "sq", "hq", NULL
+};
+
+static const char * const hb_dnxhr_10bit_profile_names[] =
+{
+    "auto", "hqx", "444", NULL
 };
 
 static const enum AVPixelFormat standard_pix_fmts[] =
@@ -309,6 +324,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         {
             switch (job->vcodec) {
                 case HB_VCODEC_FFMPEG_NVENC_H264:
+                case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
                     hb_log("encavcodecInit: H.264 (Nvidia NVENC)");
                     codec_name = "h264_nvenc";
                     break;
@@ -389,6 +405,19 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
                 case HB_VCODEC_FFMPEG_PRORES:
                     hb_log("encavcodecInit: ProRes (libavcodec)");
                     codec_name = "prores";
+                    break;
+            }
+        }break;
+        case AV_CODEC_ID_DNXHD:
+        {
+            switch (job->vcodec) {
+                case HB_VCODEC_FFMPEG_DNXHR:
+                    hb_log("encavcodecInit: DNxHR (libavcodec)");
+                    codec_name = "dnxhd";
+                    break;
+                case HB_VCODEC_FFMPEG_DNXHR_10BIT:
+                    hb_log("encavcodecInit: DNxHR 10-bit (libavcodec)");
+                    codec_name = "dnxhd";
                     break;
             }
         }break;
@@ -520,7 +549,8 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         // bitrate * fps
         context->bit_rate_tolerance = context->bit_rate * av_q2d(fps) + 1;
 
-        if ( job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT
+        if ( job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264_10BIT
+            || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT
             || job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1 || job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1_10BIT) {
             av_dict_set( &av_opts, "rc", "vbr", 0 );
             hb_log( "encavcodec: encoding at rc=vbr, Bitrate %d", job->vbitrate );
@@ -607,6 +637,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         }
         //Set constant quality for nvenc
         else if ( job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264 ||
+                  job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264_10BIT ||
                   job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265 ||
                   job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT ||
                   job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1 ||
@@ -734,6 +765,12 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
             av_dict_set(&av_opts, "rate_control", "quality", 0);
             av_dict_set(&av_opts, "quality", quality, 0);
         }
+        else if (job->vcodec == HB_VCODEC_FFMPEG_DNXHR ||
+                 job->vcodec == HB_VCODEC_FFMPEG_DNXHR_10BIT)
+        {
+            av_dict_set( &av_opts, "quality", 0, 0 );
+            hb_log( "encavcodec: encoding at automatic quality" );
+        }
         else
         {
             // These settings produce better image quality than
@@ -855,6 +892,7 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
         av_dict_set(&av_opts, "forced_idr", "1", 0);
     }
     else if (job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264 ||
+             job->vcodec == HB_VCODEC_FFMPEG_NVENC_H264_10BIT ||
              job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265 ||
              job->vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT ||
              job->vcodec == HB_VCODEC_FFMPEG_NVENC_AV1 ||
@@ -871,6 +909,8 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
                 av_dict_set(&av_opts, "profile", "main", 0);
             else if (!strcasecmp(job->encoder_profile, "main10"))
                 av_dict_set(&av_opts, "profile", "main10", 0);
+            else if (!strcasecmp(job->encoder_profile, "high10"))
+                av_dict_set(&av_opts, "profile", "high10", 0);
             else if (!strcasecmp(job->encoder_profile, "high"))
                 av_dict_set(&av_opts, "profile", "high", 0);
         }
@@ -962,6 +1002,45 @@ int encavcodecInit( hb_work_object_t * w, hb_job_t * job )
                 context->profile = AV_PROFILE_PRORES_4444;
             else if (!strcasecmp(job->encoder_profile, "4444xq"))
                 context->profile = AV_PROFILE_PRORES_XQ;
+        }
+    }
+    else if (job->vcodec == HB_VCODEC_FFMPEG_DNXHR)
+    {
+        if (job->encoder_profile != NULL && *job->encoder_profile)
+        {
+            if (!strcasecmp(job->encoder_profile, "lb"))
+            {
+                context->profile = AV_PROFILE_DNXHR_LB;
+                av_dict_set(&av_opts, "profile", "dnxhr_lb", 0);
+            }
+            else if (!strcasecmp(job->encoder_profile, "sq"))
+            {
+                context->profile = AV_PROFILE_DNXHR_SQ;
+                av_dict_set(&av_opts, "profile", "dnxhr_sq", 0);
+            }
+            else if (!strcasecmp(job->encoder_profile, "hq") ||
+                     !strcasecmp(job->encoder_profile, "auto"))
+            {
+                context->profile = AV_PROFILE_DNXHR_HQ;
+                av_dict_set(&av_opts, "profile", "dnxhr_hq", 0);
+            }
+        }
+    }
+    else if (job->vcodec == HB_VCODEC_FFMPEG_DNXHR_10BIT)
+    {
+        if (job->encoder_profile != NULL && *job->encoder_profile)
+        {
+            if (!strcasecmp(job->encoder_profile, "hqx") ||
+                !strcasecmp(job->encoder_profile, "auto"))
+            {
+                context->profile = AV_PROFILE_DNXHR_HQX;
+                av_dict_set(&av_opts, "profile", "dnxhr_hqx", 0);
+            }
+            else if (!strcasecmp(job->encoder_profile, "444"))
+            {
+                context->profile = AV_PROFILE_DNXHR_444;
+                av_dict_set(&av_opts, "profile", "dnxhr_444", 0);
+            }
         }
     }
 
@@ -1110,6 +1189,11 @@ void encavcodecClose( hb_work_object_t * w )
         hb_deep_log( 2, "encavcodec: closing libavcodec" );
         if( pv->context->codec ) {
             avcodec_flush_buffers( pv->context );
+        }
+        if (pv->context->stats_in)
+        {
+            free(pv->context->stats_in);
+            pv->context->stats_in = NULL;
         }
         hb_avcodec_free_context(&pv->context);
     }
@@ -1592,6 +1676,7 @@ static int apply_encoder_preset(int vcodec, AVCodecContext *context,
 
 #if HB_PROJECT_FEATURE_NVENC
         case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_H265:
         case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_AV1:
@@ -1652,6 +1737,7 @@ static int apply_encoder_level(AVCodecContext *context, AVDictionary **av_opts, 
     {
         case HB_VCODEC_FFMPEG_VCE_H264:
         case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
         case HB_VCODEC_FFMPEG_MF_H264:
             level_names = hb_h264_level_names;
             level_values = hb_h264_level_values;
@@ -1728,6 +1814,7 @@ static int apply_encoder_level(AVCodecContext *context, AVDictionary **av_opts, 
             if (!strcasecmp(encoder_level, level_names[i]))
             {
                 if (vcodec == HB_VCODEC_FFMPEG_NVENC_H264 ||
+                    vcodec == HB_VCODEC_FFMPEG_NVENC_H264_10BIT ||
                     vcodec == HB_VCODEC_FFMPEG_NVENC_H265 ||
                     vcodec == HB_VCODEC_FFMPEG_NVENC_H265_10BIT ||
                     vcodec == HB_VCODEC_FFMPEG_NVENC_AV1 ||
@@ -1766,6 +1853,7 @@ const char* const* hb_av_preset_get_names(int encoder)
             return hb_vce_av1_preset_names;
 
         case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_H265:
         case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_AV1:
@@ -1812,6 +1900,8 @@ const char* const* hb_av_profile_get_names(int encoder)
     {
         case HB_VCODEC_FFMPEG_NVENC_H264:
             return h264_nvenc_profile_names;
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
+            return h264_nvenc_10bit_profile_names;
         case HB_VCODEC_FFMPEG_NVENC_H265:
             return h265_nvenc_profile_names;
         case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
@@ -1829,6 +1919,10 @@ const char* const* hb_av_profile_get_names(int encoder)
             return h265_qsv_profile_name;
         case HB_VCODEC_FFMPEG_MPEG2:
             return hb_mpeg2_profile_names;
+        case HB_VCODEC_FFMPEG_DNXHR:
+            return hb_dnxhr_profile_names;
+        case HB_VCODEC_FFMPEG_DNXHR_10BIT:
+            return hb_dnxhr_10bit_profile_names;
         case HB_VCODEC_FFMPEG_PRORES:
             return hb_prores_profile_names;
          default:
@@ -1841,6 +1935,7 @@ const char* const* hb_av_level_get_names(int encoder)
     switch (encoder)
     {
         case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
         case HB_VCODEC_FFMPEG_MF_H264:
             return hb_h264_level_names;
 
@@ -1890,6 +1985,7 @@ const int* hb_av_get_pix_fmts(int encoder, const char *profile)
         case HB_VCODEC_FFMPEG_NVENC_AV1:
             return nvenc_pix_formats;
 
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_H265_10BIT:
         case HB_VCODEC_FFMPEG_NVENC_AV1_10BIT:
             return nvenc_pix_formats_10bit;
@@ -1928,6 +2024,21 @@ const int* hb_av_get_pix_fmts(int encoder, const char *profile)
         case HB_VCODEC_FFMPEG_PRORES:
         {
             if (profile && (!strcasecmp(profile, "4444") || !strcasecmp(profile, "4444xq")))
+            {
+                return standard_444_10bit_pix_fmts;
+            }
+            else
+            {
+                return standard_422_10bit_pix_fmts;
+            }
+        }
+
+        case HB_VCODEC_FFMPEG_DNXHR:
+            return standard_422_pix_fmts;
+
+        case HB_VCODEC_FFMPEG_DNXHR_10BIT:
+        {
+            if (profile && !strcasecmp(profile, "444"))
             {
                 return standard_444_10bit_pix_fmts;
             }

@@ -10,6 +10,80 @@ Download available from Microsoft:
 - [For x64 (AMD or Intel CPUs)](https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe)
 - [For Arm64 (Qualcomm or other)](https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-arm64.exe)
 
+
+## HandBrake 1.12.0
+
+### All platforms
+
+#### Audio
+
+- Renamed "7.1 (5F/2R/LFE)" mixdown to "7.1 (SDDS)" (speaker layout used by Sony Dynamic Digital Sound)
+
+
+## HandBrake 1.11.2
+
+### All platforms
+
+#### Video
+
+- Fixed a crash that happened when doing a 2-pass lossless x265 encode
+
+#### Audio
+
+- Updated the list of supported dithers and encoders combinations
+- Fixed the Core Audio AAC encoder 7.1 channel layout
+
+#### Subtitles
+
+- Fixed the VobSub palette creation in the MP4 container
+
+#### Build system
+
+- Improved build system compatibility with older build tools
+
+#### Third-party libraries
+
+- Updated libraries
+  - FFmpeg 8.0.2 (decoding and filters)
+  - SVT-AV1 4.1.0 (AV1 video encoding)
+
+### Linux
+
+- Added WebM MIME type to the list of the supported formats
+  
+### Mac
+
+- Improved handling of unsupported presets
+
+### Windows
+
+- Improved handling of unsupported presets
+- Improved queue low space behaviour
+- Fixed the automatic audio track name generation
+- Fixed the summary description of HDR video
+
+
+## HandBrake 1.11.1
+
+### All platforms
+
+#### Audio
+
+- Fixed a crash that could happen when scanning a PCM track in a DVD-Video or Blu-ray 
+
+#### Third-party libraries
+
+- Updated libraries
+  - Jansson 2.15.0 (JSON architecture)
+  - zlib 1.3.2 (general)
+
+### Windows
+
+- Removed dependency on having Microsoft .NET 8 Desktop Runtime installed
+- Fixed the file type selection in the save panel
+- Fixed a number of issues that impacted screen reader tools ability to read combo box controls
+
+
 ## HandBrake 1.11.0
 
 ### All platforms
@@ -20,6 +94,11 @@ Download available from Microsoft:
 - Added AV1 VCN 2160p 4K preset
   - For AMD 9000 series GPU hardware and newer
   - Output dimensions may be incorrect on AMD 7000 series GPU hardware; this is unfixable in software
+- Added Production DNxHR presets
+  - MOV container
+  - Any resolution video using HQX and SQ encoder presets
+  - 2160p, 1080p, and 540p resolution proxy (LB) presets
+  - 24-bit PCM multi-channel audio with pass through support
 - Added Production ProRes presets
   - MOV container
   - Any resolution video using standard, HQ, and LT encoder presets
@@ -33,6 +112,7 @@ Download available from Microsoft:
 
 #### Video
 
+- Added DNxHR encoder
 - Added ProRes encoder
 - Added AMD VCN AV1 10-bit encoder
 - Added MPEG-2 profile and level selection
@@ -82,7 +162,7 @@ Download available from Microsoft:
 ### Mac
 
 - Notifications sound is now played back when HandBrake is in the foreground
-- File name labels in queue as now truncated in the middle, same behaviour as the Finder
+- File name labels in queue are now truncated in the middle, same behaviour as the Finder
 - Minor miscellaneous fixes
 - Updated existing and maintained locales
 
@@ -175,7 +255,7 @@ Download available from Microsoft:
 
 #### Audio
 
-- Addded an option to disable track names passthru and autonaming
+- Added an option to disable track names passthru and autonaming
 - Fixed selection behaviour fallback when no audio track is found (#6666)
 - EAC3 + Atmos is now properly signaled in MP4
 

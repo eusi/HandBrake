@@ -389,6 +389,7 @@ static int avformatInit( hb_mux_object_t * m )
         case HB_VCODEC_VT_H264:
         case HB_VCODEC_FFMPEG_VCE_H264:
         case HB_VCODEC_FFMPEG_NVENC_H264:
+        case HB_VCODEC_FFMPEG_NVENC_H264_10BIT:
         case HB_VCODEC_FFMPEG_QSV_H264:
         case HB_VCODEC_FFMPEG_MF_H264:
             track->st->codecpar->codec_id = AV_CODEC_ID_H264;
@@ -490,6 +491,11 @@ static int avformatInit( hb_mux_object_t * m )
 
         case HB_VCODEC_FFMPEG_FFV1:
             track->st->codecpar->codec_id = AV_CODEC_ID_FFV1;
+            break;
+
+        case HB_VCODEC_FFMPEG_DNXHR:
+        case HB_VCODEC_FFMPEG_DNXHR_10BIT:
+            track->st->codecpar->codec_id = AV_CODEC_ID_DNXHD;
             break;
 
         case HB_VCODEC_FFMPEG_PRORES:
@@ -623,6 +629,34 @@ static int avformatInit( hb_mux_object_t * m )
         m->oc->strict_std_compliance = FF_COMPLIANCE_UNOFFICIAL;
     }
 
+    if (job->spherical_mapping.projection > HB_SPHERICAL_UNSET)
+    {
+        AVSphericalMapping spherical_mapping = hb_spherical_hb_to_ff(job->spherical_mapping);
+
+        uint8_t *spherical_data = av_malloc(sizeof(AVSphericalMapping));
+        memcpy(spherical_data, &spherical_mapping, sizeof(AVSphericalMapping));
+
+        av_packet_side_data_add(&track->st->codecpar->coded_side_data,
+                                &track->st->codecpar->nb_coded_side_data,
+                                AV_PKT_DATA_SPHERICAL,
+                                spherical_data,
+                                sizeof(AVSphericalMapping), 0);
+    }
+
+    if (job->stereo_3d.type > HB_STEREO3D_UNSET && job->stereo_3d.type < HB_STEREO3D_UNSPEC)
+    {
+        AVStereo3D stereo = hb_stereo_3d_hb_to_ff(job->stereo_3d);
+
+        uint8_t *stereo_data = av_malloc(sizeof(AVStereo3D));
+        memcpy(stereo_data, &stereo, sizeof(AVStereo3D));
+
+        av_packet_side_data_add(&track->st->codecpar->coded_side_data,
+                                &track->st->codecpar->nb_coded_side_data,
+                                AV_PKT_DATA_STEREO3D,
+                                stereo_data,
+                                sizeof(AVStereo3D), 0);
+    }
+
     hb_rational_t vrate = job->vrate;
     hb_rational_t clock_vrate = { clock, av_rescale(vrate.den, clock, vrate.num)};
     int standard_rate = 0;
@@ -648,7 +682,7 @@ static int avformatInit( hb_mux_object_t * m )
     if ((job->mux & HB_MUX_MASK_ISOBFF_FAMILY) && standard_rate &&
         job->cfr == 1 && vrate.den * 90000L % vrate.num)
     {
-        // Set the the correct video time base to avoid
+        // Set the correct video time base to avoid
         // timestamps jitter when using NTSC framerates
         track->st->time_base.num = vrate.den;
         track->st->time_base.den = vrate.num;
@@ -833,16 +867,7 @@ static int avformatInit( hb_mux_object_t * m )
             av_dict_set(&track->st->metadata, "language", lang, 0);
         }
         track->st->codecpar->sample_rate = audio->config.out.samplerate;
-        if (audio->config.out.codec & HB_ACODEC_PASS_FLAG)
-        {
-            av_channel_layout_copy(&track->st->codecpar->ch_layout, audio->config.in.ch_layout);
-        }
-        else
-        {
-            AVChannelLayout ch_layout = {0};
-            av_channel_layout_from_mask(&ch_layout, hb_ff_mixdown_xlat(audio->config.out.mixdown, NULL));
-            track->st->codecpar->ch_layout = ch_layout;
-        }
+        av_channel_layout_copy(&track->st->codecpar->ch_layout, audio->config.out.ch_layout);
 
         // Set audio track title
         const char *name = audio->config.out.name;

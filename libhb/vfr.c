@@ -64,6 +64,7 @@ hb_filter_object_t hb_filter_vfr =
     .id                = HB_FILTER_VFR,
     .enforce_order     = 1,
     .name              = "Framerate Shaper",
+    .short_name        = "vfr",
     .settings          = NULL,
     .init              = hb_vfr_init,
     .work              = hb_vfr_work,
@@ -383,7 +384,7 @@ static int hb_vfr_init(hb_filter_object_t *filter, hb_filter_init_t *init)
         }
     }
 
-    // frame-drop analysis always looks at at least 2 buffers
+    // frame-drop analysis always looks at least 2 buffers
     pv->frame_analysis_depth = 2;
 
     // Calculate the number of frames we need to keep in order to

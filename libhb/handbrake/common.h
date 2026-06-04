@@ -433,6 +433,30 @@ typedef enum
     HB_HDR_DYNAMIC_METADATA_ALL       = HB_HDR_DYNAMIC_METADATA_HDR10PLUS | HB_HDR_DYNAMIC_METADATA_DOVI
 } hb_hdr_dynamic_metadata_mode_t;
 
+struct hb_spherical_mapping_s
+{
+    int projection;
+    int yaw;
+    int pitch;
+    int roll;
+    uint32_t bound_left;
+    uint32_t bound_top;
+    uint32_t bound_right;
+    uint32_t bound_bottom;
+    uint32_t padding;
+};
+
+struct hb_stereo_3d_s
+{
+    int type;
+    int flags;
+    int view;
+    int primary_eye;
+    uint32_t baseline;
+    hb_rational_t horizontal_disparity_adjustment;
+    hb_rational_t horizontal_field_of_view;
+};
+
 int hb_str_ends_with(const char *base, const char *str);
 
 /*******************************************************************************
@@ -544,7 +568,7 @@ float hb_audio_compression_get_default(uint32_t codec);
 
 int                hb_audio_dither_get_default(void);
 int                hb_audio_dither_get_default_method(void); // default method, if enabled && supported
-int                hb_audio_dither_is_supported(uint32_t codec, int depth);
+int                hb_audio_dither_is_supported(uint32_t codec, int source_depth);
 int                hb_audio_dither_get_from_name(const char *name);
 const char*        hb_audio_dither_get_description(int method);
 const hb_dither_t* hb_audio_dither_get_next(const hb_dither_t *last);
@@ -722,6 +746,7 @@ struct hb_job_s
 #define HB_VCODEC_FFMPEG_NVENC_H265_10BIT   (0x00000032 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_H265_MASK)
 #define HB_VCODEC_FFMPEG_NVENC_AV1          (0x00000033 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_AV1_MASK)
 #define HB_VCODEC_FFMPEG_NVENC_AV1_10BIT    (0x00000034 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_AV1_MASK)
+#define HB_VCODEC_FFMPEG_NVENC_H264_10BIT   (0x00000035 | HB_VCODEC_FFMPEG_MASK | HB_VCODEC_H264_MASK)
 
 #define HB_VCODEC_FFMPEG_FFV1        (0x00000040 | HB_VCODEC_FFMPEG_MASK)
 
@@ -745,6 +770,8 @@ struct hb_job_s
 #define HB_VCODEC_FFMPEG_QSV_AV1           HB_VCODEC_FFMPEG_QSV_AV1_8BIT
 
 #define HB_VCODEC_FFMPEG_PRORES     (0x00000100 | HB_VCODEC_FFMPEG_MASK)
+#define HB_VCODEC_FFMPEG_DNXHR      (0x00000101 | HB_VCODEC_FFMPEG_MASK)
+#define HB_VCODEC_FFMPEG_DNXHR_10BIT (0x00000102 | HB_VCODEC_FFMPEG_MASK)
 
 /* define an invalid CQ value compatible with all CQ-capable codecs */
 #define HB_INVALID_VIDEO_QUALITY (-1000.)
@@ -847,6 +874,28 @@ struct hb_job_s
 
     hb_hdr_dynamic_metadata_mode_t passthru_dynamic_hdr_metadata;
 
+
+    hb_spherical_mapping_t spherical_mapping;
+#define HB_SPHERICAL_UNSET                  -1
+#define HB_SPHERICAL_EQUIRECTANGULAR         0
+#define HB_SPHERICAL_CUBEMAP                 1
+#define HB_SPHERICAL_EQUIRECTANGULAR_TILE    2
+#define HB_SPHERICAL_HALF_EQUIRECTANGULAR    3
+#define HB_SPHERICAL_RECTILINEAR             4
+#define HB_SPHERICAL_FISHEYE                 5
+#define HB_SPHERICAL_PARAMETRIC_IMMERSIVE    6
+
+    hb_stereo_3d_t stereo_3d;
+#define HB_STEREO3D_UNSET                   -1
+#define HB_STEREO3D_2D                       0
+#define HB_STEREO3D_SIDEBYSIDE               1
+#define HB_STEREO3D_TOPBOTTOM                2
+#define HB_STEREO3D_FRAMESEQUENCE            3
+#define HB_STEREO3D_CHECKERBOARD             4
+#define HB_STEREO3D_SIDEBYSIDE_QUINCUNX      5
+#define HB_STEREO3D_LINES                    6
+#define HB_STEREO3D_COLUMNS                  7
+#define HB_STEREO3D_UNSPEC                   8
 
     hb_list_t     * list_chapter;
 
@@ -1064,10 +1113,13 @@ struct hb_audio_config_s
             HB_AMIXDOWN_STEREO,
             HB_AMIXDOWN_DOLBY,
             HB_AMIXDOWN_DOLBYPLII,
+            HB_AMIXDOWN_3POINT0,
+            HB_AMIXDOWN_4POINT0,
+            HB_AMIXDOWN_QUAD,
             HB_AMIXDOWN_5POINT1,
             HB_AMIXDOWN_6POINT1,
             HB_AMIXDOWN_7POINT1,
-            HB_AMIXDOWN_5_2_LFE,
+            HB_AMIXDOWN_7POINT1_SDDS,
         } mixdown; /* Audio mixdown */
         int      track; /* Output track number */
         uint32_t codec; /* Output audio codec */
@@ -1081,6 +1133,8 @@ struct hb_audio_config_s
         int      normalize_mix_level; /* mix level normalization (boolean) */
         int      dither_method; /* dither algorithm */
         const char * name; /* Output track name */
+        hb_list_t  * list_filter; /* List of hb_filter_object_t */
+        PRIVATE hb_channel_layout_t *ch_layout; /* Output channel layout, set by the audio filter chain */
     } out;
 
     /* Input */
@@ -1133,6 +1187,7 @@ struct hb_audio_s
         hb_fifo_t * fifo_in;   /* AC3/MPEG/LPCM ES */
         hb_fifo_t * fifo_raw;  /* Raw audio */
         hb_fifo_t * fifo_sync; /* Resampled, synced raw audio */
+        hb_fifo_t * fifo_render;/* Filtered raw audio */
         hb_fifo_t * fifo_out;  /* MP3/AAC/Vorbis ES */
 
         hb_mux_data_t * mux_data;
@@ -1338,6 +1393,9 @@ struct hb_title_s
     int             initial_rpu_type;
 
     int             hdr_10_plus;
+
+    hb_spherical_mapping_t spherical_mapping;
+    hb_stereo_3d_t stereo_3d;
 
     hb_rational_t   vrate;
     int             crop[4];
@@ -1562,8 +1620,11 @@ extern hb_work_object_t hb_reader;
 typedef struct hb_filter_init_s
 {
     hb_job_t      * job;
+
     int             pix_fmt;
     int             hw_pix_fmt;
+    void          * hw_frames_ctx;
+
     int             color_prim;
     int             color_transfer;
     int             color_matrix;
@@ -1571,12 +1632,20 @@ typedef struct hb_filter_init_s
     int             chroma_location;
     hb_geometry_t   geometry;
     int             crop[4];
+    int             grayscale;
+
     hb_rational_t   vrate;
     int             cfr;
-    int             grayscale;
     hb_rational_t   time_base;
-    void          * hw_frames_ctx;
+
+    int             samplerate;
+    int             sample_fmt;
+    AVChannelLayout ch_layout;
+
 } hb_filter_init_t;
+
+void hb_filter_init_copy(hb_filter_init_t *dst, hb_filter_init_t *src);
+void hb_filter_init_close(hb_filter_init_t *init);
 
 typedef struct hb_filter_info_s
 {
@@ -1591,6 +1660,7 @@ struct hb_filter_object_s
     int                   skip;
     int                   aliased;
     char                * name;
+    char                * short_name;
     hb_dict_t           * settings;
 
 #ifdef __LIBHB__
@@ -1626,6 +1696,21 @@ struct hb_filter_object_s
 #endif
 };
 
+enum
+{
+    HB_AUDIO_FILTER_INVALID = 0,
+    HB_AUDIO_FILTER_FIRST = 10001,
+
+    HB_AUDIO_FILTER_ACOMPRESSOR,
+    HB_AUDIO_FILTER_AGATE,
+
+    // Finally filters that don't care what order they are in,
+    // except that they must be after the above filters
+    HB_AUDIO_FILTER_AVFILTER,
+
+    HB_AUDIO_FILTER_LAST
+};
+
 // Update win/CS/HandBrake.Interop/HandBrakeInterop/HbLib/hb_filter_ids.cs when changing this enum
 enum
 {
@@ -1645,8 +1730,10 @@ enum
     HB_FILTER_VFR,
     // Filters that must operate on the original source image are next
     HB_FILTER_DEBLOCK,
+    HB_FILTER_DEBAND,
     HB_FILTER_DENOISE,
     HB_FILTER_HQDN3D = HB_FILTER_DENOISE,
+    HB_FILTER_BM3D,
     HB_FILTER_NLMEANS,
     HB_FILTER_CHROMA_SMOOTH,
     HB_FILTER_CHROMA_SMOOTH_VT,
@@ -1692,6 +1779,8 @@ char               * hb_filter_settings_string(int filter_id,
 char               * hb_filter_settings_string_json(int filter_id,
                                                     const char * json);
 
+int                  hb_filter_get_from_name(const char *name);
+const char *         hb_filter_get_short_name(int filter_id);
 struct hb_motion_metric_object_s
 {
     char                * name;

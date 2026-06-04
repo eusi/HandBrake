@@ -37,6 +37,23 @@ static hb_filter_param_t nlmeans_tunes[] =
     { 0, NULL,          NULL,         NULL              }
 };
 
+static hb_filter_param_t bm3d_presets[] =
+{
+    { 1, "Custom",  "custom",  NULL        },
+    { 2, "Default", "default", "sigma=1"   },
+    { 3, "Medium",  "medium",  "sigma=3"   },
+    { 4, "Strong",  "strong",  "sigma=6"   },
+    { 0, NULL,      NULL,      NULL        }
+};
+
+static hb_filter_param_t deband_presets[] =
+{
+    { 1, "Custom",  "custom",  NULL },
+    { 2, "Default", "default",
+      "1thr=0.02:2thr=0.02:3thr=0.02:4thr=0.02:range=16:blur=1" },
+    { 0, NULL,      NULL,      NULL }
+};
+
 static hb_filter_param_t deblock_presets[] =
 {
     { 0, "Off",         "off",        "disable=1"                  },
@@ -228,6 +245,24 @@ static hb_filter_param_t bwdif_presets[] =
     { 0,  NULL,                NULL,           NULL             },
 };
 
+static hb_filter_param_t acompressor_presets[] =
+{
+    { 1, "Custom",             "custom",       NULL             },
+    { 3, "Default",            "default",
+      "level-in=1:mode=0:threshold=0.125:ratio=2:attack=20:release=250:"
+      "makeup=1:knee=2.82843:link=0:detection=1:level-sc=1:mix=1"        },
+    { 0,  NULL,                NULL,           NULL             },
+};
+
+static hb_filter_param_t agate_presets[] =
+{
+    { 1, "Custom",             "custom",       NULL             },
+    { 3, "Default",            "default",
+         "level-in=1:mode=0:range=0.06125:threshold=0.125:ratio=2:attack=20:"
+         "release=250:makeup=1:knee=2.82843:detection=1:link=0:level-sc=1"  },
+    { 0,  NULL,                NULL,           NULL             },
+};
+
 typedef struct
 {
     int                filter_id;
@@ -279,6 +314,18 @@ static filter_param_map_t param_map[] =
     { HB_FILTER_DEBLOCK, deblock_presets, deblock_tunes,
       sizeof(deblock_presets) / sizeof(hb_filter_param_t),
       sizeof(deblock_tunes)   / sizeof(hb_filter_param_t),        },
+
+    { HB_FILTER_BM3D, bm3d_presets, NULL,
+      sizeof(bm3d_presets) / sizeof(hb_filter_param_t),        0, },
+
+    { HB_FILTER_DEBAND, deband_presets, NULL,
+      sizeof(deband_presets) / sizeof(hb_filter_param_t),      0, },
+
+    { HB_AUDIO_FILTER_ACOMPRESSOR, acompressor_presets, NULL,
+      sizeof(acompressor_presets) / sizeof(hb_filter_param_t), 0, },
+
+    { HB_AUDIO_FILTER_AGATE, agate_presets, NULL,
+      sizeof(agate_presets) / sizeof(hb_filter_param_t),       0, },
 
     { HB_FILTER_INVALID,     NULL,                NULL,     0, 0, },
 };
@@ -1262,6 +1309,8 @@ hb_generate_filter_settings(int filter_id, const char *preset, const char *tune,
             settings = generate_unsharp_settings(preset, tune, custom);
             break;
         case HB_FILTER_DEBLOCK:
+        case HB_FILTER_BM3D:
+        case HB_FILTER_DEBAND:
         case HB_FILTER_COMB_DETECT:
         case HB_FILTER_DECOMB:
         case HB_FILTER_DETELECINE:
@@ -1269,6 +1318,8 @@ hb_generate_filter_settings(int filter_id, const char *preset, const char *tune,
         case HB_FILTER_YADIF:
         case HB_FILTER_BWDIF:
         case HB_FILTER_COLORSPACE:
+        case HB_AUDIO_FILTER_ACOMPRESSOR:
+        case HB_AUDIO_FILTER_AGATE:
             settings = generate_generic_settings(filter_id, preset,
                                                  tune, custom);
             break;
@@ -1400,6 +1451,26 @@ hb_filter_param_t* hb_filter_param_get_presets(int filter_id)
 hb_filter_param_t* hb_filter_param_get_tunes(int filter_id)
 {
     return filter_param_get_tunes_internal(filter_id, NULL);
+}
+
+const char * hb_filter_param_get_default_preset(int filter_id)
+{
+    switch (filter_id)
+    {
+        case HB_FILTER_UNSHARP:
+        case HB_FILTER_LAPSHARP:
+        case HB_FILTER_CHROMA_SMOOTH:
+        case HB_FILTER_NLMEANS:
+        case HB_FILTER_HQDN3D:
+        case HB_FILTER_DEBLOCK:
+            return "medium";
+        case HB_FILTER_COLORSPACE:
+            return "bt709";
+        case HB_FILTER_ROTATE:
+            return "angle=180:hflip=0";
+        default:
+            return "default";
+    }
 }
 
 // Get json array of filter preset name and short_name
