@@ -69,8 +69,14 @@ hb_avfilter_graph_init(hb_value_t * settings, hb_filter_init_t * init)
     avfilter_graph_set_auto_convert(graph->avgraph, AVFILTER_AUTO_CONVERT_NONE);
 #endif
 
-    // Build filter input
+    // FIXME: AVCOL_SPC_IPT_C2 is not well supported
+    // by filter graph link negotiation yet
+    if (init->color_matrix == AVCOL_SPC_IPT_C2)
+    {
+        init->color_matrix = AVCOL_SPC_UNSPECIFIED;
+    }
 
+    // Build filter input
     if (init->hw_pix_fmt != AV_PIX_FMT_NONE)
     {
         par = av_buffersrc_parameters_alloc();
@@ -176,7 +182,7 @@ hb_avfilter_graph_init(hb_value_t * settings, hb_filter_init_t * init)
         goto fail;
     }
 
-#if HB_DEBUG_GRAPHHB_DEBUG_GRAPH
+#if HB_DEBUG_GRAPH
     char *dump = avfilter_graph_dump(graph->avgraph, NULL);
     hb_log("\n%s", dump);
     free(dump);
@@ -551,10 +557,13 @@ void hb_avfilter_combine( hb_list_t * list)
                 ii++;
             }
 
+#if HB_PROJECT_FEATURE_QSV || HB_PROJECT_FEATURE_MF || HB_PROJECT_FEATURE_VCE
+            hb_dict_t *avfilter_settings_dict = hb_value_array_get(avfilter->settings, 0);
+            hb_dict_t *cur_settings_dict = hb_value_array_get(settings, 0);
+#endif
+
 #if HB_PROJECT_FEATURE_QSV
             // Concat qsv settings as one vpp_qsv filter to optimize pipeline
-            hb_dict_t * avfilter_settings_dict = hb_value_array_get(avfilter->settings, 0);
-            hb_dict_t * cur_settings_dict = hb_value_array_get(settings, 0);
             if (cur_settings_dict && avfilter_settings_dict && hb_dict_get(avfilter_settings_dict, "vpp_qsv"))
             {
                 hb_dict_t *avfilter_settings_dict_qsv = hb_dict_get(avfilter_settings_dict, "vpp_qsv");
@@ -576,8 +585,6 @@ void hb_avfilter_combine( hb_list_t * list)
 #endif
 #if HB_PROJECT_FEATURE_MF
             // Concat d3d11 settings as one scale_d3d11 filter to optimize pipeline
-            hb_dict_t * avfilter_settings_dict = hb_value_array_get(avfilter->settings, 0);
-            hb_dict_t * cur_settings_dict = hb_value_array_get(settings, 0);
             if (cur_settings_dict && avfilter_settings_dict && hb_dict_get(avfilter_settings_dict, "scale_d3d11"))
             {
                 hb_dict_t *avfilter_settings_dict_d3d11 = hb_dict_get(avfilter_settings_dict, "scale_d3d11");
@@ -586,6 +593,23 @@ void hb_avfilter_combine( hb_list_t * list)
                 {
                     hb_dict_merge(avfilter_settings_dict_d3d11, cur_settings_dict_d3d11);
                     
+                }
+            }
+            else
+#endif
+#if HB_PROJECT_FEATURE_VCE
+            // Concat amf settings as one vpp_amf filter to optimize pipeline
+            if (cur_settings_dict && avfilter_settings_dict && hb_dict_get(avfilter_settings_dict, "vpp_amf"))
+            {
+                hb_dict_t *avfilter_settings_dict_amf = hb_dict_get(avfilter_settings_dict, "vpp_amf");
+                hb_dict_t *cur_settings_dict_amf = hb_dict_get(cur_settings_dict, "vpp_amf");
+                if (avfilter_settings_dict_amf && cur_settings_dict_amf)
+                {
+                   hb_dict_merge(avfilter_settings_dict_amf, cur_settings_dict_amf);
+                }
+                else
+                {
+                   hb_value_array_concat(avfilter->settings, settings);
                 }
             }
             else

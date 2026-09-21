@@ -1444,7 +1444,7 @@ int reinit_video_filters(hb_work_private_t * pv)
         }
         else
 #endif
-        if (pv->frame->hw_frames_ctx && pv->job->hw_pix_fmt == AV_PIX_FMT_CUDA)
+        if (pv->frame->hw_frames_ctx && pv->job && pv->job->hw_pix_fmt == AV_PIX_FMT_CUDA)
         {
             if (color_range != pv->frame->color_range)
             {
@@ -1458,13 +1458,20 @@ int reinit_video_filters(hb_work_private_t * pv)
             hb_dict_set(settings, "format", hb_value_string(av_get_pix_fmt_name(pv->job->input_pix_fmt)));
             hb_avfilter_append_dict(filters, "scale_cuda", settings);
         }
-        else if (pv->frame->hw_frames_ctx && pv->job->hw_pix_fmt == AV_PIX_FMT_D3D11)
+        else if (pv->frame->hw_frames_ctx && pv->job && pv->job->hw_pix_fmt == AV_PIX_FMT_D3D11)
         {
             hb_dict_set(settings, "width", hb_value_int(orig_width));
             hb_dict_set(settings, "height", hb_value_int(orig_height));
             hb_dict_set(settings, "format", hb_value_string(av_get_pix_fmt_name(pv->job->input_pix_fmt)));
             hb_avfilter_append_dict(filters, "scale_d3d11", settings);
         }
+#if HB_PROJECT_FEATURE_AMFDEC
+        else if (pv->frame->hw_frames_ctx && pv->job && pv->job->hw_pix_fmt == AV_PIX_FMT_AMF_SURFACE)
+        {
+            hb_dict_set(settings, "format", hb_value_string(av_get_pix_fmt_name(pv->job->input_pix_fmt)));
+            hb_avfilter_append_dict(filters, "vpp_amf", settings);
+        }
+#endif
         else if (hb_av_can_use_zscale(pv->frame->format,
                                       pv->frame->width, pv->frame->height,
                                       orig_width, orig_height))
@@ -1653,6 +1660,15 @@ static void filter_video(hb_work_private_t *pv)
         pv->frame->color_trc       = pv->title->color_transfer;
         pv->frame->colorspace      = pv->title->color_matrix;
         pv->frame->color_range     = pv->title->color_range;
+    }
+
+    // FIXME: AVCOL_SPC_IPT_C2 is not well supported
+    // by filter graph link negotiation yet
+    if (pv->frame->colorspace == AVCOL_SPC_IPT_C2)
+    {
+        pv->frame->color_primaries = AVCOL_PRI_UNSPECIFIED;
+        pv->frame->color_trc       = AVCOL_TRC_UNSPECIFIED;
+        pv->frame->colorspace      = AVCOL_SPC_UNSPECIFIED;
     }
 
     // J pixel formats are mostly deprecated, however
@@ -1898,6 +1914,16 @@ static int decavcodecvInit( hb_work_object_t * w, hb_job_t * job )
         if (w->hw_accel && w->hw_accel->type == AV_HWDEVICE_TYPE_D3D11VA)
         {
            pv->context->extra_hw_frames = 30;
+        }
+#endif
+
+#if HB_PROJECT_FEATURE_AMFDEC
+        if (w->hw_accel && w->hw_accel->type == AV_HWDEVICE_TYPE_AMF)
+        {
+            if (job && job->hw_pix_fmt != AV_PIX_FMT_NONE)
+            {
+                hb_hwaccel_hwframes_ctx_init(pv->context, job->input_pix_fmt, job->hw_pix_fmt);
+            }
         }
 #endif
 

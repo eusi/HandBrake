@@ -1433,7 +1433,7 @@ def createCLI( cross = None ):
     grp.add_argument( '--disable-ffmpeg-prores', dest="enable_ffmpeg_prores", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
 
     h = 'MediaFoundation video encoder' if mf_supported else argparse.SUPPRESS
-    grp.add_argument( '--enable-mf', dest="enable_mf", default=False, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
+    grp.add_argument( '--enable-mf', dest="enable_mf", default=IfHost(True, "aarch64-w64-mingw32*", none=False).value, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
     grp.add_argument( '--disable-mf', dest="enable_mf", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
 
     h = 'Nvidia NVENC video encoder' if nvenc_supported else argparse.SUPPRESS
@@ -1444,6 +1444,10 @@ def createCLI( cross = None ):
     grp.add_argument( '--enable-nvdec', dest="enable_nvdec", default=False, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
     grp.add_argument( '--disable-nvdec', dest="enable_nvdec", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
 
+    h = 'VAAPI video encoder/decoder' if vaapi_supported else argparse.SUPPRESS
+    grp.add_argument( '--enable-vaapi', dest="enable_vaapi", default=False, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
+    grp.add_argument( '--disable-vaapi', dest="enable_vaapi", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
+
     h = 'Intel QSV video encoder/decoder' if qsv_supported else argparse.SUPPRESS
     grp.add_argument( '--enable-qsv', dest="enable_qsv", default=IfHost(True, "x86_64-w64-mingw32*", none=False).value, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
     grp.add_argument( '--disable-qsv', dest="enable_qsv", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
@@ -1452,8 +1456,12 @@ def createCLI( cross = None ):
     grp.add_argument( '--enable-vce', dest="enable_vce", default=IfHost(True, 'x86_64-w64-mingw32*', none=False).value, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
     grp.add_argument( '--disable-vce', dest="enable_vce", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
 
+    h = 'AMD VCE video decoder' if vce_supported else argparse.SUPPRESS
+    grp.add_argument( '--enable-amfdec', dest="enable_amfdec", default=IfHost(True, 'x86_64-w64-mingw32*', none=False).value, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
+    grp.add_argument( '--disable-amfdec', dest="enable_amfdec", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
+
     h = IfHost( 'libdovi', '*-*-*', none=argparse.SUPPRESS ).value
-    grp.add_argument( '--enable-libdovi', dest="enable_libdovi", default=not Tools.cargo.fail and not Tools.cargoc.fail, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
+    grp.add_argument( '--enable-libdovi', dest="enable_libdovi", default=not Tools.cargo.fail, action='store_true', help=(( 'enable %s' %h ) if h != argparse.SUPPRESS else h) )
     grp.add_argument( '--disable-libdovi', dest="enable_libdovi", action='store_false', help=(( 'disable %s' %h ) if h != argparse.SUPPRESS else h) )
 
 
@@ -1691,7 +1699,6 @@ try:
         nasm       = ToolProbe( 'NASM.exe',       'asm',        'nasm', abort=True, minversion=[2,13,0] )
         ninja      = ToolProbe( 'NINJA.exe',      'ninja',      'ninja-build', 'ninja', abort=True )
         cargo      = ToolProbe( 'CARGO.exe',      'cargo',        'cargo', abort=False )
-        cargoc     = ToolProbe( 'CARGO-C.exe',    'cargo-cbuild', 'cargo-cbuild', abort=False )
 
         xcodebuild = ToolProbe( 'XCODEBUILD.exe', 'xcodebuild', 'xcodebuild', abort=(True if (not xcode_opts['disabled'] and (build_tuple.match('*-*-darwin*') and cross is None)) else False), versionopt='-version', minversion=[10,3,0] )
 
@@ -1738,9 +1745,11 @@ try:
     # set whether features can be enabled
     gtk_supported   = host_tuple.match( '*-*-linux*', '*-*-mingw*', '*-*-*bsd*' )
     qsv_supported   = host_tuple.match( '*-*-linux*', 'x86_64-w64-mingw32*', '*-*-freebsd*' )
-    nvenc_supported = host_tuple.match( '*-*-linux*', 'x86_64-w64-mingw32*' )
+    nvenc_supported = host_tuple.match( '*-*-linux*', 'x86_64-w64-mingw32*',
+                                        'aarch64-w64-mingw32*' )
     vce_supported   = host_tuple.match( '*-*-linux*', 'x86_64-w64-mingw32*' )
     mf_supported    = host_tuple.match( 'aarch64-w64-mingw32*' )
+    vaapi_supported = host_tuple.match( '*-*-linux*', '*-*-freebsd*' )
 
     # create CLI and parse
     cli = createCLI( cross )
@@ -1787,7 +1796,20 @@ try:
     options.enable_nvdec      = options.enable_nvdec if nvenc_supported else False
     options.enable_qsv        = options.enable_qsv if qsv_supported else False
     options.enable_vce        = options.enable_vce if vce_supported else False
+    options.enable_amfdec     = options.enable_amfdec if vce_supported else False
     options.enable_gtk        = options.enable_gtk if gtk_supported else False
+    options.enable_vaapi      = options.enable_vaapi if vaapi_supported else False
+
+    # cargo-c is required for building libdovi
+    # ToolProbe only checks for discrete commands. cargo-cbuild is not a discrete command
+    # on some cargo-c installations, but all installations should include cbuild as a
+    # subcommand of cargo and mention cargo-cbuild in the list of installed cargo packages.
+    # Check for both possibilities, which also covers binaries not in the package index.
+    if Tools.cargo.fail is False:
+        cargo_cbuild_check_command = 'command -v cargo-cbuild >/dev/null 2>&1 || %s install --list | grep -E "^ *cargo-cbuild$" >/dev/null 2>&1' % Tools.cargo.pathname
+        cargo_cbuild_check = ShellProbe('checking for cargo-cbuild', '%s' % cargo_cbuild_check_command)
+        cargo_cbuild_check.run()
+        options.enable_libdovi = options.enable_libdovi if not cargo_cbuild_check.fail else False
 
     #####################################
     ## Additional library and tool checks
@@ -1993,7 +2015,7 @@ int main()
 
     ## create document object
     doc = ConfigDocument()
-    doc.addComment( 'generated by configure on %s', time.strftime( '%c' ))
+    doc.addComment( 'generated by configure on %s', time.strftime( '%c', now ))
 
     ## add configure line for reconfigure purposes
     doc.addBlank()
@@ -2099,8 +2121,10 @@ int main()
     doc.add( 'FEATURE.mf',            int( options.enable_mf ))
     doc.add( 'FEATURE.nvenc',         int( options.enable_nvenc ))
     doc.add( 'FEATURE.nvdec',         int( options.enable_nvdec ))
+    doc.add( 'FEATURE.vaapi',         int( options.enable_vaapi ))
     doc.add( 'FEATURE.qsv',           int( options.enable_qsv ))
     doc.add( 'FEATURE.vce',           int( options.enable_vce ))
+    doc.add( 'FEATURE.amfdec',        int( options.enable_amfdec ))
     doc.add( 'FEATURE.x265',          int( options.enable_x265 ))
     doc.add( 'FEATURE.numa',          int( options.enable_numa ))
     doc.add( 'FEATURE.libdovi',       int( options.enable_libdovi ))
@@ -2227,8 +2251,10 @@ int main()
     print(f'Enable MediaFound.:    {options.enable_mf}' + ('' if mf_supported else note_unsupported))
     print(f'Enable NVENC:          {options.enable_nvenc}' + ('' if nvenc_supported else note_unsupported))
     print(f'Enable NVDEC:          {options.enable_nvdec}' + ('' if nvenc_supported else note_unsupported))
+    print(f'Enable VAAPI:          {options.enable_vaapi}' + ('' if vaapi_supported else note_unsupported))
     print(f'Enable QSV:            {options.enable_qsv}' + ('' if qsv_supported else note_unsupported))
     print(f'Enable VCE:            {options.enable_vce}' + ('' if vce_supported else note_unsupported))
+    print(f'Enable AMFDEC:         {options.enable_amfdec}' + ('' if vce_supported else note_unsupported))
     print(f'Enable libdovi:        {options.enable_libdovi}')
     print(f'Enable GTK GUI:        {options.enable_gtk}' + ('' if gtk_supported else note_unsupported))
 
