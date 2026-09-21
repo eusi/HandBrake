@@ -451,12 +451,17 @@ namespace HandBrakeWPF.ViewModels
                 this.AddAllClosedCaptions();
             }
 
-            // Check forced subtitle
-            if (this.SubtitleBehaviours.SubtitleDefaultKeyword != "")
+            // Select only the first track with the configured name.
+            string defaultName = this.SubtitleBehaviours.SubtitleDefaultKeyword;
+            if (!string.IsNullOrWhiteSpace(defaultName))
             {
+                bool defaultSelected = false;
                 foreach (var track in this.Task.SubtitleTracks)
                 {
-                    track.Default = (track.Name.ToLower() == this.SubtitleBehaviours.SubtitleDefaultKeyword.ToLower());
+                    bool isMatch = !defaultSelected &&
+                                   string.Equals(track.Name, defaultName, StringComparison.OrdinalIgnoreCase);
+                    track.Default = isMatch;
+                    defaultSelected |= isMatch;
                 }
             }
         }
@@ -555,6 +560,12 @@ namespace HandBrakeWPF.ViewModels
             }
 
             if (preset.SubtitleTrackBehaviours.SelectedBurnInBehaviour != this.SubtitleBehaviours.SelectedBurnInBehaviour)
+            {
+                return false;
+            }
+
+            if (!string.Equals(preset.SubtitleTrackBehaviours.SubtitleDefaultKeyword,
+                               this.SubtitleBehaviours.SubtitleDefaultKeyword, StringComparison.Ordinal))
             {
                 return false;
             }
